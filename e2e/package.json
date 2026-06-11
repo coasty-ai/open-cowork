@@ -1,0 +1,23 @@
+{
+  "name": "@open-cowork/e2e",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "End-to-end tests (Playwright): web + desktop full delegate→watch→approve→complete flows against the mock Coasty server.",
+  "scripts": {
+    "e2e": "playwright test",
+    "e2e:web": "playwright test --project=web",
+    "e2e:desktop": "playwright test --project=desktop",
+    "e2e:mobile-web": "playwright test --project=mobile-web",
+    "test": "echo \"e2e package: run 'pnpm e2e' from the repo root\" && exit 0",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@open-cowork/backend": "workspace:*",
+    "@open-cowork/mock-coasty": "workspace:*",
+    "@playwright/test": "catalog:",
+    "@types/node": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:"
+  }
+}

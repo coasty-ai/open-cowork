@@ -1,0 +1,30 @@
+# Secrets — never commit
+.env
+.env.*
+!.env.example
+
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+build/
+out/
+.next/
+.turbo/
+.expo/
+coverage/
+*.tsbuildinfo
+
+# Tooling
+.eslintcache
+playwright-report/
+test-results/
+.DS_Store
+Thumbs.db
+
+# Local databases
+*.sqlite
+*.sqlite-journal
+*.db

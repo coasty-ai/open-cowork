@@ -1,0 +1,35 @@
+{
+  "name": "@open-cowork/mobile",
+  "version": "0.1.0",
+  "private": true,
+  "description": "open-cowork mobile app (Expo / React Native): monitor runs, watch cloud machines, approve human steps from your phone.",
+  "main": "index.ts",
+  "scripts": {
+    "dev": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "test": "vitest run --passWithNoTests",
+    "test:coverage": "vitest run --coverage --passWithNoTests",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@expo/metro-runtime": "~5.0.4",
+    "@open-cowork/core": "workspace:*",
+    "expo": "~53.0.0",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "react-native": "0.79.2",
+    "react-native-web": "^0.20.0"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "catalog:",
+    "@testing-library/react": "catalog:",
+    "@testing-library/user-event": "catalog:",
+    "@types/react": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "jsdom": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

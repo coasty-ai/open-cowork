@@ -1,0 +1,10 @@
+node_modules
+dist
+build
+coverage
+.turbo
+.expo
+playwright-report
+test-results
+pnpm-lock.yaml
+*.md

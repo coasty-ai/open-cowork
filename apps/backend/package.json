@@ -1,0 +1,28 @@
+{
+  "name": "@open-cowork/backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "open-cowork backend: auth, Coasty proxy, HMAC webhook receiver, SQLite persistence, SSE fan-out, budget enforcement. The ONLY holder of COASTY_API_KEY.",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "start": "tsx src/main.ts",
+    "test": "vitest run --passWithNoTests",
+    "test:coverage": "vitest run --coverage --passWithNoTests",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@fastify/cors": "catalog:",
+    "@open-cowork/core": "workspace:*",
+    "fastify": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@open-cowork/mock-coasty": "workspace:*",
+    "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

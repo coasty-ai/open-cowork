@@ -1,0 +1,34 @@
+{
+  "name": "open-cowork",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Cross-platform agentic coworker on the Coasty Computer Use API",
+  "license": "MIT",
+  "packageManager": "pnpm@10.30.3",
+  "engines": {
+    "node": ">=22.5"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "test:coverage": "turbo run test:coverage",
+    "typecheck": "turbo run typecheck",
+    "lint": "eslint .",
+    "format": "prettier --check .",
+    "format:fix": "prettier --write .",
+    "e2e": "pnpm --filter @open-cowork/e2e e2e",
+    "security:scan": "node scripts/security-scan.mjs",
+    "dev:mock": "pnpm --filter @open-cowork/mock-coasty dev",
+    "dev:backend": "pnpm --filter @open-cowork/backend dev",
+    "dev:web": "pnpm --filter @open-cowork/web dev",
+    "dev:desktop": "pnpm --filter @open-cowork/desktop dev",
+    "dev:mobile": "pnpm --filter @open-cowork/mobile dev"
+  },
+  "devDependencies": {
+    "eslint": "^9.17.0",
+    "typescript-eslint": "^8.18.2",
+    "prettier": "^3.4.2",
+    "turbo": "^2.3.3",
+    "typescript": "catalog:"
+  }
+}

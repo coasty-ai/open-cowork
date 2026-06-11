@@ -1,0 +1,28 @@
+{
+  "name": "@open-cowork/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "open-cowork desktop shell (Electron): hosts the shared SPA and runs the LocalExecutor for first-class local screen control.",
+  "main": "dist/main.cjs",
+  "scripts": {
+    "build": "node build.mjs",
+    "dev": "node build.mjs && electron .",
+    "start": "electron .",
+    "test": "vitest run --passWithNoTests",
+    "test:coverage": "vitest run --coverage --passWithNoTests",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@open-cowork/core": "workspace:*",
+    "@open-cowork/executor": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "electron": "catalog:",
+    "esbuild": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

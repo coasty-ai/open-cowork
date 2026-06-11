@@ -1,0 +1,36 @@
+{
+  "name": "@open-cowork/executor",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Executor abstraction: LocalExecutor (native OS bridges), RemoteMachineExecutor (Coasty machines), BrowserExecutor (Playwright).",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "test": "vitest run --passWithNoTests",
+    "test:coverage": "vitest run --coverage --passWithNoTests",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@open-cowork/core": "workspace:*"
+  },
+  "peerDependencies": {
+    "playwright-core": "catalog:"
+  },
+  "peerDependenciesMeta": {
+    "playwright-core": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "playwright-core": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}
