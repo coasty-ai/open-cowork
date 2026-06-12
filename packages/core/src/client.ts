@@ -123,10 +123,12 @@ export class CoastyClient {
     return url;
   }
 
-  private headers(extra?: Record<string, string>): Record<string, string> {
+  private headers(extra?: Record<string, string>, hasBody = false): Record<string, string> {
     return {
       'X-API-Key': this.apiKey,
-      'Content-Type': 'application/json',
+      // Only declare a JSON body when one is sent — some servers (and
+      // fastify's default parser) reject an empty application/json body.
+      ...(hasBody ? { 'Content-Type': 'application/json' } : {}),
       ...this.defaultHeaders,
       ...extra,
     };
@@ -143,6 +145,7 @@ export class CoastyClient {
 
     const headers = this.headers(
       opts.idempotencyKey ? { 'Idempotency-Key': opts.idempotencyKey } : undefined,
+      opts.body !== undefined,
     );
 
     let res: Response;

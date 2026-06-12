@@ -43,12 +43,15 @@ function client(fetchImpl: FetchLike, extra: Partial<ConstructorParameters<typeo
 }
 
 describe('CoastyClient transport', () => {
-  it('sends X-API-Key and Content-Type on every request', async () => {
+  it('sends X-API-Key always; Content-Type only when a body is sent', async () => {
     const { fetchImpl, calls } = scriptedFetch([json({ models: [], cua_versions: [], action_types: [] })]);
-    await client(fetchImpl).models();
+    const c = client(fetchImpl);
+    await c.models(); // GET — no body
+    await c.parse('pyautogui.click(1,2)'); // POST — body
     expect(calls[0]!.headers['X-API-Key']).toBe(KEY);
-    expect(calls[0]!.headers['Content-Type']).toBe('application/json');
+    expect(calls[0]!.headers['Content-Type']).toBeUndefined();
     expect(calls[0]!.url).toBe(`${BASE}/models`);
+    expect(calls[1]!.headers['Content-Type']).toBe('application/json');
   });
 
   it('strips trailing slashes from baseUrl', async () => {

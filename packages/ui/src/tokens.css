@@ -1,0 +1,71 @@
+/**
+ * open-cowork design tokens — dark-first.
+ *
+ * The :root block defines the dark palette (the default). Setting
+ * data-theme='light' on <html> (or any ancestor) swaps the color scale;
+ * spacing, radii, and typography are theme-invariant.
+ */
+
+:root {
+  color-scheme: dark;
+
+  /* Color scale */
+  --color-bg: #0b0e14;
+  --color-surface: #131826;
+  --color-surface-raised: #1c2333;
+  --color-border: #2a3247;
+  --color-text: #e7eaf2;
+  --color-text-muted: #98a2b8;
+  --color-accent: #5b8cff;
+  --color-accent-contrast: #0b0e14;
+  --color-success: #3ecf8e;
+  --color-warning: #f5b83d;
+  --color-danger: #ff6b6b;
+  --color-info: #58c4dc;
+
+  /* Spacing scale (4px base) */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-7: 2rem;
+  --space-8: 2.5rem;
+
+  /* Radii */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-full: 999px;
+
+  /* Typography */
+  --font-sans:
+    'Inter', 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial,
+    sans-serif;
+  --font-mono:
+    ui-monospace, 'Cascadia Code', 'SF Mono', 'JetBrains Mono', Menlo, Consolas,
+    monospace;
+
+  /* Focus ring */
+  --focus-ring-color: var(--color-accent);
+  --focus-ring-width: 2px;
+  --focus-ring-offset: 2px;
+}
+
+[data-theme='light'] {
+  color-scheme: light;
+
+  --color-bg: #f6f7fa;
+  --color-surface: #ffffff;
+  --color-surface-raised: #f0f2f7;
+  --color-border: #d4d9e3;
+  --color-text: #171c28;
+  --color-text-muted: #5a6478;
+  --color-accent: #2f6bff;
+  --color-accent-contrast: #ffffff;
+  --color-success: #14855c;
+  --color-warning: #9a6a00;
+  --color-danger: #cc3340;
+  --color-info: #0e7490;
+}

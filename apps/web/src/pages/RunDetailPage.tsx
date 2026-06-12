@@ -1,0 +1,180 @@
+/**
+ * Live run view: event timeline over SSE (with reconnect), a live screen view
+ * (machine screenshot frames while running), human-takeover approval, cancel,
+ * and the final cost summary.
+ */
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useParams } from 'react-router-dom';
+import {
+  ApprovalBar,
+  Button,
+  Card,
+  CostPill,
+  ErrorState,
+  EventTimeline,
+  RunStatusBadge,
+  ScreenView,
+  Spinner,
+  type RunStatus,
+} from '@open-cowork/ui';
+import { getClient } from '../store';
+import { useSse } from '../api/useSse';
+import { eventToTimeline } from '../mapEvents';
+import type { RunDto } from '../api/client';
+
+const TERMINAL = new Set(['succeeded', 'failed', 'cancelled', 'timed_out']);
+
+export function RunDetailPage() {
+  const { id } = useParams<{ id: string }>();
+  const client = getClient();
+  const [run, setRun] = useState<RunDto | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [actionPending, setActionPending] = useState(false);
+  const [frame, setFrame] = useState<{ b64: string; at: string } | null>(null);
+
+  const refresh = useCallback(async () => {
+    if (!id) return;
+    try {
+      setRun(await client.getRun(id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load the run');
+    }
+  }, [client, id]);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  // Live events; status changes also trigger a run refresh.
+  const { events, connected, error: streamError } = useSse({
+    client,
+    path: id ? `/api/runs/${id}/events` : null,
+    onEvent: (e) => {
+      if (e.type === 'status' || e.type === 'awaiting_human' || e.type === 'resumed' || e.type === 'done') {
+        void refresh();
+      }
+    },
+  });
+
+  // Screen view: poll machine screenshots while the run is active (cloud runs).
+  const machineId = run?.kind === 'coasty' ? run.machineId : null;
+  const active = run !== null && !TERMINAL.has(run.status);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  useEffect(() => {
+    if (!machineId || !active) {
+      if (pollRef.current) clearInterval(pollRef.current);
+      return;
+    }
+    const poll = async () => {
+      try {
+        const shot = await client.machineScreenshot(machineId);
+        setFrame({ b64: shot.image_b64, at: shot.captured_at });
+      } catch {
+        // screenshot polling is best-effort; the timeline still tells the story
+      }
+    };
+    void poll();
+    pollRef.current = setInterval(() => void poll(), 2000);
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, [client, machineId, active]);
+
+  const timeline = useMemo(() => events.map(eventToTimeline), [events]);
+
+  if (error) return <ErrorState message={error} onRetry={() => void refresh()} />;
+  if (!run) return <Spinner aria-label="Loading run" />;
+
+  const approve = async (note: string) => {
+    setActionPending(true);
+    try {
+      await client.resumeRun(run.id, note || undefined);
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Resume failed');
+    } finally {
+      setActionPending(false);
+    }
+  };
+
+  const cancel = async () => {
+    setActionPending(true);
+    try {
+      await client.cancelRun(run.id);
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Cancel failed');
+    } finally {
+      setActionPending(false);
+    }
+  };
+
+  return (
+    <>
+      <div className="page-header">
+        <div className="row">
+          <RunStatusBadge status={run.status as RunStatus} />
+          <h1 className="page-title" style={{ wordBreak: 'break-word' }}>
+            {run.task}
+          </h1>
+        </div>
+        <div className="row">
+          <CostPill cents={run.costCents} variant="actual" />
+          {active ? (
+            <Button variant="danger" size="sm" onClick={() => void cancel()} loading={actionPending}>
+              Cancel run
+            </Button>
+          ) : null}
+        </div>
+      </div>
+
+      {run.status === 'awaiting_human' ? (
+        <ApprovalBar
+          reason={run.awaitingHumanReason ?? 'The agent paused for a human decision.'}
+          pending={actionPending}
+          onApprove={(note) => void approve(note)}
+          onReject={() => void cancel()}
+        />
+      ) : null}
+
+      <div className="run-detail-grid">
+        <Card>
+          <h2 style={{ marginTop: 0, fontSize: '1rem' }}>
+            {run.kind === 'local' ? 'Your screen (local run)' : 'Machine screen'}
+          </h2>
+          <ScreenView
+            frameB64={frame?.b64}
+            live={active && connected}
+            lastFrameAt={frame?.at}
+            staleAfterSeconds={10}
+            alt={run.kind === 'local' ? 'Local screen' : 'Remote machine screen'}
+          />
+          {run.kind === 'local' ? (
+            <p style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>
+              Local runs stream their timeline from the desktop app; frames appear in the desktop window.
+            </p>
+          ) : null}
+        </Card>
+        <Card>
+          <h2 style={{ marginTop: 0, fontSize: '1rem' }}>
+            Timeline {connected ? <span style={{ color: 'var(--color-success)' }}>· live</span> : null}
+          </h2>
+          {streamError && events.length === 0 ? <ErrorState message={`Event stream: ${streamError}`} /> : null}
+          <EventTimeline events={timeline} loading={events.length === 0 && active} emptyTitle="No events yet" />
+        </Card>
+      </div>
+
+      {TERMINAL.has(run.status) ? (
+        <Card>
+          <h2 style={{ marginTop: 0, fontSize: '1rem' }}>Summary</h2>
+          <p>
+            Finished <strong>{run.status}</strong> after {run.stepsCompleted} steps — total cost{' '}
+            <CostPill cents={run.costCents} variant="actual" />.
+          </p>
+          {run.result?.summary ? <p className="notice">{run.result.summary}</p> : null}
+          {run.error?.message ? <ErrorState message={`${run.error.code ?? 'ERROR'}: ${run.error.message}`} /> : null}
+        </Card>
+      ) : null}
+    </>
+  );
+}
