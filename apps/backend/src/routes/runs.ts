@@ -75,7 +75,11 @@ const TERMINAL = new Set<string>(['succeeded', 'failed', 'cancelled', 'timed_out
 export function registerRunRoutes(app: FastifyInstance, deps: RunRouteDeps): void {
   const { config, db, bus, coasty, ingestor } = deps;
 
-  const publishNotification = (userId: string, type: string, data: Record<string, unknown>): void => {
+  const publishNotification = (
+    userId: string,
+    type: string,
+    data: Record<string, unknown>,
+  ): void => {
     const seq = db.appendEvent('notification', userId, type, data);
     bus.publish({
       streamKind: 'notification',
@@ -98,7 +102,12 @@ export function registerRunRoutes(app: FastifyInstance, deps: RunRouteDeps): voi
       awaiting_human_reason: run.awaiting_human_reason,
       finished_at: run.finished_at,
     });
-    return { ...row, status: run.status, cost_cents: run.cost_cents, steps_completed: run.steps_completed };
+    return {
+      ...row,
+      status: run.status,
+      cost_cents: run.cost_cents,
+      steps_completed: run.steps_completed,
+    };
   };
 
   // ── create a cloud run ──────────────────────────────────────────────────────
@@ -126,7 +135,11 @@ export function registerRunRoutes(app: FastifyInstance, deps: RunRouteDeps): voi
         422,
         'BUDGET_EXCEEDED',
         `Worst-case cost ${estimate.maxCents}¢ exceeds the budget cap ${budget}¢`,
-        { budgetCents: budget, maxCents: estimate.maxCents, suggestedMaxSteps: Math.max(fittingSteps, 1) },
+        {
+          budgetCents: budget,
+          maxCents: estimate.maxCents,
+          suggestedMaxSteps: Math.max(fittingSteps, 1),
+        },
       );
     }
     if (body.confirmCostCents !== estimate.maxCents) {
@@ -307,7 +320,11 @@ export function registerRunRoutes(app: FastifyInstance, deps: RunRouteDeps): voi
       finished_at: null,
     };
     db.insertRun(row);
-    publishNotification(request.user.id, 'run.created', { runId: row.id, task: row.task, local: true });
+    publishNotification(request.user.id, 'run.created', {
+      runId: row.id,
+      task: row.task,
+      local: true,
+    });
     void reply.status(201);
     return runToDto(row);
   });
@@ -370,7 +387,9 @@ export function registerRunRoutes(app: FastifyInstance, deps: RunRouteDeps): voi
       status: body.status,
       ...(body.costCents !== undefined ? { cost_cents: body.costCents } : {}),
       ...(body.reason !== undefined ? { awaiting_human_reason: body.reason } : {}),
-      ...(isTerminalRunStatus(body.status as RunStatus) ? { finished_at: new Date().toISOString() } : {}),
+      ...(isTerminalRunStatus(body.status as RunStatus)
+        ? { finished_at: new Date().toISOString() }
+        : {}),
     });
     return runToDto(db.getRun(request.user.id, id)!);
   });
@@ -403,7 +422,8 @@ function applyLocalEvent(db: Db, runId: string, type: string, data: Record<strin
     case 'awaiting_human':
       db.updateRun(runId, {
         status: 'awaiting_human',
-        awaiting_human_reason: typeof data.reason === 'string' ? data.reason : 'Human takeover requested',
+        awaiting_human_reason:
+          typeof data.reason === 'string' ? data.reason : 'Human takeover requested',
       });
       break;
     case 'done': {

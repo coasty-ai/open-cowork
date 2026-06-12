@@ -30,7 +30,9 @@ async function main(): Promise<void> {
   const { app } = buildServer({ config, logger: true });
   await app.listen({ port: config.port, host: config.host });
   console.log(`open-cowork backend listening at http://${config.host}:${config.port}`);
-  console.log(`Coasty upstream: ${config.coastyBaseUrl} (key kind: ${config.coastyApiKey.startsWith('sk-coasty-test-') ? 'test/sandbox — never bills' : 'LIVE — real spend possible'})`);
+  console.log(
+    `Coasty upstream: ${config.coastyBaseUrl} (key kind: ${config.coastyApiKey.startsWith('sk-coasty-test-') ? 'test/sandbox — never bills' : 'LIVE — real spend possible'})`,
+  );
 
   const shutdown = async (): Promise<void> => {
     await app.close();

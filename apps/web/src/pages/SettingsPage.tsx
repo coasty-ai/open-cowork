@@ -54,10 +54,14 @@ export function SettingsPage() {
       <Card>
         <h2 style={{ marginTop: 0, fontSize: '1rem' }}>Spending</h2>
         <p style={{ color: 'var(--color-text-muted)' }}>
-          This month: ${((spend ?? 0) / 100).toFixed(2)}. Every billable action is checked against your
-          per-run budget cap server-side.
+          This month: ${((spend ?? 0) / 100).toFixed(2)}. Every billable action is checked against
+          your per-run budget cap server-side.
         </p>
-        <Field label="Per-run budget cap (cents)" hint="Hard ceiling for any single run or workflow" required>
+        <Field
+          label="Per-run budget cap (cents)"
+          hint="Hard ceiling for any single run or workflow"
+          required
+        >
           {({ id }) => (
             <input
               id={id}

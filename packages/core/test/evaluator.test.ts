@@ -31,19 +31,30 @@ describe('executeWorkflow', () => {
   it('runs the documented example: task → assert → if/contains → succeed with output', async () => {
     const def: WorkflowDefinition = {
       steps: [
-        { id: 'fetch', type: 'task', task: 'Open order {{inputs.order_id}} and read PAID status', save_as: 'invoice' },
+        {
+          id: 'fetch',
+          type: 'task',
+          task: 'Open order {{inputs.order_id}} and read PAID status',
+          save_as: 'invoice',
+        },
         { id: 'check', type: 'assert', condition: { op: 'truthy', value: '{{invoice.passed}}' } },
         {
           id: 'branch',
           type: 'if',
           condition: { op: 'contains', left: '{{invoice.result}}', right: 'PAID' },
-          then: [{ id: 'ok', type: 'succeed', output: { state: 'paid', order: '{{inputs.order_id}}' } }],
+          then: [
+            { id: 'ok', type: 'succeed', output: { state: 'paid', order: '{{inputs.order_id}}' } },
+          ],
           else: [{ id: 'no', type: 'fail', message: 'Invoice not marked paid' }],
         },
       ],
     };
     const { runTask, calls } = stubRunTask();
-    const result = await executeWorkflow({ definition: def, inputs: { order_id: 'ord_42' }, runTask });
+    const result = await executeWorkflow({
+      definition: def,
+      inputs: { order_id: 'ord_42' },
+      runTask,
+    });
     expect(calls[0]!.resolvedTask).toBe('Open order ord_42 and read PAID status');
     expect(result.status).toBe('succeeded');
     expect(result.output).toEqual({ state: 'paid', order: 'ord_42' });
@@ -55,7 +66,12 @@ describe('executeWorkflow', () => {
     const def: WorkflowDefinition = {
       steps: [
         { id: 't', type: 'task', task: 'FAIL this', save_as: 'r' },
-        { id: 'a', type: 'assert', condition: { op: 'truthy', value: '{{r.passed}}' }, message: 'task did not pass' },
+        {
+          id: 'a',
+          type: 'assert',
+          condition: { op: 'truthy', value: '{{r.passed}}' },
+          message: 'task did not pass',
+        },
       ],
     };
     const result = await executeWorkflow({ definition: def, runTask: stubRunTask().runTask });
@@ -67,8 +83,15 @@ describe('executeWorkflow', () => {
     const def: WorkflowDefinition = {
       steps: [{ id: 'f', type: 'fail', message: 'stop {{inputs.why}}' }],
     };
-    const result = await executeWorkflow({ definition: def, inputs: { why: 'here' }, runTask: stubRunTask().runTask });
-    expect(result).toMatchObject({ status: 'failed', error: { code: 'WORKFLOW_FAILED', message: 'stop here' } });
+    const result = await executeWorkflow({
+      definition: def,
+      inputs: { why: 'here' },
+      runTask: stubRunTask().runTask,
+    });
+    expect(result).toMatchObject({
+      status: 'failed',
+      error: { code: 'WORKFLOW_FAILED', message: 'stop here' },
+    });
   });
 
   it('implicit success at the end resolves top-level output', async () => {
@@ -128,7 +151,14 @@ describe('executeWorkflow', () => {
       order.push(`start-${step.id}`);
       await new Promise((r) => setTimeout(r, step.id === 'slow' ? 20 : 1));
       order.push(`end-${step.id}`);
-      return { status: 'succeeded', passed: true, result: step.id, run_id: step.id, steps: 1, error: null };
+      return {
+        status: 'succeeded',
+        passed: true,
+        result: step.id,
+        run_id: step.id,
+        steps: 1,
+        error: null,
+      };
     };
     const def: WorkflowDefinition = {
       steps: [
@@ -223,7 +253,10 @@ describe('executeWorkflow', () => {
       runTask,
       onApproval: async () => ({ approved: false, note: 'nope' }),
     });
-    expect(rejected).toMatchObject({ status: 'failed', error: { code: 'APPROVAL_REJECTED', message: 'nope' } });
+    expect(rejected).toMatchObject({
+      status: 'failed',
+      error: { code: 'APPROVAL_REJECTED', message: 'nope' },
+    });
 
     const noHandler = await executeWorkflow({ definition: def, runTask });
     expect(noHandler.status).toBe('failed');
@@ -238,7 +271,11 @@ describe('executeWorkflow', () => {
         { id: 'c', type: 'task', task: 'three' },
       ],
     };
-    const result = await executeWorkflow({ definition: def, runTask, guards: { budgetCents: 100 } });
+    const result = await executeWorkflow({
+      definition: def,
+      runTask,
+      guards: { budgetCents: 100 },
+    });
     expect(result.status).toBe('failed');
     expect(result.error?.code).toBe('GUARD_EXCEEDED');
     expect(result.spentCents).toBe(120); // stopped after the breaching task
@@ -268,7 +305,11 @@ describe('executeWorkflow', () => {
         },
       ],
     };
-    const result = await executeWorkflow({ definition: def, runTask, guards: { maxIterations: 5 } });
+    const result = await executeWorkflow({
+      definition: def,
+      runTask,
+      guards: { maxIterations: 5 },
+    });
     expect(result).toMatchObject({ status: 'failed', error: { code: 'GUARD_EXCEEDED' } });
     expect(result.iterationsUsed).toBe(6); // breach detected on the 6th
   });
@@ -277,7 +318,14 @@ describe('executeWorkflow', () => {
     let fakeNow = 0;
     const runTask = async (): Promise<TaskStepResult> => {
       fakeNow += 30_000; // each task "takes" 30s
-      return { status: 'succeeded', passed: true, result: 'ok', run_id: 'r', steps: 1, error: null };
+      return {
+        status: 'succeeded',
+        passed: true,
+        result: 'ok',
+        run_id: 'r',
+        steps: 1,
+        error: null,
+      };
     };
     const def: WorkflowDefinition = {
       steps: [

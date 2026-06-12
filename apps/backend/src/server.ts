@@ -25,7 +25,11 @@ import { registerMachineRoutes } from './routes/machines';
 import { registerWebhookRoutes } from './routes/webhooks';
 import { streamSse } from './sse';
 import { z } from 'zod';
-import { machineRuntimeCentsPerHour, runEstimateCents, workflowEstimateCents } from '@open-cowork/core';
+import {
+  machineRuntimeCentsPerHour,
+  runEstimateCents,
+  workflowEstimateCents,
+} from '@open-cowork/core';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -104,7 +108,12 @@ export function buildServer(deps: ServerDeps): BuiltServer {
     if (err instanceof CoastyApiError) {
       // Propagate Coasty's status + code; the request_id makes support possible.
       void reply.status(err.status).send({
-        error: { code: err.code, message: err.message, requestId: err.requestId, details: err.details },
+        error: {
+          code: err.code,
+          message: err.message,
+          requestId: err.requestId,
+          details: err.details,
+        },
       });
       return;
     }
@@ -193,7 +202,11 @@ export function buildServer(deps: ServerDeps): BuiltServer {
       }
       case 'machine': {
         const rate = machineRuntimeCentsPerHour(body.osType ?? 'linux', 'running');
-        return { kind: 'machine', cents: rate, breakdown: { centsPerHour: rate, stoppedCentsPerHour: 1 } };
+        return {
+          kind: 'machine',
+          cents: rate,
+          breakdown: { centsPerHour: rate, stoppedCentsPerHour: 1 },
+        };
       }
       case 'workflow': {
         const est = workflowEstimateCents(body.definition as never, {
@@ -230,7 +243,12 @@ export function buildServer(deps: ServerDeps): BuiltServer {
          WHERE kind = 'coasty' AND status NOT IN ('succeeded','failed','cancelled','timed_out')`,
       )
       .all() as unknown as { id: string; coasty_run_id: string; user_id: string }[]) {
-      ingestor.start({ kind: 'run', localId: row.id, coastyId: row.coasty_run_id, userId: row.user_id });
+      ingestor.start({
+        kind: 'run',
+        localId: row.id,
+        coastyId: row.coasty_run_id,
+        userId: row.user_id,
+      });
     }
     for (const row of db.sql
       .prepare(

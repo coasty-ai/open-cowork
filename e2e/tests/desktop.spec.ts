@@ -23,11 +23,19 @@ declare global {
 const DESKTOP_DIR = resolve(import.meta.dirname, '..', '..', 'apps', 'desktop');
 
 test('desktop shell boots, exposes window.cowork, and offers the local target', async () => {
+  // Strip ELECTRON_RUN_AS_NODE (set by IDE extension hosts): with it present,
+  // electron.exe boots as plain Node and rejects Playwright's debug flags.
+  const env = Object.fromEntries(
+    Object.entries(process.env).filter(
+      ([key, value]) => value !== undefined && key !== 'ELECTRON_RUN_AS_NODE',
+    ),
+  ) as Record<string, string>;
+
   const app = await electron.launch({
-    args: ['.'],
+    args: [DESKTOP_DIR],
     cwd: DESKTOP_DIR,
     env: {
-      ...process.env,
+      ...env,
       COWORK_WEB_URL: 'http://127.0.0.1:4173',
       COWORK_BACKEND_URL: 'http://127.0.0.1:4000',
     },

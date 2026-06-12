@@ -5,7 +5,13 @@
  *
  * Deterministic: task execution, approvals, and the clock are injected.
  */
-import type { TaskStep, TaskStepResult, WorkflowDefinition, WorkflowStep, HumanApprovalStep } from '../types';
+import type {
+  TaskStep,
+  TaskStepResult,
+  WorkflowDefinition,
+  WorkflowStep,
+  HumanApprovalStep,
+} from '../types';
 import { evaluateCondition } from './conditions';
 import { resolveDeep, resolveTemplate, type TemplateScope } from './template';
 import { validateWorkflowDefinition } from './validate';
@@ -26,7 +32,12 @@ export interface ApprovalDecision {
 
 export type WorkflowEvalEvent =
   | { type: 'step-start'; stepId: string; stepType: WorkflowStep['type'] }
-  | { type: 'step-finish'; stepId: string; stepType: WorkflowStep['type']; outcome: 'ok' | 'failed' }
+  | {
+      type: 'step-finish';
+      stepId: string;
+      stepType: WorkflowStep['type'];
+      outcome: 'ok' | 'failed';
+    }
   | { type: 'task-result'; stepId: string; result: TaskStepResult }
   | { type: 'awaiting-approval'; stepId: string; message?: string }
   | { type: 'approval-decision'; stepId: string; approved: boolean }
@@ -99,7 +110,11 @@ export async function executeWorkflow(opts: ExecuteWorkflowOptions): Promise<Wor
   };
 
   const checkGuards = (): void => {
-    if (guards.budgetCents !== undefined && guards.budgetCents > 0 && state.spentCents > guards.budgetCents) {
+    if (
+      guards.budgetCents !== undefined &&
+      guards.budgetCents > 0 &&
+      state.spentCents > guards.budgetCents
+    ) {
       onEvent?.({ type: 'guard-exceeded', guard: 'budget_cents' });
       throw new WorkflowTermination('failed', undefined, {
         code: 'GUARD_EXCEEDED',
@@ -113,7 +128,10 @@ export async function executeWorkflow(opts: ExecuteWorkflowOptions): Promise<Wor
         message: `max_iterations exceeded: ${state.iterationsUsed} > cap ${guards.maxIterations}`,
       });
     }
-    if (guards.deadlineSeconds !== undefined && now() - state.startedAt > guards.deadlineSeconds * 1000) {
+    if (
+      guards.deadlineSeconds !== undefined &&
+      now() - state.startedAt > guards.deadlineSeconds * 1000
+    ) {
       onEvent?.({ type: 'guard-exceeded', guard: 'deadline_seconds' });
       throw new WorkflowTermination('failed', undefined, {
         code: 'GUARD_EXCEEDED',
@@ -214,7 +232,8 @@ export async function executeWorkflow(opts: ExecuteWorkflowOptions): Promise<Wor
         });
       }
       case 'human_approval': {
-        const message = step.message !== undefined ? String(resolveTemplate(step.message, scope)) : undefined;
+        const message =
+          step.message !== undefined ? String(resolveTemplate(step.message, scope)) : undefined;
         onEvent?.({ type: 'awaiting-approval', stepId: step.id, message });
         const decision = onApproval
           ? await onApproval(step, message)
@@ -229,11 +248,16 @@ export async function executeWorkflow(opts: ExecuteWorkflowOptions): Promise<Wor
         return;
       }
       case 'succeed': {
-        const output = step.output ? (resolveDeep(step.output, scope) as Record<string, unknown>) : undefined;
+        const output = step.output
+          ? (resolveDeep(step.output, scope) as Record<string, unknown>)
+          : undefined;
         throw new WorkflowTermination('succeeded', output);
       }
       case 'fail': {
-        const message = step.message !== undefined ? String(resolveTemplate(step.message, scope)) : 'Workflow failed';
+        const message =
+          step.message !== undefined
+            ? String(resolveTemplate(step.message, scope))
+            : 'Workflow failed';
         throw new WorkflowTermination('failed', undefined, { code: 'WORKFLOW_FAILED', message });
       }
     }
@@ -262,7 +286,9 @@ export async function executeWorkflow(opts: ExecuteWorkflowOptions): Promise<Wor
       const output =
         err.status === 'succeeded'
           ? (err.output ??
-            (definition.output ? (resolveDeep(definition.output, scope) as Record<string, unknown>) : undefined))
+            (definition.output
+              ? (resolveDeep(definition.output, scope) as Record<string, unknown>)
+              : undefined))
           : err.output;
       return {
         status: err.status,

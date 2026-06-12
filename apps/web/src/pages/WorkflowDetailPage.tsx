@@ -196,7 +196,11 @@ export function WorkflowDetailPage() {
               </select>
             )}
           </Field>
-          <Field label="Budget cap (cents)" hint="Hard server-side spend ceiling for this run" required>
+          <Field
+            label="Budget cap (cents)"
+            hint="Hard server-side spend ceiling for this run"
+            required
+          >
             {({ id: fieldId }) => (
               <input
                 id={fieldId}
@@ -208,8 +212,8 @@ export function WorkflowDetailPage() {
             )}
           </Field>
           <p className="notice">
-            You are approving a spend ceiling of <strong>${(budgetCents / 100).toFixed(2)}</strong>. The run
-            stops with GUARD_EXCEEDED if it would go over.
+            You are approving a spend ceiling of <strong>${(budgetCents / 100).toFixed(2)}</strong>.
+            The run stops with GUARD_EXCEEDED if it would go over.
           </p>
           {runError ? <ErrorState message={runError} /> : null}
           <div className="row">

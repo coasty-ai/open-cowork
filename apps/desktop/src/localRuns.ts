@@ -69,7 +69,8 @@ export class LocalRunManager {
   private readonly backendUrl: string;
   private readonly listeners = new Set<LocalRunListener>();
 
-  private active: { runId: string; abort: AbortController; completion: Promise<void> } | null = null;
+  private active: { runId: string; abort: AbortController; completion: Promise<void> } | null =
+    null;
 
   // Event mirroring state (one run at a time, reset on each start()).
   private queue: BackendRunEvent[] = [];
@@ -137,7 +138,14 @@ export class LocalRunManager {
       });
 
       const abort = new AbortController();
-      const completion = this.runLoop(runId, session.session_id, executor, task, maxSteps, abort.signal);
+      const completion = this.runLoop(
+        runId,
+        session.session_id,
+        executor,
+        task,
+        maxSteps,
+        abort.signal,
+      );
       this.active = { runId, abort, completion };
       return { runId };
     } catch (err) {
@@ -150,7 +158,10 @@ export class LocalRunManager {
           { type: 'done', data: { status: 'failed', result: { passed: false, summary: message } } },
         );
         await this.flush(runId).catch(noop);
-        await this.api(`/api/local-runs/${runId}`, 'PATCH', { status: 'failed', costCents: 0 }).catch(noop);
+        await this.api(`/api/local-runs/${runId}`, 'PATCH', {
+          status: 'failed',
+          costCents: 0,
+        }).catch(noop);
       }
       await executor.dispose().catch(noop);
       throw err;
@@ -186,13 +197,18 @@ export class LocalRunManager {
         case 'screenshot':
           // Never upload frames — a one-line marker per step keeps the
           // timeline alive without shipping megabytes of base64.
-          this.enqueue(runId, { type: 'text', data: { text: `step ${event.step + 1} screenshot captured` } });
+          this.enqueue(runId, {
+            type: 'text',
+            data: { text: `step ${event.step + 1} screenshot captured` },
+          });
           break;
         case 'prediction':
           accumulatedCostCents += event.costCents;
           this.enqueue(runId, {
             type: 'text',
-            data: { text: event.reasoning && event.reasoning.trim() ? event.reasoning : 'thinking…' },
+            data: {
+              text: event.reasoning && event.reasoning.trim() ? event.reasoning : 'thinking…',
+            },
           });
           this.enqueue(runId, { type: 'billing', data: { cost_cents: accumulatedCostCents } });
           this.enqueue(runId, { type: 'step', data: { steps_completed: event.step + 1 } });
@@ -232,7 +248,12 @@ export class LocalRunManager {
       // The loop only throws on infrastructure failures (screenshot/predict
       // transport). Surface those as a failed run instead of dying silently.
       const message = err instanceof Error ? err.message : String(err);
-      outcome = { status: 'fail', stepsUsed: 0, totalCostCents: accumulatedCostCents, reason: message };
+      outcome = {
+        status: 'fail',
+        stepsUsed: 0,
+        totalCostCents: accumulatedCostCents,
+        reason: message,
+      };
       if (!finishedMirrored) {
         this.emit({ type: 'finished', status: 'fail', stepsUsed: 0, reason: message });
         this.enqueue(runId, { type: 'error', data: { message } });
@@ -255,10 +276,14 @@ export class LocalRunManager {
   }
 
   private async predict(sessionId: string, input: PredictStepInput): Promise<PredictStepResult> {
-    const res = await this.api<SessionPredictResponse>(`/api/proxy/sessions/${sessionId}/predict`, 'POST', {
-      screenshot: input.screenshotB64,
-      instruction: input.instruction,
-    });
+    const res = await this.api<SessionPredictResponse>(
+      `/api/proxy/sessions/${sessionId}/predict`,
+      'POST',
+      {
+        screenshot: input.screenshotB64,
+        instruction: input.instruction,
+      },
+    );
     return { status: res.status, actions: res.actions, reasoning: res.reasoning, usage: res.usage };
   }
 
@@ -333,7 +358,9 @@ export class LocalRunManager {
       } catch {
         // non-JSON error body
       }
-      throw new Error(`Backend ${method} ${path} failed (${res.status})${detail ? `: ${detail}` : ''}`);
+      throw new Error(
+        `Backend ${method} ${path} failed (${res.status})${detail ? `: ${detail}` : ''}`,
+      );
     }
     const text = await res.text();
     return (text ? JSON.parse(text) : {}) as T;
@@ -341,7 +368,9 @@ export class LocalRunManager {
 }
 
 /** Map a loop outcome onto the backend's local-run status vocabulary. */
-function mapOutcomeStatus(status: AgentLoopOutcome['status']): 'succeeded' | 'cancelled' | 'failed' {
+function mapOutcomeStatus(
+  status: AgentLoopOutcome['status'],
+): 'succeeded' | 'cancelled' | 'failed' {
   if (status === 'done') return 'succeeded';
   if (status === 'aborted') return 'cancelled';
   return 'failed';

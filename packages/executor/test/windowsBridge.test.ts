@@ -93,7 +93,9 @@ describe('pngDimensions', () => {
     expect(pngDimensions(buf)).toEqual({ width: 2, height: 3 });
   });
   it('rejects non-PNG data', () => {
-    expect(() => pngDimensions(new TextEncoder().encode('definitely not a png, far too plain'))).toThrow(/magic/);
+    expect(() =>
+      pngDimensions(new TextEncoder().encode('definitely not a png, far too plain')),
+    ).toThrow(/magic/);
     expect(() => pngDimensions(new Uint8Array(4))).toThrow(/short/);
   });
 });

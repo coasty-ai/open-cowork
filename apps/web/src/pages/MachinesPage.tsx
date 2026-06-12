@@ -127,14 +127,29 @@ export function MachinesPage() {
         </div>
       )}
 
-      <Modal open={provisionOpen} onClose={() => setProvisionOpen(false)} title="Provision a cloud machine">
+      <Modal
+        open={provisionOpen}
+        onClose={() => setProvisionOpen(false)}
+        title="Provision a cloud machine"
+      >
         <div className="stack">
           <Field label="Name" required>
-            {({ id }) => <input id={id} value={name} onChange={(e) => setName(e.target.value)} maxLength={64} />}
+            {({ id }) => (
+              <input
+                id={id}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                maxLength={64}
+              />
+            )}
           </Field>
           <Field label="Operating system">
             {({ id }) => (
-              <select id={id} value={osType} onChange={(e) => setOsType(e.target.value as 'linux' | 'windows')}>
+              <select
+                id={id}
+                value={osType}
+                onChange={(e) => setOsType(e.target.value as 'linux' | 'windows')}
+              >
                 <option value="linux">Linux — $0.05/hour running</option>
                 <option value="windows">Windows — $0.09/hour running</option>
               </select>
@@ -153,9 +168,9 @@ export function MachinesPage() {
             )}
           </Field>
           <Card>
-            <strong>Cost:</strong> ${(RATES[osType] / 100).toFixed(2)}/hour while running, $0.01/hour
-            stopped. Auto-terminates after {ttlMinutes} minutes. Provisioning requires a $0.20 wallet
-            minimum (a gate, not a fee).
+            <strong>Cost:</strong> ${(RATES[osType] / 100).toFixed(2)}/hour while running,
+            $0.01/hour stopped. Auto-terminates after {ttlMinutes} minutes. Provisioning requires a
+            $0.20 wallet minimum (a gate, not a fee).
           </Card>
           {provisionError ? <ErrorState message={provisionError} /> : null}
           <div className="row">

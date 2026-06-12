@@ -36,7 +36,10 @@ async function getRun(id: string, key = TEST_KEY) {
 describe('run creation', () => {
   it('returns the documented Run object with a one-time webhook_secret', async () => {
     m = mock();
-    const { res } = await startRun('do it', { webhook_url: 'https://example.com/hook', max_steps: 40 });
+    const { res } = await startRun('do it', {
+      webhook_url: 'https://example.com/hook',
+      max_steps: 40,
+    });
     expect(res.statusCode).toBe(201);
     const run = res.json() as Record<string, unknown>;
     expect(run.object).toBe('agent.run');
@@ -53,12 +56,17 @@ describe('run creation', () => {
     m = mock();
     const { res } = await startRun('task', { idempotency_key: 'wrong-place' });
     expect(res.statusCode).toBe(422);
-    expect((res.json() as { error: { message: string } }).error.message).toContain('idempotency_key');
+    expect((res.json() as { error: { message: string } }).error.message).toContain(
+      'idempotency_key',
+    );
   });
 
   it('404 MACHINE_NOT_FOUND for unknown machines', async () => {
     m = mock();
-    const res = await call(m, '/v1/runs', { method: 'POST', body: { machine_id: 'm_ghost', task: 'x' } });
+    const res = await call(m, '/v1/runs', {
+      method: 'POST',
+      body: { machine_id: 'm_ghost', task: 'x' },
+    });
     expect(res.statusCode).toBe(404);
     expect((res.json() as { error: { code: string } }).error.code).toBe('MACHINE_NOT_FOUND');
   });
@@ -67,8 +75,16 @@ describe('run creation', () => {
     m = mock();
     const machineId = await createMachine(m);
     const body = { machine_id: machineId, task: 'same task' };
-    const first = await call(m, '/v1/runs', { method: 'POST', body, headers: { 'idempotency-key': 'order-1' } });
-    const second = await call(m, '/v1/runs', { method: 'POST', body, headers: { 'idempotency-key': 'order-1' } });
+    const first = await call(m, '/v1/runs', {
+      method: 'POST',
+      body,
+      headers: { 'idempotency-key': 'order-1' },
+    });
+    const second = await call(m, '/v1/runs', {
+      method: 'POST',
+      body,
+      headers: { 'idempotency-key': 'order-1' },
+    });
     expect((second.json() as { id: string }).id).toBe((first.json() as { id: string }).id);
     expect(second.headers['x-coasty-idempotent-replay']).toBe('true');
     const conflict = await call(m, '/v1/runs', {
@@ -77,7 +93,9 @@ describe('run creation', () => {
       headers: { 'idempotency-key': 'order-1' },
     });
     expect(conflict.statusCode).toBe(422);
-    expect((conflict.json() as { error: { code: string } }).error.code).toBe('IDEMPOTENCY_KEY_REUSED');
+    expect((conflict.json() as { error: { code: string } }).error.code).toBe(
+      'IDEMPOTENCY_KEY_REUSED',
+    );
   });
 
   it('402 when a live wallet cannot cover one step', async () => {
@@ -94,7 +112,11 @@ describe('run creation', () => {
     m = mock({ walletCents: 24 });
     const machine2 = await createMachine(m, LIVE_KEY);
     m.state.walletCents = 3; // drained after provisioning gate check
-    const res2 = await call(m, '/v1/runs', { method: 'POST', key: LIVE_KEY, body: { machine_id: machine2, task: 'x' } });
+    const res2 = await call(m, '/v1/runs', {
+      method: 'POST',
+      key: LIVE_KEY,
+      body: { machine_id: machine2, task: 'x' },
+    });
     expect(res2.statusCode).toBe(402);
     expect((res2.json() as { error: { code: string } }).error.code).toBe('INSUFFICIENT_CREDITS');
   });
@@ -157,7 +179,11 @@ describe('run lifecycle', () => {
     m = mock({ walletCents: 100, defaultRunSteps: 10 });
     const machineId = await createMachine(m, LIVE_KEY);
     m.state.walletCents = 12; // covers 2 steps only
-    const res = await call(m, '/v1/runs', { method: 'POST', key: LIVE_KEY, body: { machine_id: machineId, task: 'long' } });
+    const res = await call(m, '/v1/runs', {
+      method: 'POST',
+      key: LIVE_KEY,
+      body: { machine_id: machineId, task: 'long' },
+    });
     const id = (res.json() as { id: string }).id;
     const finished = await pollUntil(async () => {
       const run = await getRun(id, LIVE_KEY);
@@ -190,7 +216,9 @@ describe('run lifecycle', () => {
     expect((cancel.json() as { status: string }).status).toBe('cancelled');
     const again = await call(m, `/v1/runs/${id}/cancel`, { method: 'POST', body: {} });
     expect(again.statusCode).toBe(409);
-    const body = again.json() as { error: { code: string; current_state: string; allowed_from: string[] } };
+    const body = again.json() as {
+      error: { code: string; current_state: string; allowed_from: string[] };
+    };
     expect(body.error.code).toBe('INVALID_STATE');
     expect(body.error.current_state).toBe('cancelled');
     expect(body.error.allowed_from).toContain('running');
@@ -207,7 +235,10 @@ describe('run lifecycle', () => {
     expect(paused.awaiting_human_reason).toBeTruthy();
     expect(m.state.eventsAfter(id, 0).some((e) => e.type === 'awaiting_human')).toBe(true);
 
-    const resume = await call(m, `/v1/runs/${id}/resume`, { method: 'POST', body: { note: 'captcha solved' } });
+    const resume = await call(m, `/v1/runs/${id}/resume`, {
+      method: 'POST',
+      body: { note: 'captcha solved' },
+    });
     expect(resume.statusCode).toBe(200);
     expect((resume.json() as { status: string }).status).toBe('running');
 
@@ -243,7 +274,9 @@ describe('run lifecycle', () => {
     m = mock();
     const badLimit = await call(m, '/v1/runs?limit=999');
     expect(badLimit.statusCode).toBe(400);
-    expect((badLimit.json() as { error: { code: string; max: number } }).error.code).toBe('INVALID_LIMIT');
+    expect((badLimit.json() as { error: { code: string; max: number } }).error.code).toBe(
+      'INVALID_LIMIT',
+    );
     const badStatus = await call(m, '/v1/runs?status=exploded');
     expect(badStatus.statusCode).toBe(400);
     const body = badStatus.json() as { error: { code: string; valid_options: string[] } };
@@ -264,7 +297,11 @@ describe('SSE events (real HTTP)', () => {
     type: string;
   }
 
-  async function readSse(url: string, after?: number, takeUntil?: (f: Frame) => boolean): Promise<Frame[]> {
+  async function readSse(
+    url: string,
+    after?: number,
+    takeUntil?: (f: Frame) => boolean,
+  ): Promise<Frame[]> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 6000);
     const frames: Frame[] = [];
@@ -354,13 +391,21 @@ describe('webhooks (HMAC over real HTTP)', () => {
     });
     const run = res.json() as { id: string; webhook_secret: string };
 
-    await pollUntil(async () => (received.some((r) => r.body.includes('run.awaiting_human')) ? true : undefined));
+    await pollUntil(async () =>
+      received.some((r) => r.body.includes('run.awaiting_human')) ? true : undefined,
+    );
     await call(m, `/v1/runs/${run.id}/resume`, { method: 'POST', body: { note: 'go' } });
-    await pollUntil(async () => (received.some((r) => r.body.includes('run.succeeded')) ? true : undefined));
+    await pollUntil(async () =>
+      received.some((r) => r.body.includes('run.succeeded')) ? true : undefined,
+    );
 
     for (const delivery of received) {
-      const parts = Object.fromEntries(delivery.signature.split(',').map((p) => p.split('=') as [string, string]));
-      const expected = createHmac('sha256', run.webhook_secret).update(`${parts.t}.${delivery.body}`).digest('hex');
+      const parts = Object.fromEntries(
+        delivery.signature.split(',').map((p) => p.split('=') as [string, string]),
+      );
+      const expected = createHmac('sha256', run.webhook_secret)
+        .update(`${parts.t}.${delivery.body}`)
+        .digest('hex');
       expect(parts.v1).toBe(expected); // valid signature
       const tampered = createHmac('sha256', run.webhook_secret)
         .update(`${parts.t}.${delivery.body}X`)

@@ -26,7 +26,11 @@ export function lastEventIdOf(request: FastifyRequest): number {
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
 }
 
-export function streamSse(request: FastifyRequest, reply: FastifyReply, opts: SseStreamOptions): void {
+export function streamSse(
+  request: FastifyRequest,
+  reply: FastifyReply,
+  opts: SseStreamOptions,
+): void {
   const { db, bus, streamKind, streamId, closeOnType = 'done', heartbeatMs = 15_000 } = opts;
 
   reply.hijack();

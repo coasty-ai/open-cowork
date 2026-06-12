@@ -44,7 +44,9 @@ describe('auth', () => {
     h = await startHarness();
     const anon = await fetch(`${h.backendUrl}/api/runs`);
     expect(anon.status).toBe(401);
-    const bad = await fetch(`${h.backendUrl}/api/runs`, { headers: { Authorization: 'Bearer nope' } });
+    const bad = await fetch(`${h.backendUrl}/api/runs`, {
+      headers: { Authorization: 'Bearer nope' },
+    });
     expect(bad.status).toBe(401);
     const ok = await h.api('/api/runs');
     expect(ok.status).toBe(200);
@@ -66,11 +68,17 @@ describe('estimates + spend safety', () => {
   it('POST /api/estimate computes run/machine/workflow estimates', async () => {
     h = await startHarness();
     const run = (await (
-      await h.api('/api/estimate', { method: 'POST', body: JSON.stringify({ kind: 'run', maxSteps: 40 }) })
+      await h.api('/api/estimate', {
+        method: 'POST',
+        body: JSON.stringify({ kind: 'run', maxSteps: 40 }),
+      })
     ).json()) as { cents: number };
     expect(run.cents).toBe(200);
     const machine = (await (
-      await h.api('/api/estimate', { method: 'POST', body: JSON.stringify({ kind: 'machine', osType: 'windows' }) })
+      await h.api('/api/estimate', {
+        method: 'POST',
+        body: JSON.stringify({ kind: 'machine', osType: 'windows' }),
+      })
     ).json()) as { cents: number };
     expect(machine.cents).toBe(9);
     const wf = (await (
@@ -92,7 +100,9 @@ describe('estimates + spend safety', () => {
       confirmCostCents: 500,
     });
     expect(res.status).toBe(422);
-    const body = (await res.json()) as { error: { code: string; details: { suggestedMaxSteps: number } } };
+    const body = (await res.json()) as {
+      error: { code: string; details: { suggestedMaxSteps: number } };
+    };
     expect(body.error.code).toBe('BUDGET_EXCEEDED');
     expect(body.error.details.suggestedMaxSteps).toBe(20); // 100¢ / 5¢
   });
@@ -101,7 +111,9 @@ describe('estimates + spend safety', () => {
     h = await startHarness();
     const { res } = await createRun(h, 'task', { confirmCostCents: RUN_CONFIRM - 1 });
     expect(res.status).toBe(409);
-    const body = (await res.json()) as { error: { code: string; details: { expectedCents: number } } };
+    const body = (await res.json()) as {
+      error: { code: string; details: { expectedCents: number } };
+    };
     expect(body.error.code).toBe('ESTIMATE_CHANGED');
     expect(body.error.details.expectedCents).toBe(RUN_CONFIRM);
   });
@@ -129,7 +141,10 @@ describe('cloud run lifecycle', () => {
     expect(['queued', 'running']).toContain(run.status);
 
     const finished = await pollUntil(async () => {
-      const r = (await (await h!.api(`/api/runs/${run.id}`)).json()) as { status: string; costCents: number };
+      const r = (await (await h!.api(`/api/runs/${run.id}`)).json()) as {
+        status: string;
+        costCents: number;
+      };
       return r.status === 'succeeded' ? r : undefined;
     });
     expect(finished.costCents).toBeGreaterThan(0);
@@ -212,7 +227,7 @@ describe('cloud run lifecycle', () => {
 });
 
 describe('webhook receiver (HMAC)', () => {
-  it('processes the mock\'s real signed deliveries for terminal runs', async () => {
+  it("processes the mock's real signed deliveries for terminal runs", async () => {
     h = await startHarness();
     const { res } = await createRun(h, 'simple task');
     const run = (await res.json()) as { id: string };
@@ -225,9 +240,11 @@ describe('webhook receiver (HMAC)', () => {
       h!.mock.state.webhookDeliveries.length > 0 ? h!.mock.state.webhookDeliveries : undefined,
     );
     // Our notification stream recorded the verified terminal event.
-    const notifications = h.built.db.eventsAfter('notification', h.built.db.sql
-      .prepare('SELECT id FROM users LIMIT 1')
-      .get()!.id as string, 0);
+    const notifications = h.built.db.eventsAfter(
+      'notification',
+      h.built.db.sql.prepare('SELECT id FROM users LIMIT 1').get()!.id as string,
+      0,
+    );
     expect(notifications.some((n) => n.type === 'run.succeeded')).toBe(true);
   });
 
@@ -274,7 +291,10 @@ describe('webhook receiver (HMAC)', () => {
     const unknown = await fetch(`${h.backendUrl}/webhooks/coasty`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Coasty-Signature': unknownHeader },
-      body: JSON.stringify({ event: 'run.succeeded', run: { id: 'run_doesnotexist', status: 'succeeded' } }),
+      body: JSON.stringify({
+        event: 'run.succeeded',
+        run: { id: 'run_doesnotexist', status: 'succeeded' },
+      }),
     });
     expect(unknown.status).toBe(401);
   });
@@ -348,7 +368,9 @@ describe('workflows', () => {
       }),
     });
     expect(res.status).toBe(422);
-    const body = (await res.json()) as { error: { code: string; details: { issues: { code: string }[] } } };
+    const body = (await res.json()) as {
+      error: { code: string; details: { issues: { code: string }[] } };
+    };
     expect(body.error.code).toBe('INVALID_DEFINITION');
     expect(body.error.details.issues.some((i) => i.code === 'INVALID_RETRY')).toBe(true);
   });
@@ -422,7 +444,9 @@ describe('workflows', () => {
     expect(reject.status).toBe(200);
 
     await pollUntil(async () => {
-      const r = (await (await h!.api(`/api/workflows/runs/${run.id}`)).json()) as { status: string };
+      const r = (await (await h!.api(`/api/workflows/runs/${run.id}`)).json()) as {
+        status: string;
+      };
       return r.status === 'failed' ? r : undefined;
     });
   });
@@ -435,7 +459,9 @@ describe('workflows', () => {
       body: JSON.stringify({ machineId, budgetCents: 100, confirmCostCents: 999, definition }),
     });
     expect(res.status).toBe(409);
-    const body = (await res.json()) as { error: { code: string; details: { expectedCents: number } } };
+    const body = (await res.json()) as {
+      error: { code: string; details: { expectedCents: number } };
+    };
     expect(body.error.code).toBe('ESTIMATE_CHANGED');
     expect(body.error.details.expectedCents).toBe(100);
   });
@@ -501,7 +527,9 @@ describe('inference proxy (desktop local loop)', () => {
     const prediction = (await predictRes.json()) as { actions: unknown[]; status: string };
     expect(prediction.actions.length).toBeGreaterThan(0);
 
-    const deleteRes = await h.api(`/api/proxy/sessions/${session.session_id}`, { method: 'DELETE' });
+    const deleteRes = await h.api(`/api/proxy/sessions/${session.session_id}`, {
+      method: 'DELETE',
+    });
     expect(deleteRes.status).toBe(200);
   });
 });

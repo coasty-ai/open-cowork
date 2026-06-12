@@ -12,7 +12,9 @@ export const requestId = (): string => `req_${hex(4)}`;
 export const nowIso = (): string => new Date().toISOString();
 
 export function bodyHash(body: unknown): string {
-  return createHash('sha256').update(JSON.stringify(body ?? null)).digest('hex');
+  return createHash('sha256')
+    .update(JSON.stringify(body ?? null))
+    .digest('hex');
 }
 
 /** `t=<unix>,v1=<hmacSha256Hex(secret, t + '.' + body)>` per the docs. */

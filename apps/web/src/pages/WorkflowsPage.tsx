@@ -22,8 +22,18 @@ import type { WorkflowDto, WorkflowRunDto } from '../api/client';
 const TEMPLATE = JSON.stringify(
   {
     steps: [
-      { id: 'fetch', type: 'task', task: 'Open order {{inputs.order_id}} and read the invoice total', save_as: 'invoice' },
-      { id: 'check', type: 'assert', condition: { op: 'truthy', value: '{{invoice.passed}}' }, message: 'Could not read the invoice' },
+      {
+        id: 'fetch',
+        type: 'task',
+        task: 'Open order {{inputs.order_id}} and read the invoice total',
+        save_as: 'invoice',
+      },
+      {
+        id: 'check',
+        type: 'assert',
+        condition: { op: 'truthy', value: '{{invoice.passed}}' },
+        message: 'Could not read the invoice',
+      },
       { id: 'gate', type: 'human_approval', message: 'Approve publishing the result?' },
       { id: 'ok', type: 'succeed', output: { total: '{{invoice.result}}' } },
     ],
@@ -43,7 +53,9 @@ export function WorkflowsPage() {
   const [slug, setSlug] = useState('');
   const [definitionText, setDefinitionText] = useState(TEMPLATE);
   const [issues, setIssues] = useState<{ path: string; message: string }[]>([]);
-  const [estimate, setEstimate] = useState<{ typicalCents: number; worstCaseCents: number } | null>(null);
+  const [estimate, setEstimate] = useState<{ typicalCents: number; worstCaseCents: number } | null>(
+    null,
+  );
   const [pending, setPending] = useState(false);
   const [builderError, setBuilderError] = useState<string | null>(null);
 
@@ -119,7 +131,8 @@ export function WorkflowsPage() {
             <Link key={wf.id} className="run-row" to={`/workflows/${wf.id}`}>
               <Badge tone={wf.status === 'active' ? 'success' : 'neutral'}>v{wf.version}</Badge>
               <span className="run-row__task">
-                <strong>{wf.name}</strong> <span style={{ color: 'var(--color-text-muted)' }}>({wf.slug})</span>
+                <strong>{wf.name}</strong>{' '}
+                <span style={{ color: 'var(--color-text-muted)' }}>({wf.slug})</span>
               </span>
             </Link>
           ))}
@@ -138,7 +151,8 @@ export function WorkflowsPage() {
               <RunStatusBadge status={run.status as RunStatus} />
               <span className="run-row__task">{run.id}</span>
               <span style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>
-                spent ${(run.spentCents / 100).toFixed(2)} / cap ${(run.budgetCents / 100).toFixed(2)}
+                spent ${(run.spentCents / 100).toFixed(2)} / cap $
+                {(run.budgetCents / 100).toFixed(2)}
               </span>
             </Link>
           ))}
@@ -149,7 +163,14 @@ export function WorkflowsPage() {
         <div className="stack">
           <div className="row">
             <Field label="Name" required>
-              {({ id }) => <input id={id} value={name} onChange={(e) => setName(e.target.value)} maxLength={128} />}
+              {({ id }) => (
+                <input
+                  id={id}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  maxLength={128}
+                />
+              )}
             </Field>
             <Field label="Slug" required hint="lowercase, stable handle">
               {({ id }) => (
@@ -186,7 +207,8 @@ export function WorkflowsPage() {
           {estimate ? (
             <p className="notice">
               Estimated cost: typical ${(estimate.typicalCents / 100).toFixed(2)}, worst case $
-              {(estimate.worstCaseCents / 100).toFixed(2)} (budget caps are enforced server-side at start).
+              {(estimate.worstCaseCents / 100).toFixed(2)} (budget caps are enforced server-side at
+              start).
             </p>
           ) : null}
           {builderError ? <ErrorState message={builderError} /> : null}
@@ -194,7 +216,11 @@ export function WorkflowsPage() {
             <Button variant="secondary" onClick={() => void validate()}>
               Validate + estimate
             </Button>
-            <Button onClick={() => void save()} loading={pending} disabled={!name.trim() || !slug.trim()}>
+            <Button
+              onClick={() => void save()}
+              loading={pending}
+              disabled={!name.trim() || !slug.trim()}
+            >
               Save workflow
             </Button>
           </div>

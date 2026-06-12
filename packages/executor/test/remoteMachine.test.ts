@@ -1,6 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { MachineActionRequest, MachineActionResponse, MachineScreenshotResponse } from '@open-cowork/core';
-import { RemoteMachineExecutor, UnsupportedActionError, type RemoteMachineTransport } from '../src/index';
+import type {
+  MachineActionRequest,
+  MachineActionResponse,
+  MachineScreenshotResponse,
+} from '@open-cowork/core';
+import {
+  RemoteMachineExecutor,
+  UnsupportedActionError,
+  type RemoteMachineTransport,
+} from '../src/index';
 
 function fakeTransport(failCommand?: string) {
   const actions: { machineId: string; req: MachineActionRequest }[] = [];
@@ -37,7 +45,11 @@ function fakeTransport(failCommand?: string) {
 }
 
 function executor(t: RemoteMachineTransport) {
-  return new RemoteMachineExecutor({ machineId: 'mch_test_1234', transport: t, sleep: async () => {} });
+  return new RemoteMachineExecutor({
+    machineId: 'mch_test_1234',
+    transport: t,
+    sleep: async () => {},
+  });
 }
 
 describe('RemoteMachineExecutor', () => {
@@ -61,7 +73,10 @@ describe('RemoteMachineExecutor', () => {
   it('maps every action type to the documented machine commands', async () => {
     const { transport, actions } = fakeTransport();
     const ex = executor(transport);
-    await ex.execute({ action_type: 'click', params: { x: 10, y: 20, button: 'right', clicks: 2 } });
+    await ex.execute({
+      action_type: 'click',
+      params: { x: 10, y: 20, button: 'right', clicks: 2 },
+    });
     await ex.execute({ action_type: 'type_text', params: { text: 'hello' } });
     await ex.execute({ action_type: 'key_press', params: { keys: ['tab', 'enter'] } });
     await ex.execute({ action_type: 'key_combo', params: { keys: ['ctrl', 'c'] } });
@@ -83,8 +98,19 @@ describe('RemoteMachineExecutor', () => {
     expect(actions[2]!.req.parameters).toEqual({ key: 'tab' });
     expect(actions[3]!.req.parameters).toEqual({ key: 'enter' });
     expect(actions[4]!.req.parameters).toEqual({ keys: ['ctrl', 'c'] });
-    expect(actions[5]!.req.parameters).toEqual({ direction: 'down', amount: 3, x: undefined, y: undefined });
-    expect(actions[6]!.req.parameters).toEqual({ from_x: 1, from_y: 2, to_x: 3, to_y: 4, button: 'left' });
+    expect(actions[5]!.req.parameters).toEqual({
+      direction: 'down',
+      amount: 3,
+      x: undefined,
+      y: undefined,
+    });
+    expect(actions[6]!.req.parameters).toEqual({
+      from_x: 1,
+      from_y: 2,
+      to_x: 3,
+      to_y: 4,
+      button: 'left',
+    });
     expect(actions.every((a) => a.machineId === 'mch_test_1234')).toBe(true);
   });
 
@@ -108,9 +134,9 @@ describe('RemoteMachineExecutor', () => {
   it('raw code execution is refused by policy', async () => {
     const { transport } = fakeTransport();
     const ex = executor(transport);
-    await expect(ex.execute({ action_type: 'raw', params: { code: 'rm -rf /' } })).rejects.toBeInstanceOf(
-      UnsupportedActionError,
-    );
+    await expect(
+      ex.execute({ action_type: 'raw', params: { code: 'rm -rf /' } }),
+    ).rejects.toBeInstanceOf(UnsupportedActionError);
   });
 
   it('a failed machine action surfaces as an error (no silent failure)', async () => {

@@ -65,7 +65,8 @@ export function createMockCoasty(options: Partial<MockOptions> = {}): MockCoasty
     if (!request.url.startsWith('/v1')) return;
     const headerKey = request.headers['x-api-key'];
     const auth = request.headers.authorization;
-    const bearer = typeof auth === 'string' && auth.startsWith('Bearer ') ? auth.slice(7) : undefined;
+    const bearer =
+      typeof auth === 'string' && auth.startsWith('Bearer ') ? auth.slice(7) : undefined;
     const raw = (Array.isArray(headerKey) ? headerKey[0] : headerKey) ?? bearer;
     const kind = classifyKey(raw);
     if (!kind) {
@@ -76,7 +77,8 @@ export function createMockCoasty(options: Partial<MockOptions> = {}): MockCoasty
 
   app.addHook('onSend', async (request, reply, payload) => {
     if (!request.url.startsWith('/v1')) return payload;
-    if (!reply.getHeader('X-Coasty-Request-Id')) void reply.header('X-Coasty-Request-Id', requestId());
+    if (!reply.getHeader('X-Coasty-Request-Id'))
+      void reply.header('X-Coasty-Request-Id', requestId());
     if (request.keyKind) {
       void reply.header('X-Coasty-Key-Kind', request.keyKind);
       if (request.keyKind === 'test') void reply.header('X-Coasty-Test-Mode', 'true');

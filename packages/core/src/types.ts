@@ -128,12 +128,31 @@ export type CuaAction = {
 // ── Canonical (normalized) actions ────────────────────────────────────────────
 
 export type CanonicalAction =
-  | { action_type: 'click'; x: number; y: number; button: 'left' | 'right' | 'middle'; clicks: number }
+  | {
+      action_type: 'click';
+      x: number;
+      y: number;
+      button: 'left' | 'right' | 'middle';
+      clicks: number;
+    }
   | { action_type: 'type_text'; text: string }
   | { action_type: 'key_press'; keys: string[] }
   | { action_type: 'key_combo'; keys: string[] }
-  | { action_type: 'scroll'; x?: number; y?: number; direction: 'up' | 'down' | 'left' | 'right'; amount: number }
-  | { action_type: 'drag'; from_x: number; from_y: number; to_x: number; to_y: number; button: 'left' | 'right' | 'middle' }
+  | {
+      action_type: 'scroll';
+      x?: number;
+      y?: number;
+      direction: 'up' | 'down' | 'left' | 'right';
+      amount: number;
+    }
+  | {
+      action_type: 'drag';
+      from_x: number;
+      from_y: number;
+      to_x: number;
+      to_y: number;
+      button: 'left' | 'right' | 'middle';
+    }
   | { action_type: 'move'; x: number; y: number }
   | { action_type: 'wait'; ms: number }
   | { action_type: 'done' }
@@ -161,7 +180,14 @@ export function normalizeAction(action: CuaAction): CanonicalAction {
       return { action_type: 'type_text', text: (p as TypeTextParams).text };
     case 'key_press': {
       const k = p as KeyPressParams;
-      const keys = k.keys !== undefined ? (Array.isArray(k.keys) ? k.keys : [k.keys]) : k.key !== undefined ? [k.key] : [];
+      const keys =
+        k.keys !== undefined
+          ? Array.isArray(k.keys)
+            ? k.keys
+            : [k.keys]
+          : k.key !== undefined
+            ? [k.key]
+            : [];
       return { action_type: 'key_press', keys };
     }
     case 'key_combo':
@@ -192,8 +218,15 @@ export function normalizeAction(action: CuaAction): CanonicalAction {
       const from_y = d.from_y ?? d.y1;
       const to_x = d.to_x ?? d.x2;
       const to_y = d.to_y ?? d.y2;
-      if (from_x === undefined || from_y === undefined || to_x === undefined || to_y === undefined) {
-        throw new Error('drag action missing coordinates (expected from_x/from_y/to_x/to_y or x1/y1/x2/y2)');
+      if (
+        from_x === undefined ||
+        from_y === undefined ||
+        to_x === undefined ||
+        to_y === undefined
+      ) {
+        throw new Error(
+          'drag action missing coordinates (expected from_x/from_y/to_x/to_y or x1/y1/x2/y2)',
+        );
       }
       return { action_type: 'drag', from_x, from_y, to_x, to_y, button: d.button ?? 'left' };
     }

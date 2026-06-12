@@ -24,7 +24,15 @@ const ALLOWED_CREATE_FIELDS = new Set([
 ]);
 
 const TERMINAL = new Set(['succeeded', 'failed', 'cancelled', 'timed_out']);
-const RUN_STATUSES = ['queued', 'running', 'awaiting_human', 'succeeded', 'failed', 'cancelled', 'timed_out'];
+const RUN_STATUSES = [
+  'queued',
+  'running',
+  'awaiting_human',
+  'succeeded',
+  'failed',
+  'cancelled',
+  'timed_out',
+];
 
 export function publicRun(run: RunRec, includeSecret: boolean): Record<string, unknown> {
   return {
@@ -136,10 +144,17 @@ export function registerRunRoutes(app: FastifyInstance, ctx: Ctx): void {
     state.emit(run.id, 'tool_call', { tool: 'click', params: { x: 512, y: 340 } });
     state.emit(run.id, 'tool_result', { success: true });
     state.emit(run.id, 'step', { steps_completed: step });
-    state.emit(run.id, 'billing', { credits_charged: run.credits_charged, cost_cents: run.cost_cents });
+    state.emit(run.id, 'billing', {
+      credits_charged: run.credits_charged,
+      cost_cents: run.cost_cents,
+    });
 
     if (run.task.includes('MUST_FAIL') && step >= 2) {
-      run.result = { passed: false, status: 'failed', summary: 'The verifier rejected the outcome.' };
+      run.result = {
+        passed: false,
+        status: 'failed',
+        summary: 'The verifier rejected the outcome.',
+      };
       run.error = { code: 'VERIFICATION_FAILED', message: 'Task verification failed' };
       finishRun(run, 'failed');
       return;
@@ -150,7 +165,11 @@ export function registerRunRoutes(app: FastifyInstance, ctx: Ctx): void {
       return;
     }
     if (step >= run.max_steps) {
-      run.result = { passed: false, status: 'failed', summary: 'Hit max_steps before completing the task.' };
+      run.result = {
+        passed: false,
+        status: 'failed',
+        summary: 'Hit max_steps before completing the task.',
+      };
       finishRun(run, 'failed');
     }
   }
@@ -174,7 +193,12 @@ export function registerRunRoutes(app: FastifyInstance, ctx: Ctx): void {
       return sendError(reply, 422, 'VALIDATION_ERROR', 'task is required (1-16000 chars)');
     }
     if (!state.machines.has(machineId)) {
-      return sendError(reply, 404, 'MACHINE_NOT_FOUND', `No machine '${machineId}' in this key's namespace`);
+      return sendError(
+        reply,
+        404,
+        'MACHINE_NOT_FOUND',
+        `No machine '${machineId}' in this key's namespace`,
+      );
     }
     const cua = (body.cua_version as string) ?? 'v3';
     if (!['v1', 'v3', 'v4'].includes(cua)) {
@@ -189,7 +213,12 @@ export function registerRunRoutes(app: FastifyInstance, ctx: Ctx): void {
       const existing = state.idempotency.get(`runs:${idemKey}`);
       if (existing) {
         if (existing.bodyHash !== hash) {
-          return sendError(reply, 422, 'IDEMPOTENCY_KEY_REUSED', 'Idempotency-Key was reused with a different body');
+          return sendError(
+            reply,
+            422,
+            'IDEMPOTENCY_KEY_REUSED',
+            'Idempotency-Key was reused with a different body',
+          );
         }
         void reply.header('X-Coasty-Idempotent-Replay', 'true');
         return reply.status(existing.status).send(existing.payload);
@@ -199,10 +228,16 @@ export function registerRunRoutes(app: FastifyInstance, ctx: Ctx): void {
     // Wallet must cover at least one step.
     const oneStep = stepCents(cua);
     if (request.keyKind !== 'test' && state.walletCents < oneStep) {
-      return sendError(reply, 402, 'INSUFFICIENT_CREDITS', `Starting a run needs ${oneStep} credits; you have ${state.walletCents}.`, {
-        required: oneStep,
-        balance: state.walletCents,
-      });
+      return sendError(
+        reply,
+        402,
+        'INSUFFICIENT_CREDITS',
+        `Starting a run needs ${oneStep} credits; you have ${state.walletCents}.`,
+        {
+          required: oneStep,
+          balance: state.walletCents,
+        },
+      );
     }
 
     const webhookUrl = typeof body.webhook_url === 'string' ? body.webhook_url : null;
@@ -230,7 +265,10 @@ export function registerRunRoutes(app: FastifyInstance, ctx: Ctx): void {
       awaiting_human_since: null,
       finished_at: null,
       request_id: requestId(),
-      deadlineAt: typeof body.deadline_seconds === 'number' ? Date.now() + body.deadline_seconds * 1000 : null,
+      deadlineAt:
+        typeof body.deadline_seconds === 'number'
+          ? Date.now() + body.deadline_seconds * 1000
+          : null,
       stepsTarget: task.includes('RUN_LONG') ? 20 : opts.defaultRunSteps,
     };
     state.runs.set(run.id, run);
@@ -267,9 +305,15 @@ export function registerRunRoutes(app: FastifyInstance, ctx: Ctx): void {
       });
     }
     if (query.status !== undefined && !RUN_STATUSES.includes(query.status)) {
-      return sendError(reply, 400, 'INVALID_STATUS_FILTER', `'${query.status}' is not a run status`, {
-        valid_options: RUN_STATUSES,
-      });
+      return sendError(
+        reply,
+        400,
+        'INVALID_STATUS_FILTER',
+        `'${query.status}' is not a run status`,
+        {
+          valid_options: RUN_STATUSES,
+        },
+      );
     }
     const data = [...state.runs.values()]
       .filter((r) => (query.status ? r.status === query.status : true))
@@ -281,7 +325,8 @@ export function registerRunRoutes(app: FastifyInstance, ctx: Ctx): void {
   app.get('/v1/runs/:id', async (request, reply) => {
     const { id } = request.params as { id: string };
     const run = state.runs.get(id);
-    if (!run) return sendError(reply, 404, 'RUN_NOT_FOUND', `No run '${id}' in this key's namespace`);
+    if (!run)
+      return sendError(reply, 404, 'RUN_NOT_FOUND', `No run '${id}' in this key's namespace`);
     return publicRun(run, false);
   });
 
@@ -289,12 +334,19 @@ export function registerRunRoutes(app: FastifyInstance, ctx: Ctx): void {
   app.post('/v1/runs/:id/cancel', async (request, reply) => {
     const { id } = request.params as { id: string };
     const run = state.runs.get(id);
-    if (!run) return sendError(reply, 404, 'RUN_NOT_FOUND', `No run '${id}' in this key's namespace`);
+    if (!run)
+      return sendError(reply, 404, 'RUN_NOT_FOUND', `No run '${id}' in this key's namespace`);
     if (TERMINAL.has(run.status)) {
-      return sendError(reply, 409, 'INVALID_STATE', `Cannot cancel a run in state '${run.status}'`, {
-        current_state: run.status,
-        allowed_from: ['queued', 'running', 'awaiting_human'],
-      });
+      return sendError(
+        reply,
+        409,
+        'INVALID_STATE',
+        `Cannot cancel a run in state '${run.status}'`,
+        {
+          current_state: run.status,
+          allowed_from: ['queued', 'running', 'awaiting_human'],
+        },
+      );
     }
     finishRun(run, 'cancelled');
     return publicRun(run, false);
@@ -303,9 +355,15 @@ export function registerRunRoutes(app: FastifyInstance, ctx: Ctx): void {
   app.post('/v1/runs/:id/resume', async (request, reply) => {
     const { id } = request.params as { id: string };
     const run = state.runs.get(id);
-    if (!run) return sendError(reply, 404, 'RUN_NOT_FOUND', `No run '${id}' in this key's namespace`);
+    if (!run)
+      return sendError(reply, 404, 'RUN_NOT_FOUND', `No run '${id}' in this key's namespace`);
     if (run.status !== 'awaiting_human') {
-      return sendError(reply, 409, 'NOT_AWAITING_HUMAN', `Run is '${run.status}', not awaiting_human`);
+      return sendError(
+        reply,
+        409,
+        'NOT_AWAITING_HUMAN',
+        `Run is '${run.status}', not awaiting_human`,
+      );
     }
     const body = (request.body ?? {}) as { note?: string };
     run.status = 'running';

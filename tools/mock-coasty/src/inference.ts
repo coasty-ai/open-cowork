@@ -28,7 +28,9 @@ function surcharges(body: PredictBody): number {
 
 function validateScreenshotAndInstruction(
   body: PredictBody,
-): { ok: true } | { ok: false; status: number; code: string; message: string; extras?: Record<string, unknown> } {
+):
+  | { ok: true }
+  | { ok: false; status: number; code: string; message: string; extras?: Record<string, unknown> } {
   if (typeof body.screenshot !== 'string' || body.screenshot.length <= 100) {
     return {
       ok: false,
@@ -74,7 +76,13 @@ function scriptedPrediction(instruction: string): {
   if (instruction.includes('MOCK_FAIL')) {
     return {
       status: 'fail',
-      actions: [{ action_type: 'fail', params: { reason: 'mock failure requested' }, description: 'Cannot proceed' }],
+      actions: [
+        {
+          action_type: 'fail',
+          params: { reason: 'mock failure requested' },
+          description: 'Cannot proceed',
+        },
+      ],
       reasoning: 'The task cannot be completed.',
     };
   }
@@ -109,7 +117,12 @@ export function registerInferenceRoutes(app: FastifyInstance, ctx: Ctx): void {
       reasoning: scripted.reasoning,
       actions: scripted.actions,
       raw_code: ['pyautogui.click(512, 340)'],
-      usage: { input_tokens: 1500, output_tokens: 200, credits_charged: request.keyKind === 'test' ? 0 : credits, cost_cents: request.keyKind === 'test' ? 0 : credits },
+      usage: {
+        input_tokens: 1500,
+        output_tokens: 200,
+        credits_charged: request.keyKind === 'test' ? 0 : credits,
+        cost_cents: request.keyKind === 'test' ? 0 : credits,
+      },
     };
   });
 
@@ -139,11 +152,18 @@ export function registerInferenceRoutes(app: FastifyInstance, ctx: Ctx): void {
   app.post('/v1/sessions/:id/predict', async (request, reply) => {
     const { id } = request.params as { id: string };
     const session = ctx.state.sessions.get(id);
-    if (!session) return sendError(reply, 404, 'SESSION_NOT_FOUND', `No session '${id}' for this key`);
+    if (!session)
+      return sendError(reply, 404, 'SESSION_NOT_FOUND', `No session '${id}' for this key`);
     const body = (request.body ?? {}) as PredictBody;
     const valid = validateScreenshotAndInstruction(body);
     if (!valid.ok) return sendError(reply, valid.status, valid.code, valid.message, valid.extras);
-    const credits = 4 + surcharges({ ...body, screen_width: session.screen_width, screen_height: session.screen_height });
+    const credits =
+      4 +
+      surcharges({
+        ...body,
+        screen_width: session.screen_width,
+        screen_height: session.screen_height,
+      });
     if (!tryCharge(ctx, request, reply, 'sessions', credits)) return reply;
     session.step_count++;
     session.total_credits_used += credits;
@@ -159,14 +179,20 @@ export function registerInferenceRoutes(app: FastifyInstance, ctx: Ctx): void {
       raw_code: [],
       reasoning: scripted.reasoning,
       status: scripted.status,
-      usage: { input_tokens: 1200, output_tokens: 150, credits_charged: request.keyKind === 'test' ? 0 : credits, cost_cents: request.keyKind === 'test' ? 0 : credits },
+      usage: {
+        input_tokens: 1200,
+        output_tokens: 150,
+        credits_charged: request.keyKind === 'test' ? 0 : credits,
+        cost_cents: request.keyKind === 'test' ? 0 : credits,
+      },
     };
   });
 
   app.post('/v1/sessions/:id/reset', async (request, reply) => {
     const { id } = request.params as { id: string };
     const session = ctx.state.sessions.get(id);
-    if (!session) return sendError(reply, 404, 'SESSION_NOT_FOUND', `No session '${id}' for this key`);
+    if (!session)
+      return sendError(reply, 404, 'SESSION_NOT_FOUND', `No session '${id}' for this key`);
     session.step_count = 0;
     return { status: 'ok', session_id: id };
   });
@@ -178,7 +204,8 @@ export function registerInferenceRoutes(app: FastifyInstance, ctx: Ctx): void {
   app.get('/v1/sessions/:id', async (request, reply) => {
     const { id } = request.params as { id: string };
     const session = ctx.state.sessions.get(id);
-    if (!session) return sendError(reply, 404, 'SESSION_NOT_FOUND', `No session '${id}' for this key`);
+    if (!session)
+      return sendError(reply, 404, 'SESSION_NOT_FOUND', `No session '${id}' for this key`);
     return sessionInfo(session);
   });
 
@@ -193,7 +220,12 @@ export function registerInferenceRoutes(app: FastifyInstance, ctx: Ctx): void {
   app.post('/v1/ground', async (request, reply) => {
     const body = (request.body ?? {}) as PredictBody & { element?: unknown };
     if (typeof body.screenshot !== 'string' || body.screenshot.length <= 100) {
-      return sendError(reply, 422, 'VALIDATION_ERROR', 'screenshot must be a base64 string longer than 100 chars');
+      return sendError(
+        reply,
+        422,
+        'VALIDATION_ERROR',
+        'screenshot must be a base64 string longer than 100 chars',
+      );
     }
     if (typeof body.element !== 'string' || body.element.length === 0) {
       return sendError(reply, 422, 'VALIDATION_ERROR', 'element must be a non-empty string');
@@ -201,13 +233,25 @@ export function registerInferenceRoutes(app: FastifyInstance, ctx: Ctx): void {
     const hd = (body.screen_width ?? 1920) > 1280 || (body.screen_height ?? 1080) > 720 ? 1 : 0;
     const credits = 3 + hd;
     if (!tryCharge(ctx, request, reply, 'ground', credits)) return reply;
-    return { x: 512, y: 340, usage: { credits_charged: request.keyKind === 'test' ? 0 : credits, cost_cents: request.keyKind === 'test' ? 0 : credits } };
+    return {
+      x: 512,
+      y: 340,
+      usage: {
+        credits_charged: request.keyKind === 'test' ? 0 : credits,
+        cost_cents: request.keyKind === 'test' ? 0 : credits,
+      },
+    };
   });
 
   app.post('/v1/parse', async (request, reply) => {
     const body = (request.body ?? {}) as { code?: unknown };
     if (typeof body.code !== 'string' || body.code.length === 0 || body.code.length >= 50_000) {
-      return sendError(reply, 422, 'VALIDATION_ERROR', 'code must be a non-empty string under 50,000 chars');
+      return sendError(
+        reply,
+        422,
+        'VALIDATION_ERROR',
+        'code must be a non-empty string under 50,000 chars',
+      );
     }
     ctx.state.recordUsage('parse', 0);
     return { actions: parsePyautogui(body.code) };
@@ -218,7 +262,8 @@ export function registerInferenceRoutes(app: FastifyInstance, ctx: Ctx): void {
     cua_versions: [
       {
         id: 'v1',
-        description: 'Baseline - single action per call, reflection enabled, 8-screenshot trajectory',
+        description:
+          'Baseline - single action per call, reflection enabled, 8-screenshot trajectory',
         avg_step_time: '9-10s',
         features: ['reflection', 'single_action'],
       },
@@ -229,7 +274,18 @@ export function registerInferenceRoutes(app: FastifyInstance, ctx: Ctx): void {
         features: ['multi_action', 'compaction'],
       },
     ],
-    action_types: ['click', 'type_text', 'key_press', 'key_combo', 'scroll', 'drag', 'move', 'wait', 'done', 'fail'],
+    action_types: [
+      'click',
+      'type_text',
+      'key_press',
+      'key_combo',
+      'scroll',
+      'drag',
+      'move',
+      'wait',
+      'done',
+      'fail',
+    ],
   }));
 
   app.get('/v1/usage', async (request) => {
@@ -269,10 +325,19 @@ export function parsePyautogui(code: string): Record<string, unknown>[] {
     if ((m = line.match(/^pyautogui\.click\(\s*(-?\d+)\s*,\s*(-?\d+)\s*\)/))) {
       actions.push({ action_type: 'click', params: { x: Number(m[1]), y: Number(m[2]) } });
     } else if ((m = line.match(/^pyautogui\.doubleClick\(\s*(-?\d+)\s*,\s*(-?\d+)\s*\)/))) {
-      actions.push({ action_type: 'click', params: { x: Number(m[1]), y: Number(m[2]), clicks: 2 } });
+      actions.push({
+        action_type: 'click',
+        params: { x: Number(m[1]), y: Number(m[2]), clicks: 2 },
+      });
     } else if ((m = line.match(/^pyautogui\.rightClick\(\s*(-?\d+)\s*,\s*(-?\d+)\s*\)/))) {
-      actions.push({ action_type: 'click', params: { x: Number(m[1]), y: Number(m[2]), button: 'right' } });
-    } else if ((m = line.match(/^pyautogui\.(?:typewrite|write)\(\s*'([^']*)'/)) || (m = line.match(/^pyautogui\.(?:typewrite|write)\(\s*"([^"]*)"/))) {
+      actions.push({
+        action_type: 'click',
+        params: { x: Number(m[1]), y: Number(m[2]), button: 'right' },
+      });
+    } else if (
+      (m = line.match(/^pyautogui\.(?:typewrite|write)\(\s*'([^']*)'/)) ||
+      (m = line.match(/^pyautogui\.(?:typewrite|write)\(\s*"([^"]*)"/))
+    ) {
       actions.push({ action_type: 'type_text', params: { text: m[1] } });
     } else if ((m = line.match(/^pyautogui\.press\(\s*'([^']*)'\s*\)/))) {
       actions.push({ action_type: 'key_press', params: { key: m[1] } });

@@ -15,7 +15,11 @@ const task = (id: string, text = 'do something', save?: string) => ({
   ...(save ? { save_as: save } : {}),
 });
 
-async function adhoc(definition: Record<string, unknown>, extra: Record<string, unknown> = {}, key = TEST_KEY) {
+async function adhoc(
+  definition: Record<string, unknown>,
+  extra: Record<string, unknown> = {},
+  key = TEST_KEY,
+) {
   const machineId = await createMachine(m!, key);
   return call(m!, '/v1/workflows/runs', {
     method: 'POST',
@@ -51,9 +55,20 @@ describe('workflow validation (documented limits)', () => {
     await expectInvalid({ steps: [] }, 'non-empty');
     await expectInvalid({ steps: [{ id: 'a', type: 'teleport' }] }, 'unknown step type');
     await expectInvalid({ steps: [task('dup'), task('dup')] }, 'duplicate step id');
-    await expectInvalid({ steps: [{ id: 'r', type: 'retry', max_attempts: 21, body: [task('t')] }] }, '1-20');
     await expectInvalid(
-      { steps: [{ id: 'p', type: 'parallel', branches: Array.from({ length: 17 }, (_, i) => [task(`b${i}`)]) }] },
+      { steps: [{ id: 'r', type: 'retry', max_attempts: 21, body: [task('t')] }] },
+      '1-20',
+    );
+    await expectInvalid(
+      {
+        steps: [
+          {
+            id: 'p',
+            type: 'parallel',
+            branches: Array.from({ length: 17 }, (_, i) => [task(`b${i}`)]),
+          },
+        ],
+      },
       'at most 16',
     );
     await expectInvalid(
@@ -65,7 +80,10 @@ describe('workflow validation (documented limits)', () => {
       { steps: [{ id: 'a', type: 'assert', condition: { op: 'regex', left: 1, right: 2 } }] },
       'unknown condition op',
     );
-    await expectInvalid({ steps: [{ id: 'l', type: 'loop', body: [task('t')] }] }, 'exactly one of count | while');
+    await expectInvalid(
+      { steps: [{ id: 'l', type: 'loop', body: [task('t')] }] },
+      'exactly one of count | while',
+    );
     // depth > 8
     let nested: Record<string, unknown>[] = [task('leaf')];
     for (let i = 0; i < 8; i++) nested = [{ id: `l${i}`, type: 'loop', count: 1, body: nested }];
@@ -75,11 +93,20 @@ describe('workflow validation (documented limits)', () => {
   it('bad slug → 422; duplicate slug → 422', async () => {
     m = mock();
     const def = { steps: [task('t')] };
-    const bad = await call(m, '/v1/workflows', { method: 'POST', body: { name: 'N', slug: 'Bad Slug!', definition: def } });
+    const bad = await call(m, '/v1/workflows', {
+      method: 'POST',
+      body: { name: 'N', slug: 'Bad Slug!', definition: def },
+    });
     expect(bad.statusCode).toBe(422);
-    const ok = await call(m, '/v1/workflows', { method: 'POST', body: { name: 'N', slug: 'taken', definition: def } });
+    const ok = await call(m, '/v1/workflows', {
+      method: 'POST',
+      body: { name: 'N', slug: 'taken', definition: def },
+    });
     expect(ok.statusCode).toBe(201);
-    const dup = await call(m, '/v1/workflows', { method: 'POST', body: { name: 'N2', slug: 'taken', definition: def } });
+    const dup = await call(m, '/v1/workflows', {
+      method: 'POST',
+      body: { name: 'N2', slug: 'taken', definition: def },
+    });
     expect(dup.statusCode).toBe(422);
   });
 
@@ -87,7 +114,10 @@ describe('workflow validation (documented limits)', () => {
     m = mock();
     const def = { steps: [task('t')] };
     const wf = (
-      await call(m, '/v1/workflows', { method: 'POST', body: { name: 'V', slug: 'v-test', definition: def } })
+      await call(m, '/v1/workflows', {
+        method: 'POST',
+        body: { name: 'V', slug: 'v-test', definition: def },
+      })
     ).json() as { id: string; version: number; dsl_version: string };
     expect(wf.version).toBe(1);
     expect(wf.dsl_version).toBe('2026-06-01');
@@ -95,7 +125,9 @@ describe('workflow validation (documented limits)', () => {
       await call(m, `/v1/workflows/${wf.id}`, { method: 'PUT', body: { name: 'V2' } })
     ).json() as { version: number };
     expect(updated.version).toBe(2);
-    const archived = (await call(m, `/v1/workflows/${wf.id}`, { method: 'DELETE' })).json() as { status: string };
+    const archived = (await call(m, `/v1/workflows/${wf.id}`, { method: 'DELETE' })).json() as {
+      status: string;
+    };
     expect(archived.status).toBe('archived');
   });
 });
@@ -131,7 +163,12 @@ describe('workflow execution', () => {
     const res = await adhoc({
       steps: [
         task('t', 'will MUST_FAIL', 'r'),
-        { id: 'a', type: 'assert', condition: { op: 'truthy', value: '{{r.passed}}' }, message: 'task must pass' },
+        {
+          id: 'a',
+          type: 'assert',
+          condition: { op: 'truthy', value: '{{r.passed}}' },
+          message: 'task must pass',
+        },
       ],
     });
     const id = (res.json() as { id: string }).id;
@@ -153,7 +190,10 @@ describe('workflow execution', () => {
     const paused = await waitForStatus(approveId, 'awaiting_human');
     expect(paused.awaiting_step_id).toBe('gate');
     expect(paused.awaiting_human_reason).toBe('OK for me?');
-    const resume = await call(m, `/v1/workflows/runs/${approveId}/resume`, { method: 'POST', body: { approved: true } });
+    const resume = await call(m, `/v1/workflows/runs/${approveId}/resume`, {
+      method: 'POST',
+      body: { approved: true },
+    });
     expect(resume.statusCode).toBe(200);
     const done = await waitForStatus(approveId, 'succeeded');
     expect(done.output).toEqual({ approved: true });
@@ -162,22 +202,25 @@ describe('workflow execution', () => {
     const rejectRes = await adhoc(definition, {});
     const rejectId = (rejectRes.json() as { id: string }).id;
     await waitForStatus(rejectId, 'awaiting_human');
-    await call(m, `/v1/workflows/runs/${rejectId}/resume`, { method: 'POST', body: { approved: false, note: 'nope' } });
+    await call(m, `/v1/workflows/runs/${rejectId}/resume`, {
+      method: 'POST',
+      body: { approved: false, note: 'nope' },
+    });
     const failed = await waitForStatus(rejectId, 'failed');
     expect(failed.error).toMatchObject({ code: 'APPROVAL_REJECTED' });
 
     // resume when not awaiting → 409
-    const conflict = await call(m, `/v1/workflows/runs/${rejectId}/resume`, { method: 'POST', body: { approved: true } });
+    const conflict = await call(m, `/v1/workflows/runs/${rejectId}/resume`, {
+      method: 'POST',
+      body: { approved: true },
+    });
     expect(conflict.statusCode).toBe(409);
     expect((conflict.json() as { error: { code: string } }).error.code).toBe('NOT_AWAITING_HUMAN');
   });
 
   it('budget_cents guard → failed GUARD_EXCEEDED', async () => {
     m = mock({ defaultRunSteps: 4 }); // each task ≈ 20¢
-    const res = await adhoc(
-      { steps: [task('a'), task('b'), task('c')] },
-      { budget_cents: 30 },
-    );
+    const res = await adhoc({ steps: [task('a'), task('b'), task('c')] }, { budget_cents: 30 });
     const id = (res.json() as { id: string }).id;
     const run = await waitForStatus(id, 'failed');
     expect(run.error).toMatchObject({ code: 'GUARD_EXCEEDED' });
@@ -195,7 +238,14 @@ describe('workflow execution', () => {
 
     const spinning = await adhoc(
       {
-        steps: [{ id: 'w', type: 'loop', while: { op: 'truthy', value: true }, body: [task('t', 'spin')] }],
+        steps: [
+          {
+            id: 'w',
+            type: 'loop',
+            while: { op: 'truthy', value: true },
+            body: [task('t', 'spin')],
+          },
+        ],
       },
       { max_iterations: 2 },
     );
@@ -258,11 +308,18 @@ describe('workflow execution', () => {
     const wf = (
       await call(m, '/v1/workflows', {
         method: 'POST',
-        body: { name: 'Saved', slug: 'saved-wf', definition: { steps: [task('t', 'go', 'r'), { id: 'ok', type: 'succeed' }] } },
+        body: {
+          name: 'Saved',
+          slug: 'saved-wf',
+          definition: { steps: [task('t', 'go', 'r'), { id: 'ok', type: 'succeed' }] },
+        },
       })
     ).json() as { id: string };
     const machineId = await createMachine(m);
-    const res = await call(m, `/v1/workflows/${wf.id}/runs`, { method: 'POST', body: { machine_id: machineId } });
+    const res = await call(m, `/v1/workflows/${wf.id}/runs`, {
+      method: 'POST',
+      body: { machine_id: machineId },
+    });
     expect(res.statusCode).toBe(201);
     const id = (res.json() as { id: string; workflow_id: string }).id;
     expect((res.json() as { workflow_id: string }).workflow_id).toBe(wf.id);
@@ -277,14 +334,19 @@ describe('machines', () => {
   it('test keys get an instant running mch_test_*; live keys need the $0.20 gate', async () => {
     m = mock();
     const test = await call(m, '/v1/machines', { method: 'POST', body: { display_name: 'vm' } });
-    const machine = (test.json() as { machine: { id: string; status: string; is_test: boolean } }).machine;
+    const machine = (test.json() as { machine: { id: string; status: string; is_test: boolean } })
+      .machine;
     expect(machine.id).toMatch(/^mch_test_/);
     expect(machine.status).toBe('running');
     expect(machine.is_test).toBe(true);
     await m.app.close();
 
     m = mock({ walletCents: 19 });
-    const gated = await call(m, '/v1/machines', { method: 'POST', key: LIVE_KEY, body: { display_name: 'vm' } });
+    const gated = await call(m, '/v1/machines', {
+      method: 'POST',
+      key: LIVE_KEY,
+      body: { display_name: 'vm' },
+    });
     expect(gated.statusCode).toBe(402);
     const body = gated.json() as { error: { required: number; balance: number } };
     expect(body.error.required).toBe(20);
@@ -296,10 +358,14 @@ describe('machines', () => {
     const id = await createMachine(m);
     const badStart = await call(m, `/v1/machines/${id}/start`, { method: 'POST', body: {} });
     expect(badStart.statusCode).toBe(409); // already running
-    expect((await call(m, `/v1/machines/${id}/stop`, { method: 'POST', body: {} })).statusCode).toBe(200);
+    expect(
+      (await call(m, `/v1/machines/${id}/stop`, { method: 'POST', body: {} })).statusCode,
+    ).toBe(200);
     const badStop = await call(m, `/v1/machines/${id}/stop`, { method: 'POST', body: {} });
     expect(badStop.statusCode).toBe(409);
-    expect((await call(m, `/v1/machines/${id}/start`, { method: 'POST', body: {} })).statusCode).toBe(200);
+    expect(
+      (await call(m, `/v1/machines/${id}/start`, { method: 'POST', body: {} })).statusCode,
+    ).toBe(200);
     expect((await call(m, `/v1/machines/${id}`, { method: 'DELETE' })).statusCode).toBe(200);
     expect((await call(m, `/v1/machines/${id}`)).statusCode).toBe(404);
   });
@@ -307,21 +373,34 @@ describe('machines', () => {
   it('PATCH ttl validation: 4 → 422; 0 clears; 60 sets', async () => {
     m = mock();
     const id = await createMachine(m);
-    expect((await call(m, `/v1/machines/${id}`, { method: 'PATCH', body: { ttl_minutes: 4 } })).statusCode).toBe(422);
     expect(
-      ((await call(m, `/v1/machines/${id}`, { method: 'PATCH', body: { ttl_minutes: 60 } })).json() as { ttl_minutes: number })
-        .ttl_minutes,
+      (await call(m, `/v1/machines/${id}`, { method: 'PATCH', body: { ttl_minutes: 4 } }))
+        .statusCode,
+    ).toBe(422);
+    expect(
+      (
+        (
+          await call(m, `/v1/machines/${id}`, { method: 'PATCH', body: { ttl_minutes: 60 } })
+        ).json() as { ttl_minutes: number }
+      ).ttl_minutes,
     ).toBe(60);
     expect(
-      ((await call(m, `/v1/machines/${id}`, { method: 'PATCH', body: { ttl_minutes: 0 } })).json() as { ttl_minutes: null })
-        .ttl_minutes,
+      (
+        (
+          await call(m, `/v1/machines/${id}`, { method: 'PATCH', body: { ttl_minutes: 0 } })
+        ).json() as { ttl_minutes: null }
+      ).ttl_minutes,
     ).toBeNull();
   });
 
   it('snapshot bills 1 credit on live keys', async () => {
     m = mock();
     const id = await createMachine(m, LIVE_KEY);
-    const res = await call(m, `/v1/machines/${id}/snapshot`, { method: 'POST', key: LIVE_KEY, body: {} });
+    const res = await call(m, `/v1/machines/${id}/snapshot`, {
+      method: 'POST',
+      key: LIVE_KEY,
+      body: {},
+    });
     expect(res.statusCode).toBe(200);
     expect(res.headers['x-credits-charged']).toBe('1');
     expect((res.json() as { snapshot_id: string }).snapshot_id).toMatch(/^snap_/);
@@ -330,7 +409,10 @@ describe('machines', () => {
   it('screenshot is a real PNG that differs between captures', async () => {
     m = mock();
     const id = await createMachine(m);
-    const first = (await call(m, `/v1/machines/${id}/screenshot`)).json() as { image_b64: string; width: number };
+    const first = (await call(m, `/v1/machines/${id}/screenshot`)).json() as {
+      image_b64: string;
+      width: number;
+    };
     const second = (await call(m, `/v1/machines/${id}/screenshot`)).json() as { image_b64: string };
     const bytes = Buffer.from(first.image_b64, 'base64');
     expect([...bytes.subarray(0, 8)]).toEqual([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
@@ -344,7 +426,9 @@ describe('machines', () => {
     const id = await createMachine(m);
     const res = await call(m, `/v1/machines/${id}/connection`);
     expect(res.headers['cache-control']).toBe('no-store');
-    expect((res.json() as { ssh_private_key_pem: string }).ssh_private_key_pem).toContain('BEGIN OPENSSH PRIVATE KEY');
+    expect((res.json() as { ssh_private_key_pem: string }).ssh_private_key_pem).toContain(
+      'BEGIN OPENSSH PRIVATE KEY',
+    );
   });
 
   it('actions: echo result; MOCK_ERROR fails; batch stop_on_error aborts; stopped machine → 409', async () => {
@@ -363,42 +447,73 @@ describe('machines', () => {
         stop_on_error: true,
       },
     });
-    const batchBody = batch.json() as { completed_count: number; failed_count: number; aborted: boolean; results: unknown[] };
+    const batchBody = batch.json() as {
+      completed_count: number;
+      failed_count: number;
+      aborted: boolean;
+      results: unknown[];
+    };
     expect(batchBody.aborted).toBe(true);
     expect(batchBody.failed_count).toBe(1);
     expect(batchBody.completed_count).toBe(1);
     expect(batchBody.results).toHaveLength(2); // third step never ran
 
     await call(m, `/v1/machines/${id}/stop`, { method: 'POST', body: {} });
-    const blocked = await call(m, `/v1/machines/${id}/actions`, { method: 'POST', body: { command: 'click' } });
+    const blocked = await call(m, `/v1/machines/${id}/actions`, {
+      method: 'POST',
+      body: { command: 'click' },
+    });
     expect(blocked.statusCode).toBe(409);
-    expect((blocked.json() as { error: { current_state: string } }).error.current_state).toBe('stopped');
+    expect((blocked.json() as { error: { current_state: string } }).error.current_state).toBe(
+      'stopped',
+    );
   });
 
   it('terminal echoes; files write→read→edit→delete→404; browser op canned; pricing documented', async () => {
     m = mock();
     const id = await createMachine(m);
-    const echo = await call(m, `/v1/machines/${id}/terminal`, { method: 'POST', body: { command: 'echo hello world' } });
+    const echo = await call(m, `/v1/machines/${id}/terminal`, {
+      method: 'POST',
+      body: { command: 'echo hello world' },
+    });
     expect((echo.json() as { output: string; exit_code: number }).output).toBe('hello world');
 
     await call(m, `/v1/machines/${id}/files/write`, {
       method: 'POST',
       body: { parameters: { path: '/tmp/a.txt', content: 'alpha' } },
     });
-    const read = await call(m, `/v1/machines/${id}/files/read`, { method: 'POST', body: { parameters: { path: '/tmp/a.txt' } } });
+    const read = await call(m, `/v1/machines/${id}/files/read`, {
+      method: 'POST',
+      body: { parameters: { path: '/tmp/a.txt' } },
+    });
     expect((read.json() as { content: string }).content).toBe('alpha');
     await call(m, `/v1/machines/${id}/files/edit`, {
       method: 'POST',
       body: { parameters: { path: '/tmp/a.txt', old_text: 'alpha', new_text: 'beta' } },
     });
     expect(
-      ((await call(m, `/v1/machines/${id}/files/read`, { method: 'POST', body: { parameters: { path: '/tmp/a.txt' } } })).json() as {
-        content: string;
-      }).content,
+      (
+        (
+          await call(m, `/v1/machines/${id}/files/read`, {
+            method: 'POST',
+            body: { parameters: { path: '/tmp/a.txt' } },
+          })
+        ).json() as {
+          content: string;
+        }
+      ).content,
     ).toBe('beta');
-    await call(m, `/v1/machines/${id}/files/delete`, { method: 'POST', body: { parameters: { path: '/tmp/a.txt' } } });
+    await call(m, `/v1/machines/${id}/files/delete`, {
+      method: 'POST',
+      body: { parameters: { path: '/tmp/a.txt' } },
+    });
     expect(
-      (await call(m, `/v1/machines/${id}/files/read`, { method: 'POST', body: { parameters: { path: '/tmp/a.txt' } } })).statusCode,
+      (
+        await call(m, `/v1/machines/${id}/files/read`, {
+          method: 'POST',
+          body: { parameters: { path: '/tmp/a.txt' } },
+        })
+      ).statusCode,
     ).toBe(404);
 
     const nav = await call(m, `/v1/machines/${id}/browser/navigate`, {
@@ -410,6 +525,10 @@ describe('machines', () => {
     const pricing = (await call(m, '/v1/machines/pricing')).json() as {
       runtime_hourly_cents: { linux_running: number; windows_running: number; stopped: number };
     };
-    expect(pricing.runtime_hourly_cents).toMatchObject({ linux_running: 5, windows_running: 9, stopped: 1 });
+    expect(pricing.runtime_hourly_cents).toMatchObject({
+      linux_running: 5,
+      windows_running: 9,
+      stopped: 1,
+    });
   });
 });

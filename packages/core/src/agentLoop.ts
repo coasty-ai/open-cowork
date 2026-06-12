@@ -34,7 +34,14 @@ export type PredictStepFn = (input: PredictStepInput) => Promise<PredictStepResu
 export type AgentLoopEvent =
   | { type: 'step-start'; step: number }
   | { type: 'screenshot'; step: number; width: number; height: number; base64: string }
-  | { type: 'prediction'; step: number; status: PredictStatus; reasoning?: string | null; actionCount: number; costCents: number }
+  | {
+      type: 'prediction';
+      step: number;
+      status: PredictStatus;
+      reasoning?: string | null;
+      actionCount: number;
+      costCents: number;
+    }
   | { type: 'action'; step: number; action: CuaAction }
   | { type: 'action-error'; step: number; action: CuaAction; error: string }
   | { type: 'finished'; status: AgentLoopOutcome['status']; stepsUsed: number; reason?: string };
@@ -92,7 +99,13 @@ export async function runAgentLoop(opts: AgentLoopOptions): Promise<AgentLoopOut
 
     onEvent?.({ type: 'step-start', step });
     const shot = await screen.screenshot();
-    onEvent?.({ type: 'screenshot', step, width: shot.width, height: shot.height, base64: shot.base64 });
+    onEvent?.({
+      type: 'screenshot',
+      step,
+      width: shot.width,
+      height: shot.height,
+      base64: shot.base64,
+    });
 
     if (signal?.aborted) return finish('aborted', 'Aborted by caller');
 
@@ -151,7 +164,8 @@ export async function runAgentLoop(opts: AgentLoopOptions): Promise<AgentLoopOut
     }
 
     if (prediction.status === 'done') return finish('done', prediction.reasoning ?? undefined);
-    if (prediction.status === 'fail') return finish('fail', prediction.reasoning ?? 'Agent reported failure');
+    if (prediction.status === 'fail')
+      return finish('fail', prediction.reasoning ?? 'Agent reported failure');
 
     if (step < maxSteps - 1 && settleMs > 0) {
       try {

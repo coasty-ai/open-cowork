@@ -41,23 +41,43 @@ describe('runAgentLoop', () => {
     const screen = fakeScreen();
     const predict = scriptedPredict([
       { status: 'continue', actions: [click, click], usage: { credits_charged: 5, cost_cents: 5 } },
-      { status: 'done', actions: [doneAction], reasoning: 'finished', usage: { credits_charged: 5, cost_cents: 5 } },
+      {
+        status: 'done',
+        actions: [doneAction],
+        reasoning: 'finished',
+        usage: { credits_charged: 5, cost_cents: 5 },
+      },
     ]);
-    const outcome = await runAgentLoop({ screen, predictStep: predict, task: 'do it', sleep: noSleep });
+    const outcome = await runAgentLoop({
+      screen,
+      predictStep: predict,
+      task: 'do it',
+      sleep: noSleep,
+    });
     expect(outcome).toMatchObject({ status: 'done', stepsUsed: 2, totalCostCents: 10 });
     expect(screen.executed).toHaveLength(2); // the done action is a signal, not executed
   });
 
   it('status done without a done action also finishes', async () => {
     const predict = scriptedPredict([{ status: 'done', actions: [], reasoning: 'all set' }]);
-    const outcome = await runAgentLoop({ screen: fakeScreen(), predictStep: predict, task: 't', sleep: noSleep });
+    const outcome = await runAgentLoop({
+      screen: fakeScreen(),
+      predictStep: predict,
+      task: 't',
+      sleep: noSleep,
+    });
     expect(outcome).toMatchObject({ status: 'done', reason: 'all set', stepsUsed: 1 });
   });
 
   it('fail action carries its reason into the outcome', async () => {
     const failAction: CuaAction = { action_type: 'fail', params: { reason: 'login wall' } };
     const predict = scriptedPredict([{ status: 'fail', actions: [failAction] }]);
-    const outcome = await runAgentLoop({ screen: fakeScreen(), predictStep: predict, task: 't', sleep: noSleep });
+    const outcome = await runAgentLoop({
+      screen: fakeScreen(),
+      predictStep: predict,
+      task: 't',
+      sleep: noSleep,
+    });
     expect(outcome).toMatchObject({ status: 'fail', reason: 'login wall' });
   });
 
@@ -142,7 +162,13 @@ describe('runAgentLoop', () => {
       { status: 'continue', actions: [click] },
       { status: 'done', actions: [] },
     ]);
-    await runAgentLoop({ screen: fakeScreen(), predictStep: predict, task: 't', settleMs: 123, sleep });
+    await runAgentLoop({
+      screen: fakeScreen(),
+      predictStep: predict,
+      task: 't',
+      settleMs: 123,
+      sleep,
+    });
     expect(sleep).toHaveBeenCalledWith(123, undefined);
   });
 
@@ -178,7 +204,12 @@ describe('runAgentLoop', () => {
       seen.width = input.width;
       return { status: 'done', actions: [] };
     };
-    await runAgentLoop({ screen: fakeScreen(), predictStep: predict, task: 'open calculator', sleep: noSleep });
+    await runAgentLoop({
+      screen: fakeScreen(),
+      predictStep: predict,
+      task: 'open calculator',
+      sleep: noSleep,
+    });
     expect(seen).toEqual({ instruction: 'open calculator', width: 1280 });
   });
 });

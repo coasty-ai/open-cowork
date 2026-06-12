@@ -57,7 +57,13 @@ describe('predict pricing (documented surcharges, via a live key wallet)', () =>
     call(m!, '/v1/predict', {
       method: 'POST',
       key: LIVE_KEY,
-      body: { screenshot: SCREENSHOT, instruction: 'click the button', screen_width: 1280, screen_height: 720, ...body },
+      body: {
+        screenshot: SCREENSHOT,
+        instruction: 'click the button',
+        screen_width: 1280,
+        screen_height: 720,
+        ...body,
+      },
     });
 
   it('base SD call: 5 credits', async () => {
@@ -69,17 +75,27 @@ describe('predict pricing (documented surcharges, via a live key wallet)', () =>
 
   it('HD boundary: exactly 1280x720 is NOT HD; 1281x720 is (+1)', async () => {
     m = mock();
-    expect((await predict({ screen_width: 1280, screen_height: 720 })).headers['x-credits-charged']).toBe('5');
-    expect((await predict({ screen_width: 1281, screen_height: 720 })).headers['x-credits-charged']).toBe('6');
-    expect((await predict({ screen_width: 1280, screen_height: 721 })).headers['x-credits-charged']).toBe('6');
+    expect(
+      (await predict({ screen_width: 1280, screen_height: 720 })).headers['x-credits-charged'],
+    ).toBe('5');
+    expect(
+      (await predict({ screen_width: 1281, screen_height: 720 })).headers['x-credits-charged'],
+    ).toBe('6');
+    expect(
+      (await predict({ screen_width: 1280, screen_height: 721 })).headers['x-credits-charged'],
+    ).toBe('6');
   });
 
   it('v1 engine +3; trajectory +2 each; long system_prompt +1 (500 exactly free)', async () => {
     m = mock();
     expect((await predict({ cua_version: 'v1' })).headers['x-credits-charged']).toBe('8');
     expect((await predict({ trajectory: [{}, {}] })).headers['x-credits-charged']).toBe('9');
-    expect((await predict({ system_prompt: 'x'.repeat(500) })).headers['x-credits-charged']).toBe('5');
-    expect((await predict({ system_prompt: 'x'.repeat(501) })).headers['x-credits-charged']).toBe('6');
+    expect((await predict({ system_prompt: 'x'.repeat(500) })).headers['x-credits-charged']).toBe(
+      '5',
+    );
+    expect((await predict({ system_prompt: 'x'.repeat(501) })).headers['x-credits-charged']).toBe(
+      '6',
+    );
   });
 
   it('test keys are charged 0 but get full responses', async () => {
@@ -124,7 +140,10 @@ describe('predict validation + scripting', () => {
 
   it('rejects empty instructions with VALIDATION_ERROR + details', async () => {
     m = mock();
-    const res = await call(m, '/v1/predict', { method: 'POST', body: { screenshot: SCREENSHOT, instruction: '' } });
+    const res = await call(m, '/v1/predict', {
+      method: 'POST',
+      body: { screenshot: SCREENSHOT, instruction: '' },
+    });
     expect(res.statusCode).toBe(422);
     const body = res.json() as { error: { code: string; details: unknown } };
     expect(body.error.code).toBe('VALIDATION_ERROR');
@@ -135,7 +154,12 @@ describe('predict validation + scripting', () => {
     m = mock();
     const statusOf = async (instruction: string) =>
       (
-        (await call(m!, '/v1/predict', { method: 'POST', body: { screenshot: SCREENSHOT, instruction } })).json() as {
+        (
+          await call(m!, '/v1/predict', {
+            method: 'POST',
+            body: { screenshot: SCREENSHOT, instruction },
+          })
+        ).json() as {
           status: string;
         }
       ).status;
@@ -189,7 +213,12 @@ describe('ground / parse / models / usage', () => {
     const res = await call(m, '/v1/ground', {
       method: 'POST',
       key: LIVE_KEY,
-      body: { screenshot: SCREENSHOT, element: 'the blue Submit button', screen_width: 1280, screen_height: 720 },
+      body: {
+        screenshot: SCREENSHOT,
+        element: 'the blue Submit button',
+        screen_width: 1280,
+        screen_height: 720,
+      },
     });
     expect(res.statusCode).toBe(200);
     expect(res.headers['x-credits-charged']).toBe('3');
@@ -200,7 +229,9 @@ describe('ground / parse / models / usage', () => {
     m = mock();
     const res = await call(m, '/v1/parse', {
       method: 'POST',
-      body: { code: "pyautogui.click(100, 200)\npyautogui.typewrite('hi')\npyautogui.hotkey('ctrl', 'c')" },
+      body: {
+        code: "pyautogui.click(100, 200)\npyautogui.typewrite('hi')\npyautogui.hotkey('ctrl', 'c')",
+      },
     });
     expect(res.statusCode).toBe(200);
     expect((res.json() as { actions: unknown[] }).actions).toEqual([
@@ -211,22 +242,39 @@ describe('ground / parse / models / usage', () => {
   });
 
   it('parsePyautogui handles press/scroll/moveTo variants', () => {
-    expect(parsePyautogui("pyautogui.press('enter')")).toEqual([{ action_type: 'key_press', params: { key: 'enter' } }]);
-    expect(parsePyautogui('pyautogui.scroll(-3)')).toEqual([{ action_type: 'scroll', params: { clicks: -3 } }]);
-    expect(parsePyautogui('pyautogui.moveTo(5, 6)')).toEqual([{ action_type: 'move', params: { x: 5, y: 6 } }]);
+    expect(parsePyautogui("pyautogui.press('enter')")).toEqual([
+      { action_type: 'key_press', params: { key: 'enter' } },
+    ]);
+    expect(parsePyautogui('pyautogui.scroll(-3)')).toEqual([
+      { action_type: 'scroll', params: { clicks: -3 } },
+    ]);
+    expect(parsePyautogui('pyautogui.moveTo(5, 6)')).toEqual([
+      { action_type: 'move', params: { x: 5, y: 6 } },
+    ]);
   });
 
   it('models matches the documented payload shape', async () => {
     m = mock();
-    const body = (await call(m, '/v1/models')).json() as { action_types: string[]; cua_versions: { id: string }[] };
+    const body = (await call(m, '/v1/models')).json() as {
+      action_types: string[];
+      cua_versions: { id: string }[];
+    };
     expect(body.action_types).toContain('click');
     expect(body.cua_versions.map((v) => v.id)).toEqual(['v1', 'v3']);
   });
 
   it('usage accumulates credits across billed calls', async () => {
     m = mock();
-    await call(m, '/v1/predict', { method: 'POST', key: LIVE_KEY, body: { screenshot: SCREENSHOT, instruction: 'a' } });
-    await call(m, '/v1/ground', { method: 'POST', key: LIVE_KEY, body: { screenshot: SCREENSHOT, element: 'b' } });
+    await call(m, '/v1/predict', {
+      method: 'POST',
+      key: LIVE_KEY,
+      body: { screenshot: SCREENSHOT, instruction: 'a' },
+    });
+    await call(m, '/v1/ground', {
+      method: 'POST',
+      key: LIVE_KEY,
+      body: { screenshot: SCREENSHOT, element: 'b' },
+    });
     const usage = (await call(m, '/v1/usage', { key: LIVE_KEY })).json() as {
       total_credits: number;
       wallet_balance_cents: number;

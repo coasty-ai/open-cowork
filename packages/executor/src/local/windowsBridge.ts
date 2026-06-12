@@ -183,7 +183,10 @@ export interface WindowsBridgeOptions {
 export class WindowsBridge implements NativeBridge {
   private proc: ChildProcessWithoutNullStreams | null = null;
   private nextId = 1;
-  private pending = new Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void; timer: NodeJS.Timeout }>();
+  private pending = new Map<
+    number,
+    { resolve: (v: unknown) => void; reject: (e: Error) => void; timer: NodeJS.Timeout }
+  >();
   private stdoutBuffer = '';
   private readonly callTimeoutMs: number;
   private readonly spawnImpl: typeof spawn;
@@ -283,7 +286,13 @@ export class WindowsBridge implements NativeBridge {
     await this.call('move', { x, y });
   }
 
-  async drag(fromX: number, fromY: number, toX: number, toY: number, button: MouseButton): Promise<void> {
+  async drag(
+    fromX: number,
+    fromY: number,
+    toX: number,
+    toY: number,
+    button: MouseButton,
+  ): Promise<void> {
     await this.call('drag', { fromX, fromY, toX, toY, button });
   }
 

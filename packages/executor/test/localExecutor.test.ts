@@ -82,7 +82,10 @@ describe('LocalExecutor', () => {
     });
     const ex = new LocalExecutor({ bridge });
     await ex.screenshot();
-    await ex.execute({ action_type: 'drag', params: { from_x: 10, from_y: 20, to_x: 30, to_y: 40 } });
+    await ex.execute({
+      action_type: 'drag',
+      params: { from_x: 10, from_y: 20, to_x: 30, to_y: 40 },
+    });
     expect(calls).toContain('drag(20,40,60,80,left)');
   });
 
@@ -103,7 +106,12 @@ describe('LocalExecutor', () => {
     await ex.execute({ action_type: 'scroll', params: { direction: 'down', amount: 4 } });
     await ex.execute({ action_type: 'wait', params: { ms: 300 } });
     expect(calls).toEqual(
-      expect.arrayContaining(['type(abc)', 'keyPress(enter)', 'keyCombo(ctrl+v)', 'scroll(down,4,-,-)']),
+      expect.arrayContaining([
+        'type(abc)',
+        'keyPress(enter)',
+        'keyCombo(ctrl+v)',
+        'scroll(down,4,-,-)',
+      ]),
     );
     expect(sleep).toHaveBeenCalledWith(300);
   });
@@ -115,7 +123,10 @@ describe('LocalExecutor', () => {
     });
     const ex = new LocalExecutor({ bridge });
     await ex.screenshot();
-    await ex.execute({ action_type: 'scroll', params: { x: 50, y: 50, direction: 'up', amount: 1 } });
+    await ex.execute({
+      action_type: 'scroll',
+      params: { x: 50, y: 50, direction: 'up', amount: 1 },
+    });
     expect(calls).toContain('scroll(up,1,100,100)');
   });
 

@@ -2,7 +2,15 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { RunDetailScreen } from '../src/screens/RunDetailScreen';
 import { setToken, type RunDto, type RunEventDto } from '../src/api';
-import { bodyOf, calledUrls, findCall, jsonRes, makeRun, stubFetch, type FetchMock } from './helpers';
+import {
+  bodyOf,
+  calledUrls,
+  findCall,
+  jsonRes,
+  makeRun,
+  stubFetch,
+  type FetchMock,
+} from './helpers';
 
 afterEach(() => {
   vi.unstubAllGlobals();

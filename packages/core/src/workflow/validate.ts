@@ -84,7 +84,11 @@ function validateCondition(cond: unknown, path: string, issues: ValidationIssue[
     issues.push({ path, code: 'INVALID_CONDITION', message: 'Condition must be an object' });
     return;
   }
-  const c = cond as Partial<Condition> & { op?: unknown; conditions?: unknown; condition?: unknown };
+  const c = cond as Partial<Condition> & {
+    op?: unknown;
+    conditions?: unknown;
+    condition?: unknown;
+  };
   if (typeof c.op !== 'string' || !CONDITION_OPS.has(c.op)) {
     issues.push({
       path: `${path}.op`,
@@ -95,7 +99,11 @@ function validateCondition(cond: unknown, path: string, issues: ValidationIssue[
   }
   if (BINARY_OPS.has(c.op)) {
     if (!('left' in c) || !('right' in c)) {
-      issues.push({ path, code: 'INVALID_CONDITION', message: `'${c.op}' requires left and right` });
+      issues.push({
+        path,
+        code: 'INVALID_CONDITION',
+        message: `'${c.op}' requires left and right`,
+      });
     }
   } else if (UNARY_VALUE_OPS.has(c.op)) {
     if (!('value' in c)) {
@@ -172,7 +180,10 @@ function walkSteps(steps: unknown, path: string, depth: number, ctx: WalkContext
       return;
     }
 
-    if (ctx.insideParallel && (step.type === 'human_approval' || step.type === 'succeed' || step.type === 'fail')) {
+    if (
+      ctx.insideParallel &&
+      (step.type === 'human_approval' || step.type === 'succeed' || step.type === 'fail')
+    ) {
       ctx.issues.push({
         path: p,
         code: 'FORBIDDEN_IN_PARALLEL',
@@ -183,11 +194,19 @@ function walkSteps(steps: unknown, path: string, depth: number, ctx: WalkContext
     switch (step.type) {
       case 'task': {
         if (typeof step.task !== 'string' || step.task.length === 0) {
-          ctx.issues.push({ path: `${p}.task`, code: 'MISSING_FIELD', message: `'task' requires a non-empty task string` });
+          ctx.issues.push({
+            path: `${p}.task`,
+            code: 'MISSING_FIELD',
+            message: `'task' requires a non-empty task string`,
+          });
         }
         if (step.save_as !== undefined) {
           if (typeof step.save_as !== 'string' || !STEP_ID_RE.test(step.save_as)) {
-            ctx.issues.push({ path: `${p}.save_as`, code: 'INVALID_FIELD', message: 'save_as must be a short identifier' });
+            ctx.issues.push({
+              path: `${p}.save_as`,
+              code: 'INVALID_FIELD',
+              message: 'save_as must be a short identifier',
+            });
           } else if ((RESERVED_SAVE_AS as readonly string[]).includes(step.save_as)) {
             ctx.issues.push({
               path: `${p}.save_as`,
@@ -200,7 +219,11 @@ function walkSteps(steps: unknown, path: string, depth: number, ctx: WalkContext
       }
       case 'assert': {
         if (step.condition === undefined) {
-          ctx.issues.push({ path: `${p}.condition`, code: 'MISSING_FIELD', message: `'assert' requires a condition` });
+          ctx.issues.push({
+            path: `${p}.condition`,
+            code: 'MISSING_FIELD',
+            message: `'assert' requires a condition`,
+          });
         } else {
           validateCondition(step.condition, `${p}.condition`, ctx.issues);
         }
@@ -208,12 +231,20 @@ function walkSteps(steps: unknown, path: string, depth: number, ctx: WalkContext
       }
       case 'if': {
         if (step.condition === undefined) {
-          ctx.issues.push({ path: `${p}.condition`, code: 'MISSING_FIELD', message: `'if' requires a condition` });
+          ctx.issues.push({
+            path: `${p}.condition`,
+            code: 'MISSING_FIELD',
+            message: `'if' requires a condition`,
+          });
         } else {
           validateCondition(step.condition, `${p}.condition`, ctx.issues);
         }
         if (step.then === undefined) {
-          ctx.issues.push({ path: `${p}.then`, code: 'MISSING_FIELD', message: `'if' requires a then branch` });
+          ctx.issues.push({
+            path: `${p}.then`,
+            code: 'MISSING_FIELD',
+            message: `'if' requires a then branch`,
+          });
         } else {
           walkSteps(step.then, `${p}.then`, depth + 1, ctx);
         }
@@ -230,12 +261,23 @@ function walkSteps(steps: unknown, path: string, depth: number, ctx: WalkContext
             message: `'loop' requires exactly one of count | while`,
           });
         }
-        if (hasCount && (typeof step.count !== 'number' || !Number.isInteger(step.count) || step.count < 0)) {
-          ctx.issues.push({ path: `${p}.count`, code: 'INVALID_FIELD', message: 'count must be a non-negative integer' });
+        if (
+          hasCount &&
+          (typeof step.count !== 'number' || !Number.isInteger(step.count) || step.count < 0)
+        ) {
+          ctx.issues.push({
+            path: `${p}.count`,
+            code: 'INVALID_FIELD',
+            message: 'count must be a non-negative integer',
+          });
         }
         if (hasWhile) validateCondition(step.while, `${p}.while`, ctx.issues);
         if (step.body === undefined) {
-          ctx.issues.push({ path: `${p}.body`, code: 'MISSING_FIELD', message: `'loop' requires a body` });
+          ctx.issues.push({
+            path: `${p}.body`,
+            code: 'MISSING_FIELD',
+            message: `'loop' requires a body`,
+          });
         } else {
           walkSteps(step.body, `${p}.body`, depth + 1, ctx);
         }
@@ -243,7 +285,11 @@ function walkSteps(steps: unknown, path: string, depth: number, ctx: WalkContext
       }
       case 'parallel': {
         if (!Array.isArray(step.branches) || step.branches.length === 0) {
-          ctx.issues.push({ path: `${p}.branches`, code: 'MISSING_FIELD', message: `'parallel' requires branches` });
+          ctx.issues.push({
+            path: `${p}.branches`,
+            code: 'MISSING_FIELD',
+            message: `'parallel' requires branches`,
+          });
           break;
         }
         if (step.branches.length > MAX_PARALLEL_BRANCHES) {
@@ -275,7 +321,11 @@ function walkSteps(steps: unknown, path: string, depth: number, ctx: WalkContext
           });
         }
         if (step.body === undefined) {
-          ctx.issues.push({ path: `${p}.body`, code: 'MISSING_FIELD', message: `'retry' requires a body` });
+          ctx.issues.push({
+            path: `${p}.body`,
+            code: 'MISSING_FIELD',
+            message: `'retry' requires a body`,
+          });
         } else {
           walkSteps(step.body, `${p}.body`, depth + 1, ctx);
         }
@@ -293,11 +343,18 @@ function walkSteps(steps: unknown, path: string, depth: number, ctx: WalkContext
 export function validateWorkflowDefinition(definition: unknown): ValidationResult {
   const issues: ValidationIssue[] = [];
   if (definition === null || typeof definition !== 'object' || Array.isArray(definition)) {
-    return { valid: false, issues: [{ path: '', code: 'MISSING_STEPS', message: 'Definition must be an object' }] };
+    return {
+      valid: false,
+      issues: [{ path: '', code: 'MISSING_STEPS', message: 'Definition must be an object' }],
+    };
   }
   const def = definition as Partial<WorkflowDefinition>;
   if (!Array.isArray(def.steps) || def.steps.length === 0) {
-    issues.push({ path: 'steps', code: 'MISSING_STEPS', message: 'Definition requires a non-empty steps array' });
+    issues.push({
+      path: 'steps',
+      code: 'MISSING_STEPS',
+      message: 'Definition requires a non-empty steps array',
+    });
     return { valid: false, issues };
   }
   const ctx: WalkContext = { issues, seenIds: new Map(), totalSteps: 0, insideParallel: false };

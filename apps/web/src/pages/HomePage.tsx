@@ -58,7 +58,9 @@ export function HomePage() {
     const cloud = (machines ?? [])
       .filter((m) => m.status === 'running')
       .map((m) => ({ id: m.id, label: `${m.display_name} (${m.os_type} cloud VM)` }));
-    return isDesktop ? [{ id: LOCAL_TARGET_ID, label: 'This computer (local screen)' }, ...cloud] : cloud;
+    return isDesktop
+      ? [{ id: LOCAL_TARGET_ID, label: 'This computer (local screen)' }, ...cloud]
+      : cloud;
   }, [machines, isDesktop]);
 
   const confirmAndStart = async () => {
@@ -68,7 +70,10 @@ export function HomePage() {
     try {
       if (pendingTask.machineId === LOCAL_TARGET_ID) {
         if (!window.cowork?.startLocalRun) throw new Error('Local runs need the desktop app');
-        const { runId } = await window.cowork.startLocalRun({ task: pendingTask.task, maxSteps: 25 });
+        const { runId } = await window.cowork.startLocalRun({
+          task: pendingTask.task,
+          maxSteps: 25,
+        });
         navigate(`/runs/${runId}`);
         return;
       }
@@ -112,7 +117,9 @@ export function HomePage() {
             options={options}
             estimateCents={estimateCents}
             pending={submitting}
-            onSubmit={(payload) => setPendingTask({ task: payload.task, machineId: payload.machineId })}
+            onSubmit={(payload) =>
+              setPendingTask({ task: payload.task, machineId: payload.machineId })
+            }
           />
         </Card>
       )}
@@ -121,7 +128,10 @@ export function HomePage() {
         Recent runs
       </h2>
       {runs.length === 0 ? (
-        <EmptyState title="No runs yet" description="Delegate your first task above to see it here." />
+        <EmptyState
+          title="No runs yet"
+          description="Delegate your first task above to see it here."
+        />
       ) : (
         <div className="stack" data-testid="recent-runs">
           {runs.map((run) => (
@@ -134,17 +144,25 @@ export function HomePage() {
         </div>
       )}
 
-      <Modal open={pendingTask !== null} onClose={() => setPendingTask(null)} title="Confirm cost before starting">
+      <Modal
+        open={pendingTask !== null}
+        onClose={() => setPendingTask(null)}
+        title="Confirm cost before starting"
+      >
         <div className="stack">
           <p>
             This run is capped at <strong>25 steps</strong>. Worst-case cost:{' '}
-            {estimateCents !== undefined ? <CostPill cents={estimateCents} variant="estimate" /> : '…'}.
-            You only pay for steps that actually execute.
+            {estimateCents !== undefined ? (
+              <CostPill cents={estimateCents} variant="estimate" />
+            ) : (
+              '…'
+            )}
+            . You only pay for steps that actually execute.
           </p>
           {pendingTask?.machineId === LOCAL_TARGET_ID ? (
             <p className="notice">
-              ⚠ This will control <strong>your own mouse and keyboard</strong>. Move the mouse to a screen
-              corner to abort at any time.
+              ⚠ This will control <strong>your own mouse and keyboard</strong>. Move the mouse to a
+              screen corner to abort at any time.
             </p>
           ) : null}
           {submitError ? <ErrorState message={submitError} /> : null}

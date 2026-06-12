@@ -62,7 +62,10 @@ export function abortableSleep(ms: number, signal?: AbortSignal): Promise<void> 
  * an explicit retry-after, which is honored verbatim (capped at maxMs).
  * Rethrows the last error when attempts are exhausted or the error is not retryable.
  */
-export async function withRetry<T>(fn: (attempt: number) => Promise<T>, opts: RetryOptions = {}): Promise<T> {
+export async function withRetry<T>(
+  fn: (attempt: number) => Promise<T>,
+  opts: RetryOptions = {},
+): Promise<T> {
   const {
     maxAttempts = 3,
     baseMs = 250,

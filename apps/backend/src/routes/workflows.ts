@@ -112,7 +112,10 @@ export function registerWorkflowRoutes(app: FastifyInstance, deps: WorkflowRoute
     workflowId: string | null,
     definition: WorkflowDefinition,
   ): Promise<WorkflowRunDto> {
-    const budget = Math.min(body.budgetCents ?? request.user.budget_cents, request.user.budget_cents);
+    const budget = Math.min(
+      body.budgetCents ?? request.user.budget_cents,
+      request.user.budget_cents,
+    );
     // The handshake confirms the CAP the user is approving (the hard ceiling
     // Coasty enforces via budget_cents), not a guess at the typical cost.
     if (body.confirmCostCents !== budget) {
@@ -134,7 +137,9 @@ export function registerWorkflowRoutes(app: FastifyInstance, deps: WorkflowRoute
       ...(workflowId === null ? { definition } : {}),
     };
     const run: WorkflowRun = workflowId
-      ? await coasty.startWorkflowRun(workflowId, startReq, { idempotencyKey: `cwk-wfr-${randomUUID()}` })
+      ? await coasty.startWorkflowRun(workflowId, startReq, {
+          idempotencyKey: `cwk-wfr-${randomUUID()}`,
+        })
       : await coasty.startAdhocWorkflowRun(startReq, { idempotencyKey: `cwk-wfr-${randomUUID()}` });
 
     const row: WorkflowRunRow = {
@@ -151,8 +156,15 @@ export function registerWorkflowRoutes(app: FastifyInstance, deps: WorkflowRoute
       finished_at: null,
     };
     db.insertWorkflowRun(row);
-    ingestor.start({ kind: 'workflow-run', localId: row.id, coastyId: run.id, userId: request.user.id });
-    const seq = db.appendEvent('notification', request.user.id, 'workflow_run.created', { workflowRunId: row.id });
+    ingestor.start({
+      kind: 'workflow-run',
+      localId: row.id,
+      coastyId: run.id,
+      userId: request.user.id,
+    });
+    const seq = db.appendEvent('notification', request.user.id, 'workflow_run.created', {
+      workflowRunId: row.id,
+    });
     bus.publish({
       streamKind: 'notification',
       streamId: request.user.id,
@@ -186,8 +198,15 @@ export function registerWorkflowRoutes(app: FastifyInstance, deps: WorkflowRoute
     // Reconcile with upstream for output/error fields we don't mirror.
     try {
       const run = await coasty.getWorkflowRun(row.coasty_workflow_run_id);
-      return { ...workflowRunToDto(row), status: run.status, output: run.output, error: run.error,
-        spentCents: run.spent_cents, awaitingStepId: run.awaiting_step_id, awaitingReason: run.awaiting_human_reason };
+      return {
+        ...workflowRunToDto(row),
+        status: run.status,
+        output: run.output,
+        error: run.error,
+        spentCents: run.spent_cents,
+        awaitingStepId: run.awaiting_step_id,
+        awaitingReason: run.awaiting_human_reason,
+      };
     } catch {
       return workflowRunToDto(row);
     }
@@ -220,7 +239,13 @@ export function registerWorkflowRoutes(app: FastifyInstance, deps: WorkflowRoute
     const { id } = request.params as { id: string };
     const row = db.getWorkflowRun(request.user.id, id);
     if (!row) throw notFound('Workflow run');
-    streamSse(request, reply, { db, bus, streamKind: 'workflow-run', streamId: id, closeOnType: 'done' });
+    streamSse(request, reply, {
+      db,
+      bus,
+      streamKind: 'workflow-run',
+      streamId: id,
+      closeOnType: 'done',
+    });
   });
 
   // ── dynamic id routes AFTER the static /runs subtree ───────────────────────

@@ -16,7 +16,12 @@ describe('RunsScreen', () => {
         return jsonRes({
           runs: [
             makeRun({ id: 'r_1', status: 'running', task: 'Export the report' }),
-            makeRun({ id: 'r_2', status: 'succeeded', task: 'Book the meeting room', costCents: 80 }),
+            makeRun({
+              id: 'r_2',
+              status: 'succeeded',
+              task: 'Book the meeting room',
+              costCents: 80,
+            }),
           ],
         });
       }

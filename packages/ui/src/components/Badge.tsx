@@ -17,7 +17,10 @@ export interface BadgeProps {
 /** Small status pill used for run states, machine states, and counts. */
 export function Badge({ tone = 'neutral', children, className, ...rest }: BadgeProps) {
   return (
-    <span className={cx('oc-badge', tone !== 'neutral' && `oc-badge--${tone}`, className)} {...rest}>
+    <span
+      className={cx('oc-badge', tone !== 'neutral' && `oc-badge--${tone}`, className)}
+      {...rest}
+    >
       {children}
     </span>
   );

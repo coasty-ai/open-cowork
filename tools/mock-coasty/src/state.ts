@@ -210,7 +210,12 @@ export class MockState {
   }
 
   /** Deliver a signed webhook (one retry), recording every attempt. */
-  async deliverWebhook(url: string, secret: string, event: string, payload: Record<string, unknown>): Promise<void> {
+  async deliverWebhook(
+    url: string,
+    secret: string,
+    event: string,
+    payload: Record<string, unknown>,
+  ): Promise<void> {
     const body = JSON.stringify({ event, ...payload, created_at: nowIso() });
     const headers = {
       'Content-Type': 'application/json',

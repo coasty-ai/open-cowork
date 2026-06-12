@@ -138,7 +138,10 @@ export class CoastyClient {
   private async attempt<T>(opts: InternalRequestOptions): Promise<T> {
     const url = this.buildUrl(opts.path, opts.query);
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(new CoastyTimeoutError(this.timeoutMs)), this.timeoutMs);
+    const timer = setTimeout(
+      () => controller.abort(new CoastyTimeoutError(this.timeoutMs)),
+      this.timeoutMs,
+    );
     const onOuterAbort = () => controller.abort(opts.signal?.reason);
     opts.signal?.addEventListener('abort', onOuterAbort, { once: true });
     if (opts.signal?.aborted) controller.abort(opts.signal.reason);
@@ -197,7 +200,10 @@ export class CoastyClient {
     return this.request({ method: 'POST', path: '/predict', body: req, ...extras });
   }
 
-  createSession(req: CreateSessionRequest = {}, extras?: RequestExtras): Promise<CreateSessionResponse> {
+  createSession(
+    req: CreateSessionRequest = {},
+    extras?: RequestExtras,
+  ): Promise<CreateSessionResponse> {
     return this.request({ method: 'POST', path: '/sessions', body: req, ...extras });
   }
 
@@ -214,20 +220,39 @@ export class CoastyClient {
     });
   }
 
-  resetSession(sessionId: string, extras?: RequestExtras): Promise<{ status: string; session_id: string }> {
-    return this.request({ method: 'POST', path: `/sessions/${encodeURIComponent(sessionId)}/reset`, body: {}, ...extras });
+  resetSession(
+    sessionId: string,
+    extras?: RequestExtras,
+  ): Promise<{ status: string; session_id: string }> {
+    return this.request({
+      method: 'POST',
+      path: `/sessions/${encodeURIComponent(sessionId)}/reset`,
+      body: {},
+      ...extras,
+    });
   }
 
   getSession(sessionId: string, extras?: RequestExtras): Promise<SessionInfoResponse> {
-    return this.request({ method: 'GET', path: `/sessions/${encodeURIComponent(sessionId)}`, ...extras });
+    return this.request({
+      method: 'GET',
+      path: `/sessions/${encodeURIComponent(sessionId)}`,
+      ...extras,
+    });
   }
 
   listSessions(extras?: RequestExtras): Promise<{ sessions: SessionInfoResponse[] }> {
     return this.request({ method: 'GET', path: '/sessions', ...extras });
   }
 
-  deleteSession(sessionId: string, extras?: RequestExtras): Promise<{ status: string; session_id: string }> {
-    return this.request({ method: 'DELETE', path: `/sessions/${encodeURIComponent(sessionId)}`, ...extras });
+  deleteSession(
+    sessionId: string,
+    extras?: RequestExtras,
+  ): Promise<{ status: string; session_id: string }> {
+    return this.request({
+      method: 'DELETE',
+      path: `/sessions/${encodeURIComponent(sessionId)}`,
+      ...extras,
+    });
   }
 
   ground(req: GroundRequest, extras?: RequestExtras): Promise<GroundResponse> {
@@ -256,7 +281,12 @@ export class CoastyClient {
     opts: { status?: RunStatus; limit?: number } = {},
     extras?: RequestExtras,
   ): Promise<ListResponse<Run>> {
-    return this.request({ method: 'GET', path: '/runs', query: { status: opts.status, limit: opts.limit }, ...extras });
+    return this.request({
+      method: 'GET',
+      path: '/runs',
+      query: { status: opts.status, limit: opts.limit },
+      ...extras,
+    });
   }
 
   getRun(runId: string, extras?: RequestExtras): Promise<Run> {
@@ -264,11 +294,21 @@ export class CoastyClient {
   }
 
   cancelRun(runId: string, extras?: RequestExtras): Promise<Run> {
-    return this.request({ method: 'POST', path: `/runs/${encodeURIComponent(runId)}/cancel`, body: {}, ...extras });
+    return this.request({
+      method: 'POST',
+      path: `/runs/${encodeURIComponent(runId)}/cancel`,
+      body: {},
+      ...extras,
+    });
   }
 
   resumeRun(runId: string, req: ResumeRunRequest = {}, extras?: RequestExtras): Promise<Run> {
-    return this.request({ method: 'POST', path: `/runs/${encodeURIComponent(runId)}/resume`, body: req, ...extras });
+    return this.request({
+      method: 'POST',
+      path: `/runs/${encodeURIComponent(runId)}/resume`,
+      body: req,
+      ...extras,
+    });
   }
 
   /** Stream run events with automatic reconnect via `Last-Event-ID`. */
@@ -282,20 +322,48 @@ export class CoastyClient {
     return this.request({ method: 'POST', path: '/workflows', body: req, ...extras });
   }
 
-  listWorkflows(opts: { limit?: number } = {}, extras?: RequestExtras): Promise<ListResponse<Workflow>> {
-    return this.request({ method: 'GET', path: '/workflows', query: { limit: opts.limit }, ...extras });
+  listWorkflows(
+    opts: { limit?: number } = {},
+    extras?: RequestExtras,
+  ): Promise<ListResponse<Workflow>> {
+    return this.request({
+      method: 'GET',
+      path: '/workflows',
+      query: { limit: opts.limit },
+      ...extras,
+    });
   }
 
   getWorkflow(workflowId: string, extras?: RequestExtras): Promise<Workflow> {
-    return this.request({ method: 'GET', path: `/workflows/${encodeURIComponent(workflowId)}`, ...extras });
+    return this.request({
+      method: 'GET',
+      path: `/workflows/${encodeURIComponent(workflowId)}`,
+      ...extras,
+    });
   }
 
-  updateWorkflow(workflowId: string, req: UpdateWorkflowRequest, extras?: RequestExtras): Promise<Workflow> {
-    return this.request({ method: 'PUT', path: `/workflows/${encodeURIComponent(workflowId)}`, body: req, ...extras });
+  updateWorkflow(
+    workflowId: string,
+    req: UpdateWorkflowRequest,
+    extras?: RequestExtras,
+  ): Promise<Workflow> {
+    return this.request({
+      method: 'PUT',
+      path: `/workflows/${encodeURIComponent(workflowId)}`,
+      body: req,
+      ...extras,
+    });
   }
 
-  deleteWorkflow(workflowId: string, extras?: RequestExtras): Promise<Workflow | { status: string }> {
-    return this.request({ method: 'DELETE', path: `/workflows/${encodeURIComponent(workflowId)}`, ...extras });
+  deleteWorkflow(
+    workflowId: string,
+    extras?: RequestExtras,
+  ): Promise<Workflow | { status: string }> {
+    return this.request({
+      method: 'DELETE',
+      path: `/workflows/${encodeURIComponent(workflowId)}`,
+      ...extras,
+    });
   }
 
   startWorkflowRun(
@@ -311,7 +379,10 @@ export class CoastyClient {
     });
   }
 
-  startAdhocWorkflowRun(req: StartWorkflowRunRequest, extras?: RequestExtras): Promise<WorkflowRun> {
+  startAdhocWorkflowRun(
+    req: StartWorkflowRunRequest,
+    extras?: RequestExtras,
+  ): Promise<WorkflowRun> {
     return this.request({ method: 'POST', path: '/workflows/runs', body: req, ...extras });
   }
 
@@ -328,7 +399,11 @@ export class CoastyClient {
   }
 
   getWorkflowRun(workflowRunId: string, extras?: RequestExtras): Promise<WorkflowRun> {
-    return this.request({ method: 'GET', path: `/workflows/runs/${encodeURIComponent(workflowRunId)}`, ...extras });
+    return this.request({
+      method: 'GET',
+      path: `/workflows/runs/${encodeURIComponent(workflowRunId)}`,
+      ...extras,
+    });
   }
 
   cancelWorkflowRun(workflowRunId: string, extras?: RequestExtras): Promise<WorkflowRun> {
@@ -353,7 +428,10 @@ export class CoastyClient {
     });
   }
 
-  streamWorkflowRunEvents(workflowRunId: string, opts: StreamOptions = {}): AsyncGenerator<RunEvent> {
+  streamWorkflowRunEvents(
+    workflowRunId: string,
+    opts: StreamOptions = {},
+  ): AsyncGenerator<RunEvent> {
     return this.streamEvents(`/workflows/runs/${encodeURIComponent(workflowRunId)}/events`, opts);
   }
 
@@ -363,12 +441,24 @@ export class CoastyClient {
     return this.request({ method: 'POST', path: '/machines', body: req, ...extras });
   }
 
-  listMachines(opts: { limit?: number } = {}, extras?: RequestExtras): Promise<ListResponse<Machine> | { machines: Machine[] }> {
-    return this.request({ method: 'GET', path: '/machines', query: { limit: opts.limit }, ...extras });
+  listMachines(
+    opts: { limit?: number } = {},
+    extras?: RequestExtras,
+  ): Promise<ListResponse<Machine> | { machines: Machine[] }> {
+    return this.request({
+      method: 'GET',
+      path: '/machines',
+      query: { limit: opts.limit },
+      ...extras,
+    });
   }
 
   getMachine(machineId: string, extras?: RequestExtras): Promise<Machine | { machine: Machine }> {
-    return this.request({ method: 'GET', path: `/machines/${encodeURIComponent(machineId)}`, ...extras });
+    return this.request({
+      method: 'GET',
+      path: `/machines/${encodeURIComponent(machineId)}`,
+      ...extras,
+    });
   }
 
   machinePricing(extras?: RequestExtras): Promise<MachinePricingResponse> {
@@ -376,22 +466,45 @@ export class CoastyClient {
   }
 
   startMachine(machineId: string, extras?: RequestExtras): Promise<MachineLifecycleResponse> {
-    return this.request({ method: 'POST', path: `/machines/${encodeURIComponent(machineId)}/start`, body: {}, ...extras });
+    return this.request({
+      method: 'POST',
+      path: `/machines/${encodeURIComponent(machineId)}/start`,
+      body: {},
+      ...extras,
+    });
   }
 
   stopMachine(machineId: string, extras?: RequestExtras): Promise<MachineLifecycleResponse> {
-    return this.request({ method: 'POST', path: `/machines/${encodeURIComponent(machineId)}/stop`, body: {}, ...extras });
+    return this.request({
+      method: 'POST',
+      path: `/machines/${encodeURIComponent(machineId)}/stop`,
+      body: {},
+      ...extras,
+    });
   }
 
   restartMachine(machineId: string, extras?: RequestExtras): Promise<MachineLifecycleResponse> {
-    return this.request({ method: 'POST', path: `/machines/${encodeURIComponent(machineId)}/restart`, body: {}, ...extras });
+    return this.request({
+      method: 'POST',
+      path: `/machines/${encodeURIComponent(machineId)}/restart`,
+      body: {},
+      ...extras,
+    });
   }
 
   terminateMachine(machineId: string, extras?: RequestExtras): Promise<MachineLifecycleResponse> {
-    return this.request({ method: 'DELETE', path: `/machines/${encodeURIComponent(machineId)}`, ...extras });
+    return this.request({
+      method: 'DELETE',
+      path: `/machines/${encodeURIComponent(machineId)}`,
+      ...extras,
+    });
   }
 
-  patchMachineTtl(machineId: string, ttlMinutes: number, extras?: RequestExtras): Promise<Machine | MachineLifecycleResponse> {
+  patchMachineTtl(
+    machineId: string,
+    ttlMinutes: number,
+    extras?: RequestExtras,
+  ): Promise<Machine | MachineLifecycleResponse> {
     return this.request({
       method: 'PATCH',
       path: `/machines/${encodeURIComponent(machineId)}`,
@@ -401,19 +514,41 @@ export class CoastyClient {
   }
 
   snapshotMachine(machineId: string, extras?: RequestExtras): Promise<SnapshotResponse> {
-    return this.request({ method: 'POST', path: `/machines/${encodeURIComponent(machineId)}/snapshot`, body: {}, ...extras });
+    return this.request({
+      method: 'POST',
+      path: `/machines/${encodeURIComponent(machineId)}/snapshot`,
+      body: {},
+      ...extras,
+    });
   }
 
   machineScreenshot(machineId: string, extras?: RequestExtras): Promise<MachineScreenshotResponse> {
-    return this.request({ method: 'GET', path: `/machines/${encodeURIComponent(machineId)}/screenshot`, ...extras });
+    return this.request({
+      method: 'GET',
+      path: `/machines/${encodeURIComponent(machineId)}/screenshot`,
+      ...extras,
+    });
   }
 
   machineConnection(machineId: string, extras?: RequestExtras): Promise<MachineConnectionDetails> {
-    return this.request({ method: 'GET', path: `/machines/${encodeURIComponent(machineId)}/connection`, ...extras });
+    return this.request({
+      method: 'GET',
+      path: `/machines/${encodeURIComponent(machineId)}/connection`,
+      ...extras,
+    });
   }
 
-  machineAction(machineId: string, req: MachineActionRequest, extras?: RequestExtras): Promise<MachineActionResponse> {
-    return this.request({ method: 'POST', path: `/machines/${encodeURIComponent(machineId)}/actions`, body: req, ...extras });
+  machineAction(
+    machineId: string,
+    req: MachineActionRequest,
+    extras?: RequestExtras,
+  ): Promise<MachineActionResponse> {
+    return this.request({
+      method: 'POST',
+      path: `/machines/${encodeURIComponent(machineId)}/actions`,
+      body: req,
+      ...extras,
+    });
   }
 
   machineActionsBatch(
@@ -443,8 +578,17 @@ export class CoastyClient {
     });
   }
 
-  machineTerminal(machineId: string, req: MachineTerminalRequest, extras?: RequestExtras): Promise<MachineTerminalResponse> {
-    return this.request({ method: 'POST', path: `/machines/${encodeURIComponent(machineId)}/terminal`, body: req, ...extras });
+  machineTerminal(
+    machineId: string,
+    req: MachineTerminalRequest,
+    extras?: RequestExtras,
+  ): Promise<MachineTerminalResponse> {
+    return this.request({
+      method: 'POST',
+      path: `/machines/${encodeURIComponent(machineId)}/terminal`,
+      body: req,
+      ...extras,
+    });
   }
 
   machineFileOp(

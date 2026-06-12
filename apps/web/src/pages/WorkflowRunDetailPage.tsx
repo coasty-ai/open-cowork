@@ -101,7 +101,9 @@ export function WorkflowRunDetailPage() {
         <ApprovalBar
           reason={
             run.awaitingReason ??
-            (run.awaitingStepId ? `Step '${run.awaitingStepId}' needs your approval.` : 'Approval required.')
+            (run.awaitingStepId
+              ? `Step '${run.awaitingStepId}' needs your approval.`
+              : 'Approval required.')
           }
           pending={pending}
           onApprove={(note) => void decide(true, note)}
@@ -111,9 +113,14 @@ export function WorkflowRunDetailPage() {
 
       <Card>
         <h2 style={{ marginTop: 0, fontSize: '1rem' }}>
-          Timeline {connected ? <span style={{ color: 'var(--color-success)' }}>· live</span> : null}
+          Timeline{' '}
+          {connected ? <span style={{ color: 'var(--color-success)' }}>· live</span> : null}
         </h2>
-        <EventTimeline events={timeline} loading={events.length === 0 && active} emptyTitle="No events yet" />
+        <EventTimeline
+          events={timeline}
+          loading={events.length === 0 && active}
+          emptyTitle="No events yet"
+        />
       </Card>
 
       {TERMINAL.has(run.status) ? (

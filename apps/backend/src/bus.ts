@@ -25,7 +25,8 @@ export class EventBus {
   }
 
   publish(event: BusEvent): void {
-    for (const l of this.streamListeners.get(this.streamKey(event.streamKind, event.streamId)) ?? []) {
+    for (const l of this.streamListeners.get(this.streamKey(event.streamKind, event.streamId)) ??
+      []) {
       try {
         l(event);
       } catch {

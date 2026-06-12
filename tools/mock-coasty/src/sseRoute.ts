@@ -5,7 +5,12 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { MockState, StoredEvent } from './state';
 
-export function streamEvents(state: MockState, streamId: string, request: FastifyRequest, reply: FastifyReply): void {
+export function streamEvents(
+  state: MockState,
+  streamId: string,
+  request: FastifyRequest,
+  reply: FastifyReply,
+): void {
   const header = request.headers['last-event-id'];
   const after = Number(
     (Array.isArray(header) ? header[0] : header) ??
@@ -26,7 +31,9 @@ export function streamEvents(state: MockState, streamId: string, request: Fastif
 
   const write = (event: StoredEvent): void => {
     if (closed || event.seq <= lastSent) return;
-    reply.raw.write(`id: ${event.seq}\nevent: ${event.type}\ndata: ${JSON.stringify(event.data)}\n\n`);
+    reply.raw.write(
+      `id: ${event.seq}\nevent: ${event.type}\ndata: ${JSON.stringify(event.data)}\n\n`,
+    );
     lastSent = event.seq;
     if (event.type === 'done') end();
   };

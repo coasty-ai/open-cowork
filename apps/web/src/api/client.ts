@@ -196,7 +196,10 @@ export class BackendClient {
     return this.request(`/api/runs/${id}/cancel`, { method: 'POST', body: '{}' });
   }
   resumeRun(id: string, note?: string): Promise<RunDto> {
-    return this.request(`/api/runs/${id}/resume`, { method: 'POST', body: JSON.stringify({ note }) });
+    return this.request(`/api/runs/${id}/resume`, {
+      method: 'POST',
+      body: JSON.stringify({ note }),
+    });
   }
 
   // machines
@@ -223,7 +226,9 @@ export class BackendClient {
   snapshotMachine(id: string): Promise<unknown> {
     return this.request(`/api/machines/${id}/snapshot`, { method: 'POST', body: '{}' });
   }
-  machineScreenshot(id: string): Promise<{ image_b64: string; width: number; height: number; captured_at: string }> {
+  machineScreenshot(
+    id: string,
+  ): Promise<{ image_b64: string; width: number; height: number; captured_at: string }> {
     return this.request(`/api/machines/${id}/screenshot`);
   }
 
@@ -250,13 +255,24 @@ export class BackendClient {
     issues: { path: string; code: string; message: string }[];
     estimate: { typicalCents: number; worstCaseCents: number } | null;
   }> {
-    return this.request('/api/workflows/validate', { method: 'POST', body: JSON.stringify({ definition }) });
+    return this.request('/api/workflows/validate', {
+      method: 'POST',
+      body: JSON.stringify({ definition }),
+    });
   }
   startWorkflowRun(
     workflowId: string,
-    body: { inputs?: Record<string, unknown>; machineId?: string; budgetCents: number; confirmCostCents: number },
+    body: {
+      inputs?: Record<string, unknown>;
+      machineId?: string;
+      budgetCents: number;
+      confirmCostCents: number;
+    },
   ): Promise<WorkflowRunDto> {
-    return this.request(`/api/workflows/${workflowId}/runs`, { method: 'POST', body: JSON.stringify(body) });
+    return this.request(`/api/workflows/${workflowId}/runs`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
   }
   listWorkflowRuns(): Promise<{ runs: WorkflowRunDto[] }> {
     return this.request('/api/workflows/runs');

@@ -9,7 +9,12 @@ describe('webhook HMAC vectors', () => {
     const now = 1_750_000_000;
     const header = await signWebhookPayload({ secret: SECRET, body: BODY, timestamp: now });
     expect(header).toMatch(/^t=\d+,v1=[0-9a-f]{64}$/);
-    const result = await verifyWebhookSignature({ body: BODY, header, secret: SECRET, now: () => now });
+    const result = await verifyWebhookSignature({
+      body: BODY,
+      header,
+      secret: SECRET,
+      now: () => now,
+    });
     expect(result).toEqual({ valid: true, timestamp: now });
   });
 
@@ -25,7 +30,12 @@ describe('webhook HMAC vectors', () => {
     const now = 1_750_000_000;
     const header = await signWebhookPayload({ secret: SECRET, body: BODY, timestamp: now });
     const tampered = BODY.replace('succeeded', 'failed');
-    const result = await verifyWebhookSignature({ body: tampered, header, secret: SECRET, now: () => now });
+    const result = await verifyWebhookSignature({
+      body: tampered,
+      header,
+      secret: SECRET,
+      now: () => now,
+    });
     expect(result.valid).toBe(false);
     expect(result.reason).toBe('bad_signature');
   });
@@ -33,7 +43,12 @@ describe('webhook HMAC vectors', () => {
   it('rejects the wrong secret', async () => {
     const now = 1_750_000_000;
     const header = await signWebhookPayload({ secret: SECRET, body: BODY, timestamp: now });
-    const result = await verifyWebhookSignature({ body: BODY, header, secret: 'whsec_other', now: () => now });
+    const result = await verifyWebhookSignature({
+      body: BODY,
+      header,
+      secret: 'whsec_other',
+      now: () => now,
+    });
     expect(result).toMatchObject({ valid: false, reason: 'bad_signature' });
   });
 
@@ -52,14 +67,24 @@ describe('webhook HMAC vectors', () => {
   it('accepts exactly at the tolerance boundary', async () => {
     const t = 1_750_000_000;
     const header = await signWebhookPayload({ secret: SECRET, body: BODY, timestamp: t });
-    const result = await verifyWebhookSignature({ body: BODY, header, secret: SECRET, now: () => t + 300 });
+    const result = await verifyWebhookSignature({
+      body: BODY,
+      header,
+      secret: SECRET,
+      now: () => t + 300,
+    });
     expect(result.valid).toBe(true);
   });
 
   it('rejects timestamps too far in the future (clock-skew attack)', async () => {
     const t = 1_750_000_000;
     const header = await signWebhookPayload({ secret: SECRET, body: BODY, timestamp: t + 9999 });
-    const result = await verifyWebhookSignature({ body: BODY, header, secret: SECRET, now: () => t });
+    const result = await verifyWebhookSignature({
+      body: BODY,
+      header,
+      secret: SECRET,
+      now: () => t,
+    });
     expect(result).toMatchObject({ valid: false, reason: 'future_timestamp' });
   });
 
@@ -86,7 +111,12 @@ describe('webhook HMAC vectors', () => {
     ['v1 not hex', 't=123,v1=' + 'z'.repeat(64)],
     ['garbage', 'utterly-not-a-signature'],
   ])('rejects malformed header: %s', async (_name, header) => {
-    const result = await verifyWebhookSignature({ body: BODY, header, secret: SECRET, now: () => 123 });
+    const result = await verifyWebhookSignature({
+      body: BODY,
+      header,
+      secret: SECRET,
+      now: () => 123,
+    });
     expect(result).toMatchObject({ valid: false, reason: 'malformed_header' });
   });
 
@@ -95,14 +125,24 @@ describe('webhook HMAC vectors', () => {
     const good = await signWebhookPayload({ secret: SECRET, body: BODY, timestamp: now });
     const goodV1 = good.split('v1=')[1]!;
     const header = `t=${now},v1=${'0'.repeat(64)},v1=${goodV1}`;
-    const result = await verifyWebhookSignature({ body: BODY, header, secret: SECRET, now: () => now });
+    const result = await verifyWebhookSignature({
+      body: BODY,
+      header,
+      secret: SECRET,
+      now: () => now,
+    });
     expect(result.valid).toBe(true);
   });
 
   it('rejects when no v1 entry matches', async () => {
     const now = 1_750_000_000;
     const header = `t=${now},v1=${'0'.repeat(64)},v1=${'1'.repeat(64)}`;
-    const result = await verifyWebhookSignature({ body: BODY, header, secret: SECRET, now: () => now });
+    const result = await verifyWebhookSignature({
+      body: BODY,
+      header,
+      secret: SECRET,
+      now: () => now,
+    });
     expect(result).toMatchObject({ valid: false, reason: 'bad_signature' });
   });
 });

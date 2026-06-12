@@ -38,7 +38,12 @@ async function login(page: Page): Promise<void> {
 async function ensureMachine(page: Page): Promise<void> {
   await page.getByRole('link', { name: /machines/i }).click();
   await expect(page.getByRole('heading', { name: /^machines$/i })).toBeVisible();
-  if (await page.getByText(/no machines/i).isVisible().catch(() => false)) {
+  if (
+    await page
+      .getByText(/no machines/i)
+      .isVisible()
+      .catch(() => false)
+  ) {
     await page.getByRole('button', { name: /provision machine/i }).click();
     const dialog = page.getByRole('dialog');
     await expect(dialog).toContainText('$0.05/hour');
@@ -98,7 +103,9 @@ test.describe('full delegate → watch → approve → complete journey', () => 
     assertNoLeaks();
   });
 
-  test('workflow with approval gate: build → validate → run → approve → output', async ({ page }) => {
+  test('workflow with approval gate: build → validate → run → approve → output', async ({
+    page,
+  }) => {
     const assertNoLeaks = watchForSecrets(page);
     await login(page);
     await ensureMachine(page);
@@ -134,7 +141,9 @@ test.describe('full delegate → watch → approve → complete journey', () => 
     assertNoLeaks();
   });
 
-  test('budget safety: oversized run is refused with a server-side suggestion', async ({ page }) => {
+  test('budget safety: oversized run is refused with a server-side suggestion', async ({
+    page,
+  }) => {
     await login(page);
     await ensureMachine(page);
     // Drive the API directly from the browser session (same token the SPA uses)

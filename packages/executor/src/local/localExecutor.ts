@@ -93,7 +93,11 @@ export class LocalExecutor implements Executor {
       case 'raw':
         // Executing model-generated code on the user's own machine is out of
         // the question without an explicit, audited opt-in. Fail loudly.
-        throw new UnsupportedActionError('raw', this.kind, 'raw code execution is disabled by policy');
+        throw new UnsupportedActionError(
+          'raw',
+          this.kind,
+          'raw code execution is disabled by policy',
+        );
       default: {
         const unknown = a as { action_type: string };
         throw new UnsupportedActionError(unknown.action_type, this.kind);

@@ -103,7 +103,10 @@ export interface RunEstimate {
 }
 
 /** Estimate a run's cost range from its step cap. */
-export function runEstimateCents(opts: { cuaVersion?: CuaVersion; maxSteps?: number }): RunEstimate {
+export function runEstimateCents(opts: {
+  cuaVersion?: CuaVersion;
+  maxSteps?: number;
+}): RunEstimate {
   const perStep = runStepCents(opts.cuaVersion ?? 'v3');
   const maxSteps = opts.maxSteps ?? 50;
   return { perStepCents: perStep, minCents: perStep, maxCents: perStep * maxSteps };
@@ -166,7 +169,9 @@ export function workflowEstimateCents(
       }
       case 'loop': {
         const body = countSteps(step.body);
-        const typicalIters = step.count ?? Math.min(assumedWhileIterations, step.max_iterations ?? assumedWhileIterations);
+        const typicalIters =
+          step.count ??
+          Math.min(assumedWhileIterations, step.max_iterations ?? assumedWhileIterations);
         const worstIters = step.count ?? step.max_iterations ?? assumedWhileIterations;
         return {
           typicalTasks: body.typicalTasks * typicalIters,
@@ -207,10 +212,15 @@ export function workflowEstimateCents(
 }
 
 /** Machine runtime rate, cents/hour, per documented table. */
-export function machineRuntimeCentsPerHour(os: MachineOsType, state: 'running' | 'stopped' | 'terminated' | 'creating'): number {
+export function machineRuntimeCentsPerHour(
+  os: MachineOsType,
+  state: 'running' | 'stopped' | 'terminated' | 'creating',
+): number {
   if (state === 'terminated' || state === 'creating') return 0;
   if (state === 'stopped') return PRICING.machineHourly.stopped;
-  return os === 'windows' ? PRICING.machineHourly.windowsRunning : PRICING.machineHourly.linuxRunning;
+  return os === 'windows'
+    ? PRICING.machineHourly.windowsRunning
+    : PRICING.machineHourly.linuxRunning;
 }
 
 /** Format integer cents as a dollar string: 5 → '$0.05', 123 → '$1.23'. */

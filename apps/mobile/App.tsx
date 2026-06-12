@@ -55,9 +55,7 @@ function Shell() {
             onPress={() => setTab(t.key)}
             style={styles.tabItem}
           >
-            <Text style={[styles.tabLabel, tab === t.key && styles.tabLabelActive]}>
-              {t.label}
-            </Text>
+            <Text style={[styles.tabLabel, tab === t.key && styles.tabLabelActive]}>{t.label}</Text>
           </Pressable>
         ))}
       </View>

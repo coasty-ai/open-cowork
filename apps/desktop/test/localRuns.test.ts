@@ -79,7 +79,8 @@ function fakeBackend(opts: FakeBackendOpts = {}) {
     const body = init?.body ? JSON.parse(String(init.body)) : undefined;
     requests.push({ method, path, body, headers: (init?.headers ?? {}) as Record<string, string> });
 
-    if (method === 'POST' && path === '/api/local-runs') return json({ id: 'r_local1', status: 'running' }, 201);
+    if (method === 'POST' && path === '/api/local-runs')
+      return json({ id: 'r_local1', status: 'running' }, 201);
     if (method === 'POST' && path === '/api/proxy/sessions') {
       return json({
         session_id: 'sess_1',
@@ -97,8 +98,10 @@ function fakeBackend(opts: FakeBackendOpts = {}) {
     if (method === 'POST' && path === '/api/local-runs/r_local1/events') {
       return json({ appended: body.events.length });
     }
-    if (method === 'PATCH' && path === '/api/local-runs/r_local1') return json({ id: 'r_local1', status: body.status });
-    if (method === 'DELETE' && path === '/api/proxy/sessions/sess_1') return json({ deleted: true });
+    if (method === 'PATCH' && path === '/api/local-runs/r_local1')
+      return json({ id: 'r_local1', status: body.status });
+    if (method === 'DELETE' && path === '/api/proxy/sessions/sess_1')
+      return json({ deleted: true });
     return json({ error: { code: 'NOT_FOUND', message: `unmatched ${method} ${path}` } }, 404);
   }) as typeof fetch;
 
@@ -187,7 +190,9 @@ describe('LocalRunManager — happy path', () => {
     expect(steps).toEqual([1, 2]);
     // screenshots are never uploaded — only a small text marker per step
     expect(JSON.stringify(events)).not.toContain('A'.repeat(200));
-    expect(events.filter((e) => e.type === 'text' && String(e.data.text).includes('screenshot'))).toHaveLength(2);
+    expect(
+      events.filter((e) => e.type === 'text' && String(e.data.text).includes('screenshot')),
+    ).toHaveLength(2);
 
     // final PATCH closes the run with status + accumulated cost
     const patch = backend.requests.find((r) => r.method === 'PATCH')!;
@@ -237,7 +242,11 @@ describe('LocalRunManager — cancel', () => {
     const patch = backend.requests.find((r) => r.method === 'PATCH')!;
     expect(patch.body.status).toBe('cancelled');
     // session cleaned up even on cancellation
-    expect(backend.requests.some((r) => r.method === 'DELETE' && r.path === '/api/proxy/sessions/sess_1')).toBe(true);
+    expect(
+      backend.requests.some(
+        (r) => r.method === 'DELETE' && r.path === '/api/proxy/sessions/sess_1',
+      ),
+    ).toBe(true);
     expect(state.disposed).toBe(true);
     // cancel again when idle is a no-op
     await expect(manager.cancel()).resolves.toBeUndefined();
@@ -336,10 +345,14 @@ describe('LocalRunManager — event batching', () => {
     expect(events[events.length - 1]!.type).toBe('done');
 
     // order preserved across batch boundaries: steps_completed strictly increases
-    const stepValues = events.filter((e) => e.type === 'step').map((e) => e.data.steps_completed as number);
+    const stepValues = events
+      .filter((e) => e.type === 'step')
+      .map((e) => e.data.steps_completed as number);
     expect(stepValues).toEqual([1, 2, 3, 4, 5]);
     // billing strictly accumulates in order too
-    const billing = events.filter((e) => e.type === 'billing').map((e) => e.data.cost_cents as number);
+    const billing = events
+      .filter((e) => e.type === 'billing')
+      .map((e) => e.data.cost_cents as number);
     expect(billing).toEqual([4, 8, 12, 16, 20]);
   });
 

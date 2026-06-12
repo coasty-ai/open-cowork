@@ -240,7 +240,9 @@ export class Db {
     const limit = Math.min(Math.max(opts.limit ?? 50, 1), 200);
     if (opts.status) {
       return this.sql
-        .prepare('SELECT * FROM runs WHERE user_id = ? AND status = ? ORDER BY created_at DESC LIMIT ?')
+        .prepare(
+          'SELECT * FROM runs WHERE user_id = ? AND status = ? ORDER BY created_at DESC LIMIT ?',
+        )
         .all(userId, opts.status, limit) as unknown as RunRow[];
     }
     return this.sql
@@ -267,7 +269,9 @@ export class Db {
     if (fields.length === 0) return;
     const sets = fields.map((f) => `${f} = ?`).join(', ');
     const values = fields.map((f) => patch[f] ?? null);
-    this.sql.prepare(`UPDATE runs SET ${sets} WHERE id = ?`).run(...(values as (string | number | null)[]), id);
+    this.sql
+      .prepare(`UPDATE runs SET ${sets} WHERE id = ?`)
+      .run(...(values as (string | number | null)[]), id);
   }
 
   /** Total spend on runs for a user in the current calendar month (UTC). */
@@ -325,7 +329,9 @@ export class Db {
 
   updateWorkflowRun(
     id: string,
-    patch: Partial<Pick<WorkflowRunRow, 'status' | 'spent_cents' | 'awaiting_step_id' | 'finished_at'>>,
+    patch: Partial<
+      Pick<WorkflowRunRow, 'status' | 'spent_cents' | 'awaiting_step_id' | 'finished_at'>
+    >,
   ): void {
     const fields = Object.keys(patch) as (keyof typeof patch)[];
     if (fields.length === 0) return;
@@ -341,7 +347,9 @@ export class Db {
   /** Append an event; seq is assigned atomically per stream. Returns the seq. */
   appendEvent(streamKind: string, streamId: string, type: string, data: unknown): number {
     const row = this.sql
-      .prepare('SELECT COALESCE(MAX(seq), 0) AS maxSeq FROM events WHERE stream_kind = ? AND stream_id = ?')
+      .prepare(
+        'SELECT COALESCE(MAX(seq), 0) AS maxSeq FROM events WHERE stream_kind = ? AND stream_id = ?',
+      )
       .get(streamKind, streamId) as { maxSeq: number };
     const seq = row.maxSeq + 1;
     this.sql
@@ -353,7 +361,13 @@ export class Db {
   }
 
   /** Insert an event with a KNOWN seq (mirroring upstream); ignores duplicates. */
-  ingestEvent(streamKind: string, streamId: string, seq: number, type: string, data: unknown): boolean {
+  ingestEvent(
+    streamKind: string,
+    streamId: string,
+    seq: number,
+    type: string,
+    data: unknown,
+  ): boolean {
     const result = this.sql
       .prepare(
         'INSERT OR IGNORE INTO events (stream_kind, stream_id, seq, type, data_json, created_at) VALUES (?, ?, ?, ?, ?, ?)',

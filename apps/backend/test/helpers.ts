@@ -46,7 +46,12 @@ export interface HarnessOptions {
 }
 
 export async function startHarness(opts: HarnessOptions = {}): Promise<Harness> {
-  const mock = createMockCoasty({ tickMs: 5, defaultRunSteps: 3, walletCents: opts.walletCents, ...opts.mockOpts });
+  const mock = createMockCoasty({
+    tickMs: 5,
+    defaultRunSteps: 3,
+    walletCents: opts.walletCents,
+    ...opts.mockOpts,
+  });
   await mock.app.listen({ port: 0, host: '127.0.0.1' });
   const mockPort = (mock.app.server.address() as { port: number }).port;
 
@@ -96,7 +101,11 @@ export async function startHarness(opts: HarnessOptions = {}): Promise<Harness> 
 }
 
 /** Poll until `fn` returns truthy or time runs out. */
-export async function pollUntil<T>(fn: () => Promise<T | undefined | false>, timeoutMs = 8000, stepMs = 25): Promise<T> {
+export async function pollUntil<T>(
+  fn: () => Promise<T | undefined | false>,
+  timeoutMs = 8000,
+  stepMs = 25,
+): Promise<T> {
   const deadline = Date.now() + timeoutMs;
   for (;;) {
     const value = await fn();

@@ -57,7 +57,9 @@ describe('predictCallCents', () => {
     expect(predictCallCents({ currentHd: true })).toBe(6);
   });
   it('+1 per HD trajectory image', () => {
-    expect(predictCallCents({ trajectoryCount: 2, trajectoryHdCount: 2, currentHd: true })).toBe(5 + 4 + 2 + 1);
+    expect(predictCallCents({ trajectoryCount: 2, trajectoryHdCount: 2, currentHd: true })).toBe(
+      5 + 4 + 2 + 1,
+    );
   });
   it('system prompt exactly 500 chars is free', () => {
     expect(predictCallCents({ systemPromptChars: 500 })).toBe(5);
@@ -76,7 +78,9 @@ describe('sessionStepCents', () => {
     expect(sessionStepCents()).toBe(4);
   });
   it('same surcharges as predict', () => {
-    expect(sessionStepCents({ cuaVersion: 'v1', trajectoryCount: 1, currentHd: true })).toBe(4 + 3 + 2 + 1);
+    expect(sessionStepCents({ cuaVersion: 'v1', trajectoryCount: 1, currentHd: true })).toBe(
+      4 + 3 + 2 + 1,
+    );
   });
 });
 
@@ -156,16 +160,16 @@ describe('workflowEstimateCents', () => {
 
   it('while loops use the assumed iteration bound', () => {
     const def: WorkflowDefinition = {
-      steps: [
-        { id: 'w', type: 'loop', while: { op: 'truthy', value: true }, body: [task('t')] },
-      ],
+      steps: [{ id: 'w', type: 'loop', while: { op: 'truthy', value: true }, body: [task('t')] }],
     };
     expect(workflowEstimateCents(def, { assumedWhileIterations: 7 }).taskCount).toBe(7);
   });
 
   it('v1 engine rates apply', () => {
     const def: WorkflowDefinition = { steps: [task('a')] };
-    expect(workflowEstimateCents(def, { cuaVersion: 'v1', assumedStepsPerTask: 2 }).typicalCents).toBe(16);
+    expect(
+      workflowEstimateCents(def, { cuaVersion: 'v1', assumedStepsPerTask: 2 }).typicalCents,
+    ).toBe(16);
   });
 });
 

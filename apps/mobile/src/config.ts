@@ -7,8 +7,7 @@
  */
 declare const process: { env: Record<string, string | undefined> };
 
-const fromEnv =
-  typeof process !== 'undefined' ? process.env.EXPO_PUBLIC_BACKEND_URL : undefined;
+const fromEnv = typeof process !== 'undefined' ? process.env.EXPO_PUBLIC_BACKEND_URL : undefined;
 
 export const BACKEND_URL: string = (
   fromEnv && fromEnv.length > 0 ? fromEnv : 'http://127.0.0.1:4000'

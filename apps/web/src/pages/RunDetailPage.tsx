@@ -46,11 +46,20 @@ export function RunDetailPage() {
   }, [refresh]);
 
   // Live events; status changes also trigger a run refresh.
-  const { events, connected, error: streamError } = useSse({
+  const {
+    events,
+    connected,
+    error: streamError,
+  } = useSse({
     client,
     path: id ? `/api/runs/${id}/events` : null,
     onEvent: (e) => {
-      if (e.type === 'status' || e.type === 'awaiting_human' || e.type === 'resumed' || e.type === 'done') {
+      if (
+        e.type === 'status' ||
+        e.type === 'awaiting_human' ||
+        e.type === 'resumed' ||
+        e.type === 'done'
+      ) {
         void refresh();
       }
     },
@@ -121,7 +130,12 @@ export function RunDetailPage() {
         <div className="row">
           <CostPill cents={run.costCents} variant="actual" />
           {active ? (
-            <Button variant="danger" size="sm" onClick={() => void cancel()} loading={actionPending}>
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={() => void cancel()}
+              loading={actionPending}
+            >
               Cancel run
             </Button>
           ) : null}
@@ -151,16 +165,24 @@ export function RunDetailPage() {
           />
           {run.kind === 'local' ? (
             <p style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>
-              Local runs stream their timeline from the desktop app; frames appear in the desktop window.
+              Local runs stream their timeline from the desktop app; frames appear in the desktop
+              window.
             </p>
           ) : null}
         </Card>
         <Card>
           <h2 style={{ marginTop: 0, fontSize: '1rem' }}>
-            Timeline {connected ? <span style={{ color: 'var(--color-success)' }}>· live</span> : null}
+            Timeline{' '}
+            {connected ? <span style={{ color: 'var(--color-success)' }}>· live</span> : null}
           </h2>
-          {streamError && events.length === 0 ? <ErrorState message={`Event stream: ${streamError}`} /> : null}
-          <EventTimeline events={timeline} loading={events.length === 0 && active} emptyTitle="No events yet" />
+          {streamError && events.length === 0 ? (
+            <ErrorState message={`Event stream: ${streamError}`} />
+          ) : null}
+          <EventTimeline
+            events={timeline}
+            loading={events.length === 0 && active}
+            emptyTitle="No events yet"
+          />
         </Card>
       </div>
 
@@ -172,7 +194,9 @@ export function RunDetailPage() {
             <CostPill cents={run.costCents} variant="actual" />.
           </p>
           {run.result?.summary ? <p className="notice">{run.result.summary}</p> : null}
-          {run.error?.message ? <ErrorState message={`${run.error.code ?? 'ERROR'}: ${run.error.message}`} /> : null}
+          {run.error?.message ? (
+            <ErrorState message={`${run.error.code ?? 'ERROR'}: ${run.error.message}`} />
+          ) : null}
         </Card>
       ) : null}
     </>

@@ -142,9 +142,9 @@ describe('withRetry', () => {
   it('aborts before an attempt when the signal is already aborted', async () => {
     const controller = new AbortController();
     controller.abort(new Error('stop'));
-    await expect(withRetry(async () => 1, { signal: controller.signal, sleep: instantSleep })).rejects.toThrow(
-      'stop',
-    );
+    await expect(
+      withRetry(async () => 1, { signal: controller.signal, sleep: instantSleep }),
+    ).rejects.toThrow('stop');
   });
 
   it('abort during the sleep rejects', async () => {
@@ -165,7 +165,9 @@ describe('withRetry', () => {
               reject(new Error('aborted-during-sleep'));
               return;
             }
-            signal?.addEventListener('abort', () => reject(new Error('aborted-during-sleep')), { once: true });
+            signal?.addEventListener('abort', () => reject(new Error('aborted-during-sleep')), {
+              once: true,
+            });
           }),
       },
     );
@@ -178,13 +180,31 @@ describe('withRetry', () => {
 describe('isRetryableError', () => {
   it('classifies per the documented catalog', () => {
     expect(isRetryableError(new CoastyNetworkError('x'))).toBe(true);
-    expect(isRetryableError(new CoastyApiError({ status: 429, code: 'RATE_LIMITED', message: '' }))).toBe(true);
-    expect(isRetryableError(new CoastyApiError({ status: 503, code: 'UPSTREAM_UNAVAILABLE', message: '' }))).toBe(true);
-    expect(isRetryableError(new CoastyApiError({ status: 504, code: 'UPSTREAM_TIMEOUT', message: '' }))).toBe(true);
-    expect(isRetryableError(new CoastyApiError({ status: 500, code: 'INTERNAL_ERROR', message: '' }))).toBe(true);
-    expect(isRetryableError(new CoastyApiError({ status: 402, code: 'INSUFFICIENT_CREDITS', message: '' }))).toBe(false);
-    expect(isRetryableError(new CoastyApiError({ status: 401, code: 'INVALID_API_KEY', message: '' }))).toBe(false);
-    expect(isRetryableError(new CoastyApiError({ status: 409, code: 'INVALID_STATE', message: '' }))).toBe(false);
+    expect(
+      isRetryableError(new CoastyApiError({ status: 429, code: 'RATE_LIMITED', message: '' })),
+    ).toBe(true);
+    expect(
+      isRetryableError(
+        new CoastyApiError({ status: 503, code: 'UPSTREAM_UNAVAILABLE', message: '' }),
+      ),
+    ).toBe(true);
+    expect(
+      isRetryableError(new CoastyApiError({ status: 504, code: 'UPSTREAM_TIMEOUT', message: '' })),
+    ).toBe(true);
+    expect(
+      isRetryableError(new CoastyApiError({ status: 500, code: 'INTERNAL_ERROR', message: '' })),
+    ).toBe(true);
+    expect(
+      isRetryableError(
+        new CoastyApiError({ status: 402, code: 'INSUFFICIENT_CREDITS', message: '' }),
+      ),
+    ).toBe(false);
+    expect(
+      isRetryableError(new CoastyApiError({ status: 401, code: 'INVALID_API_KEY', message: '' })),
+    ).toBe(false);
+    expect(
+      isRetryableError(new CoastyApiError({ status: 409, code: 'INVALID_STATE', message: '' })),
+    ).toBe(false);
     expect(isRetryableError(new Error('random'))).toBe(false);
   });
 });

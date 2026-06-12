@@ -70,16 +70,34 @@ describe('validateWorkflowDefinition', () => {
   it('task: requires task text; save_as must not shadow reserved namespaces', () => {
     expectIssue({ steps: [{ id: 't', type: 'task' }] }, 'MISSING_FIELD');
     expectIssue({ steps: [{ id: 't', type: 'task', task: '' }] }, 'MISSING_FIELD');
-    expectIssue({ steps: [{ id: 't', type: 'task', task: 'x', save_as: 'inputs' }] }, 'RESERVED_SAVE_AS');
-    expectIssue({ steps: [{ id: 't', type: 'task', task: 'x', save_as: 'vars' }] }, 'RESERVED_SAVE_AS');
+    expectIssue(
+      { steps: [{ id: 't', type: 'task', task: 'x', save_as: 'inputs' }] },
+      'RESERVED_SAVE_AS',
+    );
+    expectIssue(
+      { steps: [{ id: 't', type: 'task', task: 'x', save_as: 'vars' }] },
+      'RESERVED_SAVE_AS',
+    );
   });
 
   it('assert/if: condition required and structurally valid', () => {
     expectIssue({ steps: [{ id: 'a', type: 'assert' }] }, 'MISSING_FIELD');
-    expectIssue({ steps: [{ id: 'a', type: 'assert', condition: { op: 'regex' } }] }, 'INVALID_CONDITION');
-    expectIssue({ steps: [{ id: 'a', type: 'assert', condition: { op: 'eq', left: 1 } }] }, 'INVALID_CONDITION');
-    expectIssue({ steps: [{ id: 'a', type: 'assert', condition: { op: 'and', conditions: [] } }] }, 'INVALID_CONDITION');
-    expectIssue({ steps: [{ id: 'i', type: 'if', condition: { op: 'truthy', value: 1 } }] }, 'MISSING_FIELD');
+    expectIssue(
+      { steps: [{ id: 'a', type: 'assert', condition: { op: 'regex' } }] },
+      'INVALID_CONDITION',
+    );
+    expectIssue(
+      { steps: [{ id: 'a', type: 'assert', condition: { op: 'eq', left: 1 } }] },
+      'INVALID_CONDITION',
+    );
+    expectIssue(
+      { steps: [{ id: 'a', type: 'assert', condition: { op: 'and', conditions: [] } }] },
+      'INVALID_CONDITION',
+    );
+    expectIssue(
+      { steps: [{ id: 'i', type: 'if', condition: { op: 'truthy', value: 1 } }] },
+      'MISSING_FIELD',
+    );
     expectIssue(
       { steps: [{ id: 'i', type: 'if', condition: { op: 'not' }, then: [] }] },
       'INVALID_CONDITION',
@@ -108,13 +126,18 @@ describe('validateWorkflowDefinition', () => {
     expectIssue({ steps: [{ id: 'l', type: 'loop', count: 1.5, body: [] }] }, 'INVALID_FIELD');
     expectIssue({ steps: [{ id: 'l', type: 'loop', count: 2 }] }, 'MISSING_FIELD');
     expect(
-      validateWorkflowDefinition({ steps: [{ id: 'l', type: 'loop', count: 2, body: [task('t')] }] }).valid,
+      validateWorkflowDefinition({
+        steps: [{ id: 'l', type: 'loop', count: 2, body: [task('t')] }],
+      }).valid,
     ).toBe(true);
   });
 
   it('retry: max_attempts must be an integer 1..20', () => {
     for (const bad of [0, 21, 2.5, -1, undefined, 'three']) {
-      expectIssue({ steps: [{ id: 'r', type: 'retry', max_attempts: bad, body: [task('t')] }] }, 'INVALID_RETRY');
+      expectIssue(
+        { steps: [{ id: 'r', type: 'retry', max_attempts: bad, body: [task('t')] }] },
+        'INVALID_RETRY',
+      );
     }
     expect(
       validateWorkflowDefinition({
@@ -171,7 +194,8 @@ describe('validateWorkflowDefinition', () => {
   });
 
   it('enforces the 200 total-step cap counting nested steps', () => {
-    const branchOf50 = (prefix: string) => Array.from({ length: 50 }, (_, i) => task(`${prefix}${i}`));
+    const branchOf50 = (prefix: string) =>
+      Array.from({ length: 50 }, (_, i) => task(`${prefix}${i}`));
     const def = {
       steps: [
         { id: 'p1', type: 'parallel', branches: [branchOf50('a'), branchOf50('b')] },

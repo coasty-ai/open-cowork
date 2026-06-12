@@ -6,15 +6,7 @@
  * pauses in 'awaiting_human' (note + Approve→resume / Reject→cancel).
  */
 import { useEffect, useState } from 'react';
-import {
-  Image,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { api, ApiError, type RunDto, type RunEventDto } from '../api';
 import { AppButton, Loading, StatusChip } from '../components';
 import { colors, formatCents, radius, spacing } from '../theme';

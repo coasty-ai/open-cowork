@@ -4,11 +4,20 @@ import { normalizeAction, type CuaAction } from '../src/index';
 describe('normalizeAction', () => {
   it('click: applies defaults', () => {
     const a: CuaAction = { action_type: 'click', params: { x: 10, y: 20 } };
-    expect(normalizeAction(a)).toEqual({ action_type: 'click', x: 10, y: 20, button: 'left', clicks: 1 });
+    expect(normalizeAction(a)).toEqual({
+      action_type: 'click',
+      x: 10,
+      y: 20,
+      button: 'left',
+      clicks: 1,
+    });
   });
 
   it('click: preserves explicit button/clicks', () => {
-    const a: CuaAction = { action_type: 'click', params: { x: 1, y: 2, button: 'right', clicks: 2 } };
+    const a: CuaAction = {
+      action_type: 'click',
+      params: { x: 1, y: 2, button: 'right', clicks: 2 },
+    };
     expect(normalizeAction(a)).toMatchObject({ button: 'right', clicks: 2 });
   });
 
@@ -27,7 +36,9 @@ describe('normalizeAction', () => {
   });
 
   it('key_press: example shape {keys: array}', () => {
-    expect(normalizeAction({ action_type: 'key_press', params: { keys: ['tab', 'enter'] } })).toEqual({
+    expect(
+      normalizeAction({ action_type: 'key_press', params: { keys: ['tab', 'enter'] } }),
+    ).toEqual({
       action_type: 'key_press',
       keys: ['tab', 'enter'],
     });
@@ -49,7 +60,10 @@ describe('normalizeAction', () => {
 
   it('scroll: reference shape {direction, amount}', () => {
     expect(
-      normalizeAction({ action_type: 'scroll', params: { x: 5, y: 6, direction: 'up', amount: 4 } }),
+      normalizeAction({
+        action_type: 'scroll',
+        params: { x: 5, y: 6, direction: 'up', amount: 4 },
+      }),
     ).toEqual({ action_type: 'scroll', x: 5, y: 6, direction: 'up', amount: 4 });
   });
 
@@ -74,7 +88,9 @@ describe('normalizeAction', () => {
   });
 
   it('drag: example shape x1/y1/x2/y2', () => {
-    expect(normalizeAction({ action_type: 'drag', params: { x1: 9, y1: 8, x2: 7, y2: 6 } })).toMatchObject({
+    expect(
+      normalizeAction({ action_type: 'drag', params: { x1: 9, y1: 8, x2: 7, y2: 6 } }),
+    ).toMatchObject({
       from_x: 9,
       from_y: 8,
       to_x: 7,
@@ -83,19 +99,30 @@ describe('normalizeAction', () => {
   });
 
   it('drag: missing coordinates throws loudly', () => {
-    expect(() => normalizeAction({ action_type: 'drag', params: { from_x: 1 } })).toThrow(/coordinates/);
+    expect(() => normalizeAction({ action_type: 'drag', params: { from_x: 1 } })).toThrow(
+      /coordinates/,
+    );
   });
 
   it('wait: reference shape {ms}', () => {
-    expect(normalizeAction({ action_type: 'wait', params: { ms: 250 } })).toEqual({ action_type: 'wait', ms: 250 });
+    expect(normalizeAction({ action_type: 'wait', params: { ms: 250 } })).toEqual({
+      action_type: 'wait',
+      ms: 250,
+    });
   });
 
   it('wait: example shape {seconds}', () => {
-    expect(normalizeAction({ action_type: 'wait', params: { seconds: 2 } })).toEqual({ action_type: 'wait', ms: 2000 });
+    expect(normalizeAction({ action_type: 'wait', params: { seconds: 2 } })).toEqual({
+      action_type: 'wait',
+      ms: 2000,
+    });
   });
 
   it('wait: defaults to 1000ms when neither given', () => {
-    expect(normalizeAction({ action_type: 'wait', params: {} })).toEqual({ action_type: 'wait', ms: 1000 });
+    expect(normalizeAction({ action_type: 'wait', params: {} })).toEqual({
+      action_type: 'wait',
+      ms: 1000,
+    });
   });
 
   it('done / fail / raw / move', () => {
@@ -104,7 +131,9 @@ describe('normalizeAction', () => {
       action_type: 'fail',
       reason: 'blocked',
     });
-    expect(normalizeAction({ action_type: 'raw', params: { code: 'pyautogui.click(1,2)' } })).toEqual({
+    expect(
+      normalizeAction({ action_type: 'raw', params: { code: 'pyautogui.click(1,2)' } }),
+    ).toEqual({
       action_type: 'raw',
       code: 'pyautogui.click(1,2)',
     });
@@ -116,8 +145,8 @@ describe('normalizeAction', () => {
   });
 
   it('unknown action type throws', () => {
-    expect(() => normalizeAction({ action_type: 'teleport', params: {} } as unknown as CuaAction)).toThrow(
-      /Unknown action_type/,
-    );
+    expect(() =>
+      normalizeAction({ action_type: 'teleport', params: {} } as unknown as CuaAction),
+    ).toThrow(/Unknown action_type/);
   });
 });

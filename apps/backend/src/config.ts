@@ -26,7 +26,11 @@ const configSchema = z.object({
   /** Server-enforced default per-run budget cap, cents. */
   defaultBudgetCents: z.coerce.number().int().min(1).default(500),
   /** Session token lifetime in seconds. Default 7 days. */
-  sessionTtlSeconds: z.coerce.number().int().min(60).default(7 * 24 * 3600),
+  sessionTtlSeconds: z.coerce
+    .number()
+    .int()
+    .min(60)
+    .default(7 * 24 * 3600),
 });
 
 export type BackendConfig = z.infer<typeof configSchema>;
@@ -47,7 +51,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): BackendConfig 
     const issues = parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ');
     throw new Error(`Invalid backend configuration: ${issues}`);
   }
-  if (parsed.data.coastyApiKey.startsWith('sk-coasty-live-') && !parsed.data.publicUrl.startsWith('https://')) {
+  if (
+    parsed.data.coastyApiKey.startsWith('sk-coasty-live-') &&
+    !parsed.data.publicUrl.startsWith('https://')
+  ) {
     // Loud warning, not fatal: local development against live keys is legal but risky.
     console.warn(
       '[config] WARNING: live Coasty key with a non-https COWORK_PUBLIC_URL — webhooks require https in production.',

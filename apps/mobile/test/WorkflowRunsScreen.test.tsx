@@ -51,7 +51,9 @@ describe('WorkflowRunsScreen', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
 
-    await waitFor(() => expect(findCall(fetchMock, '/api/workflows/runs/wfr_1/resume')).toBeDefined());
+    await waitFor(() =>
+      expect(findCall(fetchMock, '/api/workflows/runs/wfr_1/resume')).toBeDefined(),
+    );
     const call = findCall(fetchMock, '/api/workflows/runs/wfr_1/resume');
     expect(bodyOf(call!.init)).toEqual({ approved: true, note: 'send it' });
     expect(await screen.findByText('running')).toBeInTheDocument();
@@ -65,7 +67,9 @@ describe('WorkflowRunsScreen', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Open workflow run wfr_1' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Reject' }));
 
-    await waitFor(() => expect(findCall(fetchMock, '/api/workflows/runs/wfr_1/resume')).toBeDefined());
+    await waitFor(() =>
+      expect(findCall(fetchMock, '/api/workflows/runs/wfr_1/resume')).toBeDefined(),
+    );
     const call = findCall(fetchMock, '/api/workflows/runs/wfr_1/resume');
     expect(bodyOf(call!.init)).toEqual({ approved: false });
     expect(await screen.findByText('cancelled')).toBeInTheDocument();

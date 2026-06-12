@@ -43,10 +43,16 @@ export function tryCharge(
     return true;
   }
   if (ctx.state.walletCents < credits) {
-    sendError(reply, 402, 'INSUFFICIENT_CREDITS', `Operation needs ${credits} credits; you have ${ctx.state.walletCents}.`, {
-      required: credits,
-      balance: ctx.state.walletCents,
-    });
+    sendError(
+      reply,
+      402,
+      'INSUFFICIENT_CREDITS',
+      `Operation needs ${credits} credits; you have ${ctx.state.walletCents}.`,
+      {
+        required: credits,
+        balance: ctx.state.walletCents,
+      },
+    );
     return false;
   }
   ctx.state.walletCents -= credits;
@@ -57,7 +63,12 @@ export function tryCharge(
 }
 
 /** Debit used by background steppers (no HTTP reply). Returns false when dry. */
-export function debitBackground(ctx: Ctx, isTest: boolean, family: string, credits: number): boolean {
+export function debitBackground(
+  ctx: Ctx,
+  isTest: boolean,
+  family: string,
+  credits: number,
+): boolean {
   if (isTest) {
     ctx.state.recordUsage(family, 0);
     return true;

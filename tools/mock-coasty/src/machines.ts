@@ -10,8 +10,22 @@ import { bodyHash, generatePng, hex, nowIso, requestId, sendError } from './util
 import type { MachineRec } from './state';
 
 const BROWSER_OPS = new Set([
-  'open', 'navigate', 'click', 'type', 'dom', 'clickables', 'state', 'info', 'scroll',
-  'close', 'screenshot', 'wait', 'list-tabs', 'open-tab', 'close-tab', 'switch-tab',
+  'open',
+  'navigate',
+  'click',
+  'type',
+  'dom',
+  'clickables',
+  'state',
+  'info',
+  'scroll',
+  'close',
+  'screenshot',
+  'wait',
+  'list-tabs',
+  'open-tab',
+  'close-tab',
+  'switch-tab',
 ]);
 
 function publicMachine(m: MachineRec): Record<string, unknown> {
@@ -72,7 +86,12 @@ export function registerMachineRoutes(app: FastifyInstance, ctx: Ctx): void {
       const existing = state.idempotency.get(`machines:${idemKey}`);
       if (existing) {
         if (existing.bodyHash !== hash) {
-          return sendError(reply, 422, 'IDEMPOTENCY_KEY_REUSED', 'Idempotency-Key was reused with a different body');
+          return sendError(
+            reply,
+            422,
+            'IDEMPOTENCY_KEY_REUSED',
+            'Idempotency-Key was reused with a different body',
+          );
         }
         void reply.header('X-Coasty-Idempotent-Replay', 'true');
         return reply.status(existing.status).send(existing.payload);
@@ -81,10 +100,16 @@ export function registerMachineRoutes(app: FastifyInstance, ctx: Ctx): void {
 
     const isTest = request.keyKind === 'test';
     if (!isTest && state.walletCents < 20) {
-      return sendError(reply, 402, 'INSUFFICIENT_CREDITS', `Provisioning requires a wallet balance of at least 20 credits; you have ${state.walletCents}.`, {
-        required: 20,
-        balance: state.walletCents,
-      });
+      return sendError(
+        reply,
+        402,
+        'INSUFFICIENT_CREDITS',
+        `Provisioning requires a wallet balance of at least 20 credits; you have ${state.walletCents}.`,
+        {
+          required: 20,
+          balance: state.walletCents,
+        },
+      );
     }
 
     const machine: MachineRec = {
@@ -129,7 +154,8 @@ export function registerMachineRoutes(app: FastifyInstance, ctx: Ctx): void {
       },
       request_id: requestId(),
     };
-    if (idemKey) state.idempotency.set(`machines:${idemKey}`, { bodyHash: hash, status: 201, payload });
+    if (idemKey)
+      state.idempotency.set(`machines:${idemKey}`, { bodyHash: hash, status: 201, payload });
     return reply.status(201).send(payload);
   });
 
@@ -137,9 +163,16 @@ export function registerMachineRoutes(app: FastifyInstance, ctx: Ctx): void {
     const query = request.query as { limit?: string };
     const limit = query.limit !== undefined ? Number(query.limit) : 50;
     if (!Number.isInteger(limit) || limit < 1 || limit > 200) {
-      return sendError(reply, 400, 'INVALID_LIMIT', 'limit must be between 1 and 200', { actual: limit, min: 1, max: 200 });
+      return sendError(reply, 400, 'INVALID_LIMIT', 'limit must be between 1 and 200', {
+        actual: limit,
+        min: 1,
+        max: 200,
+      });
     }
-    const data = [...state.machines.values()].filter((m) => m.status !== 'terminated').slice(0, limit).map(publicMachine);
+    const data = [...state.machines.values()]
+      .filter((m) => m.status !== 'terminated')
+      .slice(0, limit)
+      .map(publicMachine);
     return { object: 'list', data, has_more: false, request_id: requestId() };
   });
 
@@ -167,45 +200,83 @@ export function registerMachineRoutes(app: FastifyInstance, ctx: Ctx): void {
     const machine = getMachineOr404((request.params as { id: string }).id, reply);
     if (!machine) return reply;
     machine.status = 'terminated';
-    return { machine_id: machine.id, status: 'terminated', message: 'Machine terminated', request_id: requestId() };
+    return {
+      machine_id: machine.id,
+      status: 'terminated',
+      message: 'Machine terminated',
+      request_id: requestId(),
+    };
   });
 
   app.post('/v1/machines/:id/start', async (request, reply) => {
     const machine = getMachineOr404((request.params as { id: string }).id, reply);
     if (!machine) return reply;
     if (machine.status !== 'stopped') {
-      return sendError(reply, 409, 'INVALID_STATE', `Cannot start a machine in state '${machine.status}'`, {
-        current_state: machine.status,
-        allowed_from: ['stopped'],
-      });
+      return sendError(
+        reply,
+        409,
+        'INVALID_STATE',
+        `Cannot start a machine in state '${machine.status}'`,
+        {
+          current_state: machine.status,
+          allowed_from: ['stopped'],
+        },
+      );
     }
     machine.status = 'running';
-    return { machine_id: machine.id, status: 'running', message: 'Machine started', request_id: requestId() };
+    return {
+      machine_id: machine.id,
+      status: 'running',
+      message: 'Machine started',
+      request_id: requestId(),
+    };
   });
 
   app.post('/v1/machines/:id/stop', async (request, reply) => {
     const machine = getMachineOr404((request.params as { id: string }).id, reply);
     if (!machine) return reply;
     if (machine.status !== 'running') {
-      return sendError(reply, 409, 'INVALID_STATE', `Cannot stop a machine in state '${machine.status}'`, {
-        current_state: machine.status,
-        allowed_from: ['running'],
-      });
+      return sendError(
+        reply,
+        409,
+        'INVALID_STATE',
+        `Cannot stop a machine in state '${machine.status}'`,
+        {
+          current_state: machine.status,
+          allowed_from: ['running'],
+        },
+      );
     }
     machine.status = 'stopped';
-    return { machine_id: machine.id, status: 'stopped', message: 'Machine stopped', request_id: requestId() };
+    return {
+      machine_id: machine.id,
+      status: 'stopped',
+      message: 'Machine stopped',
+      request_id: requestId(),
+    };
   });
 
   app.post('/v1/machines/:id/restart', async (request, reply) => {
     const machine = getMachineOr404((request.params as { id: string }).id, reply);
     if (!machine) return reply;
     if (machine.status !== 'running') {
-      return sendError(reply, 409, 'INVALID_STATE', `Cannot restart a machine in state '${machine.status}'`, {
-        current_state: machine.status,
-        allowed_from: ['running'],
-      });
+      return sendError(
+        reply,
+        409,
+        'INVALID_STATE',
+        `Cannot restart a machine in state '${machine.status}'`,
+        {
+          current_state: machine.status,
+          allowed_from: ['running'],
+        },
+      );
     }
-    return { machine_id: machine.id, status: 'running', message: 'Machine restarted', request_id: requestId() };
+    return {
+      machine_id: machine.id,
+      status: 'running',
+      message: 'Machine restarted',
+      request_id: requestId(),
+    };
   });
 
   app.patch('/v1/machines/:id', async (request, reply) => {
@@ -213,8 +284,17 @@ export function registerMachineRoutes(app: FastifyInstance, ctx: Ctx): void {
     if (!machine) return reply;
     const body = (request.body ?? {}) as { ttl_minutes?: unknown };
     const ttl = body.ttl_minutes;
-    if (typeof ttl !== 'number' || !Number.isInteger(ttl) || (ttl !== 0 && (ttl < 5 || ttl > 10080))) {
-      return sendError(reply, 422, 'VALIDATION_ERROR', 'ttl_minutes must be 0 (clear) or an integer 5-10080');
+    if (
+      typeof ttl !== 'number' ||
+      !Number.isInteger(ttl) ||
+      (ttl !== 0 && (ttl < 5 || ttl > 10080))
+    ) {
+      return sendError(
+        reply,
+        422,
+        'VALIDATION_ERROR',
+        'ttl_minutes must be 0 (clear) or an integer 5-10080',
+      );
     }
     machine.ttl_minutes = ttl === 0 ? null : ttl;
     return publicMachine(machine);
@@ -225,7 +305,10 @@ export function registerMachineRoutes(app: FastifyInstance, ctx: Ctx): void {
     if (!machine) return reply;
     if (request.keyKind !== 'test') {
       if (state.walletCents < 1) {
-        return sendError(reply, 402, 'INSUFFICIENT_CREDITS', 'Snapshot needs 1 credit', { required: 1, balance: state.walletCents });
+        return sendError(reply, 402, 'INSUFFICIENT_CREDITS', 'Snapshot needs 1 credit', {
+          required: 1,
+          balance: state.walletCents,
+        });
       }
       state.walletCents -= 1;
       state.recordUsage('machines', 1);
@@ -265,7 +348,8 @@ export function registerMachineRoutes(app: FastifyInstance, ctx: Ctx): void {
     if (!machine) return reply;
     void reply.header('Cache-Control', 'no-store');
     return {
-      ssh_private_key_pem: '-----BEGIN OPENSSH PRIVATE KEY-----\nMOCKMOCKMOCK\n-----END OPENSSH PRIVATE KEY-----',
+      ssh_private_key_pem:
+        '-----BEGIN OPENSSH PRIVATE KEY-----\nMOCKMOCKMOCK\n-----END OPENSSH PRIVATE KEY-----',
       vnc_password: `vnc-${hex(4)}`,
       websocket_url: `ws://${machine.public_ip}:8080`,
       devtools_url: `http://${machine.public_ip}:9222`,
@@ -274,16 +358,26 @@ export function registerMachineRoutes(app: FastifyInstance, ctx: Ctx): void {
 
   function requireRunning(machine: MachineRec, reply: Parameters<typeof sendError>[0]): boolean {
     if (machine.status !== 'running') {
-      void sendError(reply, 409, 'INVALID_STATE', `Machine is '${machine.status}', actions need 'running'`, {
-        current_state: machine.status,
-        allowed_from: ['running'],
-      });
+      void sendError(
+        reply,
+        409,
+        'INVALID_STATE',
+        `Machine is '${machine.status}', actions need 'running'`,
+        {
+          current_state: machine.status,
+          allowed_from: ['running'],
+        },
+      );
       return false;
     }
     return true;
   }
 
-  function runAction(machine: MachineRec, command: string, parameters: Record<string, unknown>): Record<string, unknown> {
+  function runAction(
+    machine: MachineRec,
+    command: string,
+    parameters: Record<string, unknown>,
+  ): Record<string, unknown> {
     if (command === 'MOCK_ERROR') {
       return { success: false, result: null, error: 'mock action error' };
     }
@@ -294,7 +388,10 @@ export function registerMachineRoutes(app: FastifyInstance, ctx: Ctx): void {
     const machine = getMachineOr404((request.params as { id: string }).id, reply);
     if (!machine) return reply;
     if (!requireRunning(machine, reply)) return reply;
-    const body = (request.body ?? {}) as { command?: unknown; parameters?: Record<string, unknown> };
+    const body = (request.body ?? {}) as {
+      command?: unknown;
+      parameters?: Record<string, unknown>;
+    };
     if (typeof body.command !== 'string' || body.command.length === 0) {
       return sendError(reply, 422, 'VALIDATION_ERROR', 'command is required');
     }
@@ -313,7 +410,10 @@ export function registerMachineRoutes(app: FastifyInstance, ctx: Ctx): void {
     const machine = getMachineOr404((request.params as { id: string }).id, reply);
     if (!machine) return reply;
     if (!requireRunning(machine, reply)) return reply;
-    const body = (request.body ?? {}) as { steps?: { command: string; parameters?: Record<string, unknown> }[]; stop_on_error?: boolean };
+    const body = (request.body ?? {}) as {
+      steps?: { command: string; parameters?: Record<string, unknown> }[];
+      stop_on_error?: boolean;
+    };
     if (!Array.isArray(body.steps) || body.steps.length === 0 || body.steps.length > 50) {
       return sendError(reply, 422, 'VALIDATION_ERROR', 'steps must contain 1-50 actions');
     }
@@ -355,7 +455,9 @@ export function registerMachineRoutes(app: FastifyInstance, ctx: Ctx): void {
     if (!requireRunning(machine, reply)) return reply;
     const { op } = request.params as { op: string };
     if (!BROWSER_OPS.has(op)) {
-      return sendError(reply, 404, 'NOT_FOUND', `Unknown browser op '${op}'`, { valid_options: [...BROWSER_OPS] });
+      return sendError(reply, 404, 'NOT_FOUND', `Unknown browser op '${op}'`, {
+        valid_options: [...BROWSER_OPS],
+      });
     }
     const body = (request.body ?? {}) as { parameters?: Record<string, unknown> };
     return {
@@ -374,8 +476,16 @@ export function registerMachineRoutes(app: FastifyInstance, ctx: Ctx): void {
     const machine = getMachineOr404((request.params as { id: string }).id, reply);
     if (!machine) return reply;
     if (!requireRunning(machine, reply)) return reply;
-    const body = (request.body ?? {}) as { command?: unknown; cwd?: string | null; session_id?: string | null };
-    if (typeof body.command !== 'string' || body.command.length === 0 || body.command.length > 8192) {
+    const body = (request.body ?? {}) as {
+      command?: unknown;
+      cwd?: string | null;
+      session_id?: string | null;
+    };
+    if (
+      typeof body.command !== 'string' ||
+      body.command.length === 0 ||
+      body.command.length > 8192
+    ) {
       return sendError(reply, 422, 'VALIDATION_ERROR', 'command is required (1-8192 chars)');
     }
     let output: string;
@@ -410,13 +520,18 @@ export function registerMachineRoutes(app: FastifyInstance, ctx: Ctx): void {
         return { success: true, path, request_id: requestId() };
       case 'edit': {
         const current = files.get(path);
-        if (current === undefined) return sendError(reply, 404, 'NOT_FOUND', `No file at '${path}'`);
-        files.set(path, current.replace(String(params.old_text ?? ''), String(params.new_text ?? '')));
+        if (current === undefined)
+          return sendError(reply, 404, 'NOT_FOUND', `No file at '${path}'`);
+        files.set(
+          path,
+          current.replace(String(params.old_text ?? ''), String(params.new_text ?? '')),
+        );
         return { success: true, path, request_id: requestId() };
       }
       case 'read': {
         const content = files.get(path);
-        if (content === undefined) return sendError(reply, 404, 'NOT_FOUND', `No file at '${path}'`);
+        if (content === undefined)
+          return sendError(reply, 404, 'NOT_FOUND', `No file at '${path}'`);
         return { path, content, request_id: requestId() };
       }
       case 'exists':

@@ -121,7 +121,9 @@ export function WorkflowRunsScreen() {
               </View>
             </View>
           ) : null}
-          {selected.error?.message ? <Text style={styles.error}>{selected.error.message}</Text> : null}
+          {selected.error?.message ? (
+            <Text style={styles.error}>{selected.error.message}</Text>
+          ) : null}
         </View>
       </View>
     );
@@ -136,9 +138,7 @@ export function WorkflowRunsScreen() {
       <FlatList
         data={runs ?? []}
         keyExtractor={(r) => r.id}
-        ListEmptyComponent={
-          runs !== null ? <EmptyState message="No workflow runs yet." /> : null
-        }
+        ListEmptyComponent={runs !== null ? <EmptyState message="No workflow runs yet." /> : null}
         renderItem={({ item }) => (
           <Pressable
             accessibilityRole="button"

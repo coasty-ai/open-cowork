@@ -79,7 +79,13 @@ const TERMINATE_ARM_MS = 3000;
  *   button to "Confirm terminate?" for 3 seconds; a second click within that
  *   window fires `onTerminate`, otherwise the button disarms.
  */
-export function MachineCard({ machine, onStart, onStop, onTerminate, className }: MachineCardProps) {
+export function MachineCard({
+  machine,
+  onStart,
+  onStop,
+  onTerminate,
+  className,
+}: MachineCardProps) {
   const [armed, setArmed] = useState(false);
   const disarmTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -107,14 +113,24 @@ export function MachineCard({ machine, onStart, onStop, onTerminate, className }
     <Card title={machine.displayName} className={cx('oc-machine-card', className)}>
       <div className="oc-machine-card__meta">
         <Badge tone={STATUS_TONE[machine.status]}>{STATUS_LABEL[machine.status]}</Badge>
-        <span className="oc-machine-card__os">{machine.osType === 'windows' ? 'Windows' : 'Linux'}</span>
+        <span className="oc-machine-card__os">
+          {machine.osType === 'windows' ? 'Windows' : 'Linux'}
+        </span>
         <span className="oc-machine-card__rate">{formatCents(machine.centsPerHour)}/hr</span>
       </div>
       <div className="oc-machine-card__actions">
-        <Button size="sm" disabled={machine.status !== 'stopped'} onClick={() => onStart?.(machine.id)}>
+        <Button
+          size="sm"
+          disabled={machine.status !== 'stopped'}
+          onClick={() => onStart?.(machine.id)}
+        >
           Start
         </Button>
-        <Button size="sm" disabled={machine.status !== 'running'} onClick={() => onStop?.(machine.id)}>
+        <Button
+          size="sm"
+          disabled={machine.status !== 'running'}
+          onClick={() => onStop?.(machine.id)}
+        >
           Stop
         </Button>
         <Button

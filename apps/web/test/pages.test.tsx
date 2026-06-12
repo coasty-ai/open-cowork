@@ -22,12 +22,27 @@ function stubClient(overrides: Stub = {}): BackendClient {
       token: 'cwk_test_token',
       user: { id: 'u1', email, budgetCents: 500 },
     })),
-    me: vi.fn(async () => ({ user: { id: 'u1', email: 'a@b.c', budgetCents: 500 }, monthSpendCents: 0 })),
-    wallet: vi.fn(async () => ({ balanceCents: 9300, periodCostCents: 0, period: '2026-06', monthSpendCents: 12 })),
+    me: vi.fn(async () => ({
+      user: { id: 'u1', email: 'a@b.c', budgetCents: 500 },
+      monthSpendCents: 0,
+    })),
+    wallet: vi.fn(async () => ({
+      balanceCents: 9300,
+      periodCostCents: 0,
+      period: '2026-06',
+      monthSpendCents: 12,
+    })),
     estimate: vi.fn(async () => ({ kind: 'run', cents: 125, breakdown: {} })),
     listMachines: vi.fn(async () => ({
       machines: [
-        { id: 'm1', display_name: 'worker-1', status: 'running', os_type: 'linux', is_test: true, created_at: '' },
+        {
+          id: 'm1',
+          display_name: 'worker-1',
+          status: 'running',
+          os_type: 'linux',
+          is_test: true,
+          created_at: '',
+        },
       ],
     })),
     listRuns: vi.fn(async () => ({ runs: [] })),
@@ -90,7 +105,9 @@ describe('LoginPage', () => {
   it('shows the error when login fails', async () => {
     useAuth.setState({ token: null, user: null });
     setClientForTests(
-      stubClient({ login: vi.fn(async () => Promise.reject(new ApiError(500, 'X', 'backend down'))) }),
+      stubClient({
+        login: vi.fn(async () => Promise.reject(new ApiError(500, 'X', 'backend down'))),
+      }),
     );
     render(
       <MemoryRouter initialEntries={['/login']}>
@@ -148,7 +165,9 @@ describe('HomePage (delegate flow)', () => {
   it('surfaces backend budget errors in the confirm dialog', async () => {
     const client = stubClient({
       createRun: vi.fn(async () =>
-        Promise.reject(new ApiError(422, 'BUDGET_EXCEEDED', 'Worst-case cost 500¢ exceeds the budget cap 100¢')),
+        Promise.reject(
+          new ApiError(422, 'BUDGET_EXCEEDED', 'Worst-case cost 500¢ exceeds the budget cap 100¢'),
+        ),
       ),
     });
     setClientForTests(client);
@@ -168,7 +187,11 @@ describe('HomePage (delegate flow)', () => {
 
   it('shows the error state when loading fails', async () => {
     setClientForTests(
-      stubClient({ listMachines: vi.fn(async () => Promise.reject(new ApiError(0, 'NETWORK_ERROR', 'offline'))) }),
+      stubClient({
+        listMachines: vi.fn(async () =>
+          Promise.reject(new ApiError(0, 'NETWORK_ERROR', 'offline')),
+        ),
+      }),
     );
     renderHome();
     expect(await screen.findByRole('alert')).toHaveTextContent(/offline/);

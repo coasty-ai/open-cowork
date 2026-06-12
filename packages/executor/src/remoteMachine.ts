@@ -73,7 +73,13 @@ export class RemoteMachineExecutor implements Executor {
         await this.action('scroll', { x: a.x, y: a.y, direction: a.direction, amount: a.amount });
         return;
       case 'drag':
-        await this.action('drag', { from_x: a.from_x, from_y: a.from_y, to_x: a.to_x, to_y: a.to_y, button: a.button });
+        await this.action('drag', {
+          from_x: a.from_x,
+          from_y: a.from_y,
+          to_x: a.to_x,
+          to_y: a.to_y,
+          button: a.button,
+        });
         return;
       case 'move':
         await this.action('move', { x: a.x, y: a.y });
@@ -89,7 +95,11 @@ export class RemoteMachineExecutor implements Executor {
       case 'raw':
         // Arbitrary code on a remote machine is a security boundary we do not
         // cross implicitly (would also require the browser:execute scope).
-        throw new UnsupportedActionError('raw', this.kind, 'raw code execution is disabled by policy');
+        throw new UnsupportedActionError(
+          'raw',
+          this.kind,
+          'raw code execution is disabled by policy',
+        );
       default: {
         const unknown = a as { action_type: string };
         throw new UnsupportedActionError(unknown.action_type, this.kind);

@@ -12,7 +12,11 @@ export interface PageLike {
   screenshot(options?: { type?: 'png' | 'jpeg' }): Promise<Uint8Array>;
   viewportSize(): { width: number; height: number } | null;
   mouse: {
-    click(x: number, y: number, options?: { button?: 'left' | 'right' | 'middle'; clickCount?: number }): Promise<void>;
+    click(
+      x: number,
+      y: number,
+      options?: { button?: 'left' | 'right' | 'middle'; clickCount?: number },
+    ): Promise<void>;
     move(x: number, y: number): Promise<void>;
     down(options?: { button?: 'left' | 'right' | 'middle' }): Promise<void>;
     up(options?: { button?: 'left' | 'right' | 'middle' }): Promise<void>;
@@ -145,7 +149,11 @@ export class BrowserExecutor implements Executor {
         return;
       case 'raw':
         // Never execute model-generated code in a browser target (docs say the same).
-        throw new UnsupportedActionError('raw', this.kind, 'never exec raw code in a browser target');
+        throw new UnsupportedActionError(
+          'raw',
+          this.kind,
+          'never exec raw code in a browser target',
+        );
       default: {
         const unknown = a as { action_type: string };
         throw new UnsupportedActionError(unknown.action_type, this.kind);

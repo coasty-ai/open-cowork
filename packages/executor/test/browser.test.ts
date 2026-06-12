@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { BrowserExecutor, toPlaywrightKey, type PageLike } from '../src/index';
 
-function fakePage(viewport: { width: number; height: number } | null = { width: 1280, height: 720 }) {
+function fakePage(
+  viewport: { width: number; height: number } | null = { width: 1280, height: 720 },
+) {
   const calls: string[] = [];
   const page: PageLike = {
     async screenshot() {
@@ -101,7 +103,10 @@ describe('BrowserExecutor', () => {
   it('scroll with coordinates moves the mouse first', async () => {
     const { page, calls } = fakePage();
     const ex = new BrowserExecutor({ page });
-    await ex.execute({ action_type: 'scroll', params: { x: 10, y: 20, direction: 'left', amount: 1 } });
+    await ex.execute({
+      action_type: 'scroll',
+      params: { x: 10, y: 20, direction: 'left', amount: 1 },
+    });
     expect(calls).toEqual(['move(10,20)', 'wheel(-120,0)']);
   });
 

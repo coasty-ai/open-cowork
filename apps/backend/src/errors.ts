@@ -13,6 +13,7 @@ export class AppError extends Error {
 
 export const unauthorized = (msg = 'Missing or invalid session token'): AppError =>
   new AppError(401, 'UNAUTHORIZED', msg);
-export const notFound = (what: string): AppError => new AppError(404, 'NOT_FOUND', `${what} not found`);
+export const notFound = (what: string): AppError =>
+  new AppError(404, 'NOT_FOUND', `${what} not found`);
 export const badRequest = (msg: string, details?: unknown): AppError =>
   new AppError(400, 'BAD_REQUEST', msg, details);

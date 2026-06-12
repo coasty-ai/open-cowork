@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { evaluateCondition, resolveDeep, resolvePath, resolveTemplate, type Condition } from '../src/index';
+import {
+  evaluateCondition,
+  resolveDeep,
+  resolvePath,
+  resolveTemplate,
+  type Condition,
+} from '../src/index';
 
 const scope = {
   inputs: { order_id: 'ord_4821', amount: 25, flag: false },
@@ -26,7 +32,9 @@ describe('resolvePath / resolveTemplate', () => {
     expect(resolveTemplate('{{missing.path}}', scope)).toBeUndefined();
   });
   it('embedded refs interpolate as strings', () => {
-    expect(resolveTemplate('Open order {{inputs.order_id}} now', scope)).toBe('Open order ord_4821 now');
+    expect(resolveTemplate('Open order {{inputs.order_id}} now', scope)).toBe(
+      'Open order ord_4821 now',
+    );
     expect(resolveTemplate('{{inputs.amount}} dollars on attempt {{vars.attempt}}', scope)).toBe(
       '25 dollars on attempt 2',
     );
@@ -132,6 +140,8 @@ describe('evaluateCondition — all 13 ops', () => {
   });
 
   it('unknown op throws (validation rejects earlier in real flows)', () => {
-    expect(() => evaluateCondition({ op: 'regex' } as unknown as Condition, scope)).toThrow(/Unknown condition op/);
+    expect(() => evaluateCondition({ op: 'regex' } as unknown as Condition, scope)).toThrow(
+      /Unknown condition op/,
+    );
   });
 });

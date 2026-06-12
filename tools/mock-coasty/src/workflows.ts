@@ -13,8 +13,32 @@ import { streamEvents } from './sseRoute';
 
 const SLUG_RE = /^[a-z0-9][a-z0-9_-]{0,62}$/;
 const ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
-const STEP_TYPES = new Set(['task', 'assert', 'if', 'loop', 'parallel', 'human_approval', 'retry', 'succeed', 'fail']);
-const OPS = new Set(['eq', 'ne', 'lt', 'gt', 'lte', 'gte', 'contains', 'truthy', 'falsy', 'exists', 'and', 'or', 'not']);
+const STEP_TYPES = new Set([
+  'task',
+  'assert',
+  'if',
+  'loop',
+  'parallel',
+  'human_approval',
+  'retry',
+  'succeed',
+  'fail',
+]);
+const OPS = new Set([
+  'eq',
+  'ne',
+  'lt',
+  'gt',
+  'lte',
+  'gte',
+  'contains',
+  'truthy',
+  'falsy',
+  'exists',
+  'and',
+  'or',
+  'not',
+]);
 const TERMINAL = new Set(['succeeded', 'failed', 'cancelled', 'timed_out']);
 
 type Step = Record<string, unknown> & { id?: string; type?: string };
@@ -28,7 +52,8 @@ export function validateDefinition(definition: unknown): string[] {
     return ['definition must be an object'];
   }
   const steps = (definition as { steps?: unknown }).steps;
-  if (!Array.isArray(steps) || steps.length === 0) return ['definition.steps must be a non-empty array'];
+  if (!Array.isArray(steps) || steps.length === 0)
+    return ['definition.steps must be a non-empty array'];
 
   const seen = new Set<string>();
   let total = 0;
@@ -46,7 +71,8 @@ export function validateDefinition(definition: unknown): string[] {
     if ((c.op === 'and' || c.op === 'or') && Array.isArray(c.conditions)) {
       c.conditions.forEach((sub, i) => walkCondition(sub, `${path}.conditions[${i}]`));
     }
-    if (c.op === 'not' && c.condition !== undefined) walkCondition(c.condition, `${path}.condition`);
+    if (c.op === 'not' && c.condition !== undefined)
+      walkCondition(c.condition, `${path}.condition`);
   };
 
   const walk = (list: unknown[], path: string, depth: number, inParallel: boolean): void => {
@@ -58,7 +84,8 @@ export function validateDefinition(definition: unknown): string[] {
       total++;
       const p = `${path}[${i}]`;
       const step = raw as Step;
-      if (typeof step.id !== 'string' || !ID_RE.test(step.id)) issues.push(`${p}.id: invalid step id`);
+      if (typeof step.id !== 'string' || !ID_RE.test(step.id))
+        issues.push(`${p}.id: invalid step id`);
       else if (seen.has(step.id)) issues.push(`${p}.id: duplicate step id '${step.id}'`);
       else seen.add(step.id);
       if (typeof step.type !== 'string' || !STEP_TYPES.has(step.type)) {
@@ -70,7 +97,8 @@ export function validateDefinition(definition: unknown): string[] {
       }
       switch (step.type) {
         case 'task':
-          if (typeof step.task !== 'string' || step.task.length === 0) issues.push(`${p}.task: required`);
+          if (typeof step.task !== 'string' || step.task.length === 0)
+            issues.push(`${p}.task: required`);
           if (step.save_as !== undefined && ['inputs', 'vars'].includes(String(step.save_as))) {
             issues.push(`${p}.save_as: '${String(step.save_as)}' is a reserved namespace`);
           }
@@ -84,12 +112,14 @@ export function validateDefinition(definition: unknown): string[] {
           else walkCondition(step.condition, `${p}.condition`);
           if (!Array.isArray(step.then)) issues.push(`${p}.then: required`);
           else walk(step.then, `${p}.then`, depth + 1, inParallel);
-          if (step.else !== undefined && Array.isArray(step.else)) walk(step.else, `${p}.else`, depth + 1, inParallel);
+          if (step.else !== undefined && Array.isArray(step.else))
+            walk(step.else, `${p}.else`, depth + 1, inParallel);
           break;
         case 'loop': {
           const hasCount = step.count !== undefined;
           const hasWhile = step.while !== undefined;
-          if (hasCount === hasWhile) issues.push(`${p}: loop requires exactly one of count | while`);
+          if (hasCount === hasWhile)
+            issues.push(`${p}: loop requires exactly one of count | while`);
           if (hasWhile) walkCondition(step.while, `${p}.while`);
           if (!Array.isArray(step.body)) issues.push(`${p}.body: required`);
           else walk(step.body, `${p}.body`, depth + 1, inParallel);
@@ -109,7 +139,12 @@ export function validateDefinition(definition: unknown): string[] {
         }
         case 'retry': {
           const attempts = step.max_attempts;
-          if (typeof attempts !== 'number' || !Number.isInteger(attempts) || attempts < 1 || attempts > 20) {
+          if (
+            typeof attempts !== 'number' ||
+            !Number.isInteger(attempts) ||
+            attempts < 1 ||
+            attempts > 20
+          ) {
             issues.push(`${p}.max_attempts: must be an integer 1-20`);
           }
           if (!Array.isArray(step.body)) issues.push(`${p}.body: required`);
@@ -153,7 +188,8 @@ function resolveDeep(value: unknown, scope: Scope): unknown {
   if (Array.isArray(value)) return value.map((v) => resolveDeep(v, scope));
   if (value !== null && typeof value === 'object') {
     const out: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(value as Record<string, unknown>)) out[k] = resolveDeep(v, scope);
+    for (const [k, v] of Object.entries(value as Record<string, unknown>))
+      out[k] = resolveDeep(v, scope);
     return out;
   }
   return value;
@@ -222,7 +258,10 @@ class Terminated {
   ) {}
 }
 
-export function publicWorkflowRun(run: WorkflowRunRec, includeSecret: boolean): Record<string, unknown> {
+export function publicWorkflowRun(
+  run: WorkflowRunRec,
+  includeSecret: boolean,
+): Record<string, unknown> {
   return {
     id: run.id,
     object: run.object,
@@ -297,7 +336,10 @@ export function registerWorkflowRoutes(app: FastifyInstance, ctx: Ctx): void {
       for (let mini = 0; mini < opts.defaultRunSteps; mini++) {
         checkAbort();
         if (!debitBackground(ctx, isTest, 'workflows', 5)) {
-          throw new Terminated('failed', undefined, { code: 'WALLET_EXHAUSTED', message: 'Wallet ran dry mid-workflow' });
+          throw new Terminated('failed', undefined, {
+            code: 'WALLET_EXHAUSTED',
+            message: 'Wallet ran dry mid-workflow',
+          });
         }
         if (!isTest) run.spent_cents += 5;
         else run.spent_cents += 0;
@@ -355,7 +397,11 @@ export function registerWorkflowRoutes(app: FastifyInstance, ctx: Ctx): void {
               while (evalCondition(step.while as Record<string, unknown>, scope)) {
                 run.iterations_used++;
                 guard(maxIterations);
-                if (typeof step.max_iterations === 'number' && run.iterations_used > step.max_iterations) break;
+                if (
+                  typeof step.max_iterations === 'number' &&
+                  run.iterations_used > step.max_iterations
+                )
+                  break;
                 await execSteps(step.body as Step[]);
               }
             }
@@ -380,21 +426,32 @@ export function registerWorkflowRoutes(app: FastifyInstance, ctx: Ctx): void {
             if (!done) {
               throw lastErr instanceof Terminated
                 ? lastErr
-                : new Terminated('failed', undefined, { code: 'RETRY_EXHAUSTED', message: `retry '${step.id}' exhausted` });
+                : new Terminated('failed', undefined, {
+                    code: 'RETRY_EXHAUSTED',
+                    message: `retry '${step.id}' exhausted`,
+                  });
             }
             break;
           }
           case 'human_approval': {
-            const message = step.message !== undefined ? String(resolveTemplate(step.message, scope)) : 'Approval required';
+            const message =
+              step.message !== undefined
+                ? String(resolveTemplate(step.message, scope))
+                : 'Approval required';
             run.status = 'awaiting_human';
             run.awaiting_step_id = step.id as string;
             run.awaiting_human_reason = message;
             state.emit(run.id, 'awaiting_human', { step_id: step.id, reason: message });
             state.emit(run.id, 'status', { status: 'awaiting_human' });
             if (run.webhook_url && run.webhook_secret) {
-              void state.deliverWebhook(run.webhook_url, run.webhook_secret, 'workflow_run.awaiting_human', {
-                run: publicWorkflowRun(run, false),
-              });
+              void state.deliverWebhook(
+                run.webhook_url,
+                run.webhook_secret,
+                'workflow_run.awaiting_human',
+                {
+                  run: publicWorkflowRun(run, false),
+                },
+              );
             }
             const decision = await new Promise<{ approved: boolean; note?: string }>((resolve) => {
               run.approvalResolve = resolve;
@@ -404,7 +461,10 @@ export function registerWorkflowRoutes(app: FastifyInstance, ctx: Ctx): void {
             run.awaiting_human_reason = null;
             checkAbort();
             run.status = 'running';
-            state.emit(run.id, 'resumed', { approved: decision.approved, note: decision.note ?? null });
+            state.emit(run.id, 'resumed', {
+              approved: decision.approved,
+              note: decision.note ?? null,
+            });
             state.emit(run.id, 'status', { status: 'running' });
             if (!decision.approved) {
               throw new Terminated('failed', undefined, {
@@ -415,11 +475,19 @@ export function registerWorkflowRoutes(app: FastifyInstance, ctx: Ctx): void {
             break;
           }
           case 'succeed':
-            throw new Terminated('succeeded', step.output ? (resolveDeep(step.output, scope) as Record<string, unknown>) : undefined);
+            throw new Terminated(
+              'succeeded',
+              step.output
+                ? (resolveDeep(step.output, scope) as Record<string, unknown>)
+                : undefined,
+            );
           case 'fail':
             throw new Terminated('failed', undefined, {
               code: 'WORKFLOW_FAILED',
-              message: step.message !== undefined ? String(resolveTemplate(step.message, scope)) : 'Workflow failed',
+              message:
+                step.message !== undefined
+                  ? String(resolveTemplate(step.message, scope))
+                  : 'Workflow failed',
             });
           default:
             break;
@@ -435,7 +503,10 @@ export function registerWorkflowRoutes(app: FastifyInstance, ctx: Ctx): void {
         : undefined;
       terminal = new Terminated('succeeded', output);
     } catch (err) {
-      terminal = err instanceof Terminated ? err : new Terminated('failed', undefined, { code: 'INTERNAL_ERROR', message: String(err) });
+      terminal =
+        err instanceof Terminated
+          ? err
+          : new Terminated('failed', undefined, { code: 'INTERNAL_ERROR', message: String(err) });
     }
 
     if (state.closed) return;
@@ -461,14 +532,21 @@ export function registerWorkflowRoutes(app: FastifyInstance, ctx: Ctx): void {
       return sendError(reply, 422, 'VALIDATION_ERROR', 'name is required (1-128 chars)');
     }
     if (typeof slug !== 'string' || !SLUG_RE.test(slug)) {
-      return sendError(reply, 422, 'VALIDATION_ERROR', 'slug must match ^[a-z0-9][a-z0-9_-]{0,62}$');
+      return sendError(
+        reply,
+        422,
+        'VALIDATION_ERROR',
+        'slug must match ^[a-z0-9][a-z0-9_-]{0,62}$',
+      );
     }
     if ([...state.workflows.values()].some((w) => w.slug === slug && w.status === 'active')) {
       return sendError(reply, 422, 'VALIDATION_ERROR', `slug '${slug}' is already in use`);
     }
     const issues = validateDefinition(body.definition);
     if (issues.length > 0) {
-      return sendError(reply, 422, 'VALIDATION_ERROR', 'definition failed validation', { details: issues });
+      return sendError(reply, 422, 'VALIDATION_ERROR', 'definition failed validation', {
+        details: issues,
+      });
     }
     const wf: WorkflowRec = {
       id: `wf_${hex(4)}`,
@@ -493,7 +571,11 @@ export function registerWorkflowRoutes(app: FastifyInstance, ctx: Ctx): void {
     const query = request.query as { limit?: string };
     const limit = query.limit !== undefined ? Number(query.limit) : 20;
     if (!Number.isInteger(limit) || limit < 1 || limit > 200) {
-      return sendError(reply, 400, 'INVALID_LIMIT', 'limit must be between 1 and 200', { actual: limit, min: 1, max: 200 });
+      return sendError(reply, 400, 'INVALID_LIMIT', 'limit must be between 1 and 200', {
+        actual: limit,
+        min: 1,
+        max: 200,
+      });
     }
     return {
       object: 'list',
@@ -504,7 +586,11 @@ export function registerWorkflowRoutes(app: FastifyInstance, ctx: Ctx): void {
   });
 
   // ── runs subtree BEFORE dynamic /:id (documented route order) ───────────────
-  async function startRun(request: FastifyRequest, reply: FastifyReply, workflow: WorkflowRec | null) {
+  async function startRun(
+    request: FastifyRequest,
+    reply: FastifyReply,
+    workflow: WorkflowRec | null,
+  ) {
     const body = (request.body ?? {}) as Record<string, unknown>;
     let definition: Record<string, unknown>;
     let version: number | null = null;
@@ -514,10 +600,17 @@ export function registerWorkflowRoutes(app: FastifyInstance, ctx: Ctx): void {
     } else {
       const issues = validateDefinition(body.definition);
       if (body.definition === undefined) {
-        return sendError(reply, 422, 'VALIDATION_ERROR', 'Ad-hoc workflow runs require a definition');
+        return sendError(
+          reply,
+          422,
+          'VALIDATION_ERROR',
+          'Ad-hoc workflow runs require a definition',
+        );
       }
       if (issues.length > 0) {
-        return sendError(reply, 422, 'VALIDATION_ERROR', 'definition failed validation', { details: issues });
+        return sendError(reply, 422, 'VALIDATION_ERROR', 'definition failed validation', {
+          details: issues,
+        });
       }
       definition = body.definition as Record<string, unknown>;
     }
@@ -529,7 +622,12 @@ export function registerWorkflowRoutes(app: FastifyInstance, ctx: Ctx): void {
       const existing = state.idempotency.get(`wfruns:${idemKey}`);
       if (existing) {
         if (existing.bodyHash !== hash) {
-          return sendError(reply, 422, 'IDEMPOTENCY_KEY_REUSED', 'Idempotency-Key was reused with a different body');
+          return sendError(
+            reply,
+            422,
+            'IDEMPOTENCY_KEY_REUSED',
+            'Idempotency-Key was reused with a different body',
+          );
         }
         void reply.header('X-Coasty-Idempotent-Replay', 'true');
         return reply.status(existing.status).send(existing.payload);
@@ -565,7 +663,10 @@ export function registerWorkflowRoutes(app: FastifyInstance, ctx: Ctx): void {
       definitionSnapshot: definition,
       approvalResolve: null,
       cancelled: false,
-      deadlineAt: typeof body.deadline_seconds === 'number' ? Date.now() + body.deadline_seconds * 1000 : null,
+      deadlineAt:
+        typeof body.deadline_seconds === 'number'
+          ? Date.now() + body.deadline_seconds * 1000
+          : null,
     };
     state.workflowRuns.set(run.id, run);
     const isTest = request.keyKind === 'test';
@@ -578,7 +679,8 @@ export function registerWorkflowRoutes(app: FastifyInstance, ctx: Ctx): void {
     );
 
     const payload = publicWorkflowRun(run, true);
-    if (idemKey) state.idempotency.set(`wfruns:${idemKey}`, { bodyHash: hash, status: 201, payload });
+    if (idemKey)
+      state.idempotency.set(`wfruns:${idemKey}`, { bodyHash: hash, status: 201, payload });
     return reply.status(201).send(payload);
   }
 
@@ -606,10 +708,16 @@ export function registerWorkflowRoutes(app: FastifyInstance, ctx: Ctx): void {
     const run = state.workflowRuns.get(id);
     if (!run) return sendError(reply, 404, 'NOT_FOUND', `No workflow run '${id}'`);
     if (TERMINAL.has(run.status)) {
-      return sendError(reply, 409, 'INVALID_STATE', `Cannot cancel a workflow run in state '${run.status}'`, {
-        current_state: run.status,
-        allowed_from: ['queued', 'running', 'awaiting_human'],
-      });
+      return sendError(
+        reply,
+        409,
+        'INVALID_STATE',
+        `Cannot cancel a workflow run in state '${run.status}'`,
+        {
+          current_state: run.status,
+          allowed_from: ['queued', 'running', 'awaiting_human'],
+        },
+      );
     }
     run.cancelled = true;
     // Unblock a pending approval gate so the interpreter can observe the cancel.
@@ -628,7 +736,12 @@ export function registerWorkflowRoutes(app: FastifyInstance, ctx: Ctx): void {
     const run = state.workflowRuns.get(id);
     if (!run) return sendError(reply, 404, 'NOT_FOUND', `No workflow run '${id}'`);
     if (run.status !== 'awaiting_human' || !run.approvalResolve) {
-      return sendError(reply, 409, 'NOT_AWAITING_HUMAN', `Workflow run is '${run.status}', not awaiting_human`);
+      return sendError(
+        reply,
+        409,
+        'NOT_AWAITING_HUMAN',
+        `Workflow run is '${run.status}', not awaiting_human`,
+      );
     }
     const body = (request.body ?? {}) as { approved?: unknown; note?: string };
     if (typeof body.approved !== 'boolean') {
@@ -663,12 +776,15 @@ export function registerWorkflowRoutes(app: FastifyInstance, ctx: Ctx): void {
     if (body.definition !== undefined) {
       const issues = validateDefinition(body.definition);
       if (issues.length > 0) {
-        return sendError(reply, 422, 'VALIDATION_ERROR', 'definition failed validation', { details: issues });
+        return sendError(reply, 422, 'VALIDATION_ERROR', 'definition failed validation', {
+          details: issues,
+        });
       }
       wf.definition = body.definition as Record<string, unknown>;
     }
     if (typeof body.name === 'string') wf.name = body.name;
-    if (typeof body.description === 'string' || body.description === null) wf.description = body.description as string | null;
+    if (typeof body.description === 'string' || body.description === null)
+      wf.description = body.description as string | null;
     if (body.status === 'active' || body.status === 'archived') wf.status = body.status;
     wf.version++;
     wf.updated_at = nowIso();

@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
-import { CoastyApiError, CoastyClient, CoastyTimeoutError, type FetchLike, type RunEvent } from '../src/index';
+import {
+  CoastyApiError,
+  CoastyClient,
+  CoastyTimeoutError,
+  type FetchLike,
+  type RunEvent,
+} from '../src/index';
 
 const BASE = 'https://coasty.test/v1';
 const KEY = 'sk-coasty-test-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
@@ -29,10 +35,18 @@ function scriptedFetch(responses: (() => Response | Promise<Response>)[]) {
   return { fetchImpl, calls };
 }
 
-const json = (data: unknown, status = 200, headers: Record<string, string> = {}) => () =>
-  new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json', ...headers } });
+const json =
+  (data: unknown, status = 200, headers: Record<string, string> = {}) =>
+  () =>
+    new Response(JSON.stringify(data), {
+      status,
+      headers: { 'Content-Type': 'application/json', ...headers },
+    });
 
-function client(fetchImpl: FetchLike, extra: Partial<ConstructorParameters<typeof CoastyClient>[0]> = {}) {
+function client(
+  fetchImpl: FetchLike,
+  extra: Partial<ConstructorParameters<typeof CoastyClient>[0]> = {},
+) {
   return new CoastyClient({
     baseUrl: BASE,
     apiKey: KEY,
@@ -44,7 +58,9 @@ function client(fetchImpl: FetchLike, extra: Partial<ConstructorParameters<typeo
 
 describe('CoastyClient transport', () => {
   it('sends X-API-Key always; Content-Type only when a body is sent', async () => {
-    const { fetchImpl, calls } = scriptedFetch([json({ models: [], cua_versions: [], action_types: [] })]);
+    const { fetchImpl, calls } = scriptedFetch([
+      json({ models: [], cua_versions: [], action_types: [] }),
+    ]);
     const c = client(fetchImpl);
     await c.models(); // GET — no body
     await c.parse('pyautogui.click(1,2)'); // POST — body
@@ -62,7 +78,9 @@ describe('CoastyClient transport', () => {
   });
 
   it('serializes query params and skips undefined ones', async () => {
-    const { fetchImpl, calls } = scriptedFetch([json({ object: 'list', data: [], has_more: false })]);
+    const { fetchImpl, calls } = scriptedFetch([
+      json({ object: 'list', data: [], has_more: false }),
+    ]);
     await client(fetchImpl).listRuns({ status: 'running' });
     expect(calls[0]!.url).toBe(`${BASE}/runs?status=running`);
   });
@@ -114,11 +132,24 @@ describe('CoastyClient transport', () => {
 
   it('captures Retry-After header as retryAfterMs', async () => {
     const { fetchImpl } = scriptedFetch([
-      json({ error: { code: 'UPSTREAM_UNAVAILABLE', message: 'busy', type: 'server_error', request_id: 'r' } }, 503, {
-        'Retry-After': '7',
-      }),
+      json(
+        {
+          error: {
+            code: 'UPSTREAM_UNAVAILABLE',
+            message: 'busy',
+            type: 'server_error',
+            request_id: 'r',
+          },
+        },
+        503,
+        {
+          'Retry-After': '7',
+        },
+      ),
     ]);
-    const err = (await client(fetchImpl).getRun('run_1').catch((e: unknown) => e)) as CoastyApiError;
+    const err = (await client(fetchImpl)
+      .getRun('run_1')
+      .catch((e: unknown) => e)) as CoastyApiError;
     // GET is retried; with maxAttempts 3 all attempts hit 503 then it throws
     expect(err.retryAfterMs).toBe(7000);
   });
@@ -127,7 +158,9 @@ describe('CoastyClient transport', () => {
     const { fetchImpl } = scriptedFetch([
       () => new Response('<html>gateway error</html>', { status: 502 }),
     ]);
-    const err = (await client(fetchImpl).predict({ screenshot: 'x'.repeat(200), instruction: 'c' }).catch((e: unknown) => e)) as CoastyApiError;
+    const err = (await client(fetchImpl)
+      .predict({ screenshot: 'x'.repeat(200), instruction: 'c' })
+      .catch((e: unknown) => e)) as CoastyApiError;
     expect(err).toBeInstanceOf(CoastyApiError);
     expect(err.status).toBe(502);
   });
@@ -158,7 +191,17 @@ describe('CoastyClient transport', () => {
 
 describe('CoastyClient retry policy', () => {
   const error503 = () =>
-    json({ error: { code: 'UPSTREAM_UNAVAILABLE', message: 'down', type: 'server_error', request_id: 'r1' } }, 503)();
+    json(
+      {
+        error: {
+          code: 'UPSTREAM_UNAVAILABLE',
+          message: 'down',
+          type: 'server_error',
+          request_id: 'r1',
+        },
+      },
+      503,
+    )();
 
   it('retries GET on 503 then succeeds', async () => {
     const { fetchImpl, calls } = scriptedFetch([
@@ -172,7 +215,9 @@ describe('CoastyClient retry policy', () => {
 
   it('does NOT retry a POST without an Idempotency-Key', async () => {
     const { fetchImpl, calls } = scriptedFetch([() => error503()]);
-    await expect(client(fetchImpl).createRun({ machine_id: 'm', task: 't' })).rejects.toBeInstanceOf(CoastyApiError);
+    await expect(
+      client(fetchImpl).createRun({ machine_id: 'm', task: 't' }),
+    ).rejects.toBeInstanceOf(CoastyApiError);
     expect(calls).toHaveLength(1);
   });
 
@@ -181,7 +226,10 @@ describe('CoastyClient retry policy', () => {
       () => error503(),
       json({ id: 'run_2', status: 'queued' }),
     ]);
-    const run = await client(fetchImpl).createRun({ machine_id: 'm', task: 't' }, { idempotencyKey: 'k1' });
+    const run = await client(fetchImpl).createRun(
+      { machine_id: 'm', task: 't' },
+      { idempotencyKey: 'k1' },
+    );
     expect(run).toMatchObject({ id: 'run_2' });
     expect(calls).toHaveLength(2);
     expect(calls[1]!.headers['Idempotency-Key']).toBe('k1');
@@ -189,7 +237,17 @@ describe('CoastyClient retry policy', () => {
 
   it('never retries non-retryable errors (422)', async () => {
     const { fetchImpl, calls } = scriptedFetch([
-      json({ error: { code: 'VALIDATION_ERROR', message: 'bad', type: 'validation_error', request_id: 'r' } }, 422),
+      json(
+        {
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'bad',
+            type: 'validation_error',
+            request_id: 'r',
+          },
+        },
+        422,
+      ),
     ]);
     await expect(client(fetchImpl).getRun('x')).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
     expect(calls).toHaveLength(1);
@@ -273,16 +331,29 @@ describe('CoastyClient SSE streaming', () => {
   });
 
   it('resumes from a caller-provided lastEventId', async () => {
-    const { fetchImpl, calls } = scriptedFetch([() => sseResponse('id: 6\nevent: done\ndata: {}\n\n')]);
+    const { fetchImpl, calls } = scriptedFetch([
+      () => sseResponse('id: 6\nevent: done\ndata: {}\n\n'),
+    ]);
     const events: RunEvent[] = [];
-    for await (const e of client(fetchImpl).streamRunEvents('run_1', { lastEventId: 5 })) events.push(e);
+    for await (const e of client(fetchImpl).streamRunEvents('run_1', { lastEventId: 5 }))
+      events.push(e);
     expect(calls[0]!.headers['Last-Event-ID']).toBe('5');
     expect(events.map((e) => e.seq)).toEqual([6]);
   });
 
   it('throws a CoastyApiError for non-2xx stream responses', async () => {
     const { fetchImpl } = scriptedFetch([
-      json({ error: { code: 'RUN_NOT_FOUND', message: 'nope', type: 'not_found_error', request_id: 'r' } }, 404),
+      json(
+        {
+          error: {
+            code: 'RUN_NOT_FOUND',
+            message: 'nope',
+            type: 'not_found_error',
+            request_id: 'r',
+          },
+        },
+        404,
+      ),
     ]);
     const iterate = async () => {
       for await (const _e of client(fetchImpl).streamRunEvents('missing')) {
@@ -308,7 +379,9 @@ describe('CoastyClient SSE streaming', () => {
   });
 
   it('workflow run events use the workflows path', async () => {
-    const { fetchImpl, calls } = scriptedFetch([() => sseResponse('id: 1\nevent: done\ndata: {}\n\n')]);
+    const { fetchImpl, calls } = scriptedFetch([
+      () => sseResponse('id: 1\nevent: done\ndata: {}\n\n'),
+    ]);
     for await (const _e of client(fetchImpl).streamWorkflowRunEvents('wfr_9')) {
       // drain
     }

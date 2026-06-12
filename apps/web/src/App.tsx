@@ -49,7 +49,9 @@ function Shell({ children }: { children: ReactNode }) {
         <NavLink to="/machines">Machines</NavLink>
         <NavLink to="/settings">Settings</NavLink>
         <div className="app-nav__footer">
-          <span style={{ color: 'var(--color-text-muted)', fontSize: '0.8rem' }}>{user?.email}</span>
+          <span style={{ color: 'var(--color-text-muted)', fontSize: '0.8rem' }}>
+            {user?.email}
+          </span>
           <Button variant="ghost" size="sm" onClick={logout}>
             Sign out
           </Button>

@@ -74,10 +74,15 @@ export function registerMachineRoutes(app: FastifyInstance, deps: MachineRouteDe
     const usage = await coasty.usage();
     const balance = usage.wallet_balance_cents ?? usage.balance;
     if (balance < PRICING.provisioningGateCents) {
-      throw new AppError(402, 'INSUFFICIENT_CREDITS', 'Provisioning requires a $0.20 wallet minimum', {
-        balanceCents: balance,
-        requiredCents: PRICING.provisioningGateCents,
-      });
+      throw new AppError(
+        402,
+        'INSUFFICIENT_CREDITS',
+        'Provisioning requires a $0.20 wallet minimum',
+        {
+          balanceCents: balance,
+          requiredCents: PRICING.provisioningGateCents,
+        },
+      );
     }
     const res = await coasty.createMachine(
       {
@@ -130,9 +135,14 @@ export function registerMachineRoutes(app: FastifyInstance, deps: MachineRouteDe
     const { id } = request.params as { id: string };
     const body = actionSchema.parse(request.body);
     if (!ALLOWED_COMMANDS.has(body.command)) {
-      throw new AppError(403, 'COMMAND_NOT_ALLOWED', `Command '${body.command}' is not exposed to clients`, {
-        allowed: [...ALLOWED_COMMANDS],
-      });
+      throw new AppError(
+        403,
+        'COMMAND_NOT_ALLOWED',
+        `Command '${body.command}' is not exposed to clients`,
+        {
+          allowed: [...ALLOWED_COMMANDS],
+        },
+      );
     }
     return coasty.machineAction(id, { command: body.command, parameters: body.parameters });
   });

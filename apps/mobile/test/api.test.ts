@@ -52,9 +52,7 @@ describe('api client', () => {
   });
 
   it('maps the backend error envelope to ApiError', async () => {
-    stubFetch(() =>
-      jsonRes({ error: { code: 'BUDGET_EXCEEDED', message: 'Cap exceeded' } }, 422),
-    );
+    stubFetch(() => jsonRes({ error: { code: 'BUDGET_EXCEEDED', message: 'Cap exceeded' } }, 422));
     const err = await api.getRun('r_1').catch((e: unknown) => e);
     expect(err).toBeInstanceOf(ApiError);
     expect((err as ApiError).status).toBe(422);

@@ -32,8 +32,7 @@ function execBuffer(cmd: string, args: string[]): Promise<Buffer> {
 export function pngDimensions(buf: Uint8Array): { width: number; height: number } {
   // PNG: 8-byte magic, then IHDR chunk: 4 len + 'IHDR' + 4 width + 4 height
   if (buf.length < 24) throw new Error('Not a PNG (too short)');
-  const magicOk =
-    buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47;
+  const magicOk = buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47;
   if (!magicOk) throw new Error('Not a PNG (bad magic)');
   const view = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
   return { width: view.getUint32(16), height: view.getUint32(20) };
@@ -44,11 +43,22 @@ abstract class ShellBridge implements NativeBridge {
   abstract screenSize(): Promise<{ width: number; height: number }>;
   abstract click(x: number, y: number, button: MouseButton, clicks: number): Promise<void>;
   abstract moveMouse(x: number, y: number): Promise<void>;
-  abstract drag(fromX: number, fromY: number, toX: number, toY: number, button: MouseButton): Promise<void>;
+  abstract drag(
+    fromX: number,
+    fromY: number,
+    toX: number,
+    toY: number,
+    button: MouseButton,
+  ): Promise<void>;
   abstract typeText(text: string): Promise<void>;
   abstract keyPress(keys: string[]): Promise<void>;
   abstract keyCombo(keys: string[]): Promise<void>;
-  abstract scroll(direction: ScrollDirection, amount: number, x?: number, y?: number): Promise<void>;
+  abstract scroll(
+    direction: ScrollDirection,
+    amount: number,
+    x?: number,
+    y?: number,
+  ): Promise<void>;
   async dispose(): Promise<void> {
     // exec-per-call: nothing persistent to release
   }
@@ -69,8 +79,14 @@ export class DarwinBridge extends ShellBridge {
   }
 
   async screenSize(): Promise<{ width: number; height: number }> {
-    const { stdout } = await exec('osascript', ['-e', 'tell application "Finder" to get bounds of window of desktop']);
-    const parts = stdout.trim().split(',').map((s) => Number(s.trim()));
+    const { stdout } = await exec('osascript', [
+      '-e',
+      'tell application "Finder" to get bounds of window of desktop',
+    ]);
+    const parts = stdout
+      .trim()
+      .split(',')
+      .map((s) => Number(s.trim()));
     return { width: parts[2] ?? 1920, height: parts[3] ?? 1080 };
   }
 
@@ -83,45 +99,80 @@ export class DarwinBridge extends ShellBridge {
     await exec('cliclick', [`m:${x},${y}`]);
   }
 
-  async drag(fromX: number, fromY: number, toX: number, toY: number, _button: MouseButton): Promise<void> {
+  async drag(
+    fromX: number,
+    fromY: number,
+    toX: number,
+    toY: number,
+    _button: MouseButton,
+  ): Promise<void> {
     await exec('cliclick', [`dd:${fromX},${fromY}`, `du:${toX},${toY}`]);
   }
 
   async typeText(text: string): Promise<void> {
-    await exec('osascript', ['-e', `tell application "System Events" to keystroke ${JSON.stringify(text)}`]);
+    await exec('osascript', [
+      '-e',
+      `tell application "System Events" to keystroke ${JSON.stringify(text)}`,
+    ]);
   }
 
   async keyPress(keys: string[]): Promise<void> {
     const KEYCODES: Record<string, number> = {
-      enter: 36, return: 36, tab: 48, esc: 53, escape: 53, space: 49,
-      delete: 51, backspace: 51, up: 126, down: 125, left: 123, right: 124,
+      enter: 36,
+      return: 36,
+      tab: 48,
+      esc: 53,
+      escape: 53,
+      space: 49,
+      delete: 51,
+      backspace: 51,
+      up: 126,
+      down: 125,
+      left: 123,
+      right: 124,
     };
     for (const key of keys) {
       const code = KEYCODES[key.toLowerCase()];
       if (code !== undefined) {
         await exec('osascript', ['-e', `tell application "System Events" to key code ${code}`]);
       } else {
-        await exec('osascript', ['-e', `tell application "System Events" to keystroke ${JSON.stringify(key)}`]);
+        await exec('osascript', [
+          '-e',
+          `tell application "System Events" to keystroke ${JSON.stringify(key)}`,
+        ]);
       }
     }
   }
 
   async keyCombo(keys: string[]): Promise<void> {
     const MODS: Record<string, string> = {
-      cmd: 'command down', command: 'command down', meta: 'command down', win: 'command down',
-      ctrl: 'control down', control: 'control down',
-      alt: 'option down', option: 'option down',
+      cmd: 'command down',
+      command: 'command down',
+      meta: 'command down',
+      win: 'command down',
+      ctrl: 'control down',
+      control: 'control down',
+      alt: 'option down',
+      option: 'option down',
       shift: 'shift down',
     };
     const mods = keys.filter((k) => MODS[k.toLowerCase()]).map((k) => MODS[k.toLowerCase()]!);
     const mains = keys.filter((k) => !MODS[k.toLowerCase()]);
     const using = mods.length > 0 ? ` using {${mods.join(', ')}}` : '';
     for (const main of mains) {
-      await exec('osascript', ['-e', `tell application "System Events" to keystroke ${JSON.stringify(main)}${using}`]);
+      await exec('osascript', [
+        '-e',
+        `tell application "System Events" to keystroke ${JSON.stringify(main)}${using}`,
+      ]);
     }
   }
 
-  async scroll(direction: ScrollDirection, amount: number, _x?: number, _y?: number): Promise<void> {
+  async scroll(
+    direction: ScrollDirection,
+    amount: number,
+    _x?: number,
+    _y?: number,
+  ): Promise<void> {
     const map: Record<ScrollDirection, string> = { up: '+', down: '-', left: '+', right: '-' };
     const axis = direction === 'left' || direction === 'right' ? 'h' : 'v';
     void axis;
@@ -146,16 +197,41 @@ export class LinuxBridge extends ShellBridge {
   private static BUTTONS: Record<MouseButton, string> = { left: '1', middle: '2', right: '3' };
 
   async click(x: number, y: number, button: MouseButton, clicks: number): Promise<void> {
-    await exec('xdotool', ['mousemove', String(x), String(y), 'click', '--repeat', String(clicks), LinuxBridge.BUTTONS[button]]);
+    await exec('xdotool', [
+      'mousemove',
+      String(x),
+      String(y),
+      'click',
+      '--repeat',
+      String(clicks),
+      LinuxBridge.BUTTONS[button],
+    ]);
   }
 
   async moveMouse(x: number, y: number): Promise<void> {
     await exec('xdotool', ['mousemove', String(x), String(y)]);
   }
 
-  async drag(fromX: number, fromY: number, toX: number, toY: number, button: MouseButton): Promise<void> {
+  async drag(
+    fromX: number,
+    fromY: number,
+    toX: number,
+    toY: number,
+    button: MouseButton,
+  ): Promise<void> {
     const b = LinuxBridge.BUTTONS[button];
-    await exec('xdotool', ['mousemove', String(fromX), String(fromY), 'mousedown', b, 'mousemove', String(toX), String(toY), 'mouseup', b]);
+    await exec('xdotool', [
+      'mousemove',
+      String(fromX),
+      String(fromY),
+      'mousedown',
+      b,
+      'mousemove',
+      String(toX),
+      String(toY),
+      'mouseup',
+      b,
+    ]);
   }
 
   async typeText(text: string): Promise<void> {
@@ -164,9 +240,21 @@ export class LinuxBridge extends ShellBridge {
 
   async keyPress(keys: string[]): Promise<void> {
     const MAP: Record<string, string> = {
-      enter: 'Return', esc: 'Escape', escape: 'Escape', tab: 'Tab', space: 'space',
-      backspace: 'BackSpace', delete: 'Delete', up: 'Up', down: 'Down', left: 'Left', right: 'Right',
-      home: 'Home', end: 'End', pageup: 'Page_Up', pagedown: 'Page_Down',
+      enter: 'Return',
+      esc: 'Escape',
+      escape: 'Escape',
+      tab: 'Tab',
+      space: 'space',
+      backspace: 'BackSpace',
+      delete: 'Delete',
+      up: 'Up',
+      down: 'Down',
+      left: 'Left',
+      right: 'Right',
+      home: 'Home',
+      end: 'End',
+      pageup: 'Page_Up',
+      pagedown: 'Page_Down',
     };
     for (const key of keys) {
       await exec('xdotool', ['key', MAP[key.toLowerCase()] ?? key]);
@@ -174,7 +262,15 @@ export class LinuxBridge extends ShellBridge {
   }
 
   async keyCombo(keys: string[]): Promise<void> {
-    const MAP: Record<string, string> = { ctrl: 'ctrl', control: 'ctrl', alt: 'alt', shift: 'shift', win: 'super', cmd: 'super', meta: 'super' };
+    const MAP: Record<string, string> = {
+      ctrl: 'ctrl',
+      control: 'ctrl',
+      alt: 'alt',
+      shift: 'shift',
+      win: 'super',
+      cmd: 'super',
+      meta: 'super',
+    };
     const combo = keys.map((k) => MAP[k.toLowerCase()] ?? k).join('+');
     await exec('xdotool', ['key', combo]);
   }

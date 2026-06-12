@@ -25,10 +25,7 @@ export function CostPill({ cents, variant, className }: CostPillProps) {
   const amount = formatCents(cents);
   const label = `${variant === 'estimate' ? 'estimated' : 'actual'} cost ${amount}`;
   return (
-    <span
-      className={cx('oc-cost-pill', `oc-cost-pill--${variant}`, className)}
-      aria-label={label}
-    >
+    <span className={cx('oc-cost-pill', `oc-cost-pill--${variant}`, className)} aria-label={label}>
       <span aria-hidden="true">{amount}</span>
     </span>
   );

@@ -44,7 +44,12 @@ export function WalletScreen() {
             <Text style={styles.meta}>Billing period {wallet.period}</Text>
           </View>
           {user ? <Text style={styles.meta}>Signed in as {user.email}</Text> : null}
-          <AppButton accessibilityLabel="Sign out" kind="secondary" label="Sign out" onPress={signOut} />
+          <AppButton
+            accessibilityLabel="Sign out"
+            kind="secondary"
+            label="Sign out"
+            onPress={signOut}
+          />
         </View>
       ) : null}
     </View>

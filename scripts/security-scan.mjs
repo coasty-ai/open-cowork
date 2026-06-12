@@ -32,7 +32,11 @@ const CLIENT_TARGETS = [
 ];
 
 const PATTERNS = [
-  { name: 'Coasty API key value', re: /sk-coasty-(?:live|test)-[0-9a-fA-F]{8,}/g, allowZeros: true },
+  {
+    name: 'Coasty API key value',
+    re: /sk-coasty-(?:live|test)-[0-9a-fA-F]{8,}/g,
+    allowZeros: true,
+  },
   { name: 'Legacy Coasty key value', re: /cua_sk_[0-9a-fA-F]{8,}/g, allowZeros: false },
   { name: 'Webhook secret value', re: /whsec_[0-9a-zA-Z]{8,}/g, allowZeros: false },
   { name: 'COASTY_API_KEY env reference', re: /COASTY_API_KEY/g, allowZeros: false },

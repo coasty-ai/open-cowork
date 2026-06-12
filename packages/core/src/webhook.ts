@@ -85,7 +85,9 @@ export interface VerifyWebhookResult {
  * HMAC result is consulted, but the HMAC is always computed to keep timing
  * uniform.
  */
-export async function verifyWebhookSignature(opts: VerifyWebhookOptions): Promise<VerifyWebhookResult> {
+export async function verifyWebhookSignature(
+  opts: VerifyWebhookOptions,
+): Promise<VerifyWebhookResult> {
   const { body, header, secret, toleranceSeconds = 300 } = opts;
   const now = opts.now ?? (() => Math.floor(Date.now() / 1000));
 
@@ -101,7 +103,8 @@ export async function verifyWebhookSignature(opts: VerifyWebhookOptions): Promis
     const v = part.slice(idx + 1).trim();
     if (k === 't') {
       const parsed = Number(v);
-      if (!Number.isInteger(parsed) || parsed <= 0) return { valid: false, reason: 'malformed_header' };
+      if (!Number.isInteger(parsed) || parsed <= 0)
+        return { valid: false, reason: 'malformed_header' };
       t = parsed;
     } else if (k === 'v1') {
       if (!/^[0-9a-f]{64}$/i.test(v)) return { valid: false, reason: 'malformed_header' };

@@ -33,7 +33,10 @@ export function LoginPage() {
   return (
     <main style={{ display: 'grid', placeItems: 'center', minHeight: '100vh', padding: 16 }}>
       <Card>
-        <form onSubmit={(e) => void submit(e)} style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 300 }}>
+        <form
+          onSubmit={(e) => void submit(e)}
+          style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 300 }}
+        >
           <h1 className="page-title">Sign in to open-cowork</h1>
           <p style={{ color: 'var(--color-text-muted)', margin: 0, fontSize: '0.9rem' }}>
             Demo single-tenant auth — enter an email to get a session.

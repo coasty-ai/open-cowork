@@ -40,12 +40,9 @@
   --radius-full: 999px;
 
   /* Typography */
-  --font-sans:
-    'Inter', 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial,
-    sans-serif;
+  --font-sans: 'Inter', 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
   --font-mono:
-    ui-monospace, 'Cascadia Code', 'SF Mono', 'JetBrains Mono', Menlo, Consolas,
-    monospace;
+    ui-monospace, 'Cascadia Code', 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
 
   /* Focus ring */
   --focus-ring-color: var(--color-accent);

@@ -24,7 +24,11 @@ export interface InjectOpts {
   headers?: Record<string, string>;
 }
 
-export async function call(m: MockCoasty, path: string, opts: InjectOpts = {}): Promise<MockResponse> {
+export async function call(
+  m: MockCoasty,
+  path: string,
+  opts: InjectOpts = {},
+): Promise<MockResponse> {
   const res = await m.app.inject({
     method: opts.method ?? 'GET',
     url: path,
@@ -50,7 +54,10 @@ export async function createMachine(m: MockCoasty, key = TEST_KEY): Promise<stri
   return (res.json() as { machine: { id: string } }).machine.id;
 }
 
-export async function pollUntil<T>(fn: () => Promise<T | undefined | false>, timeoutMs = 6000): Promise<T> {
+export async function pollUntil<T>(
+  fn: () => Promise<T | undefined | false>,
+  timeoutMs = 6000,
+): Promise<T> {
   const deadline = Date.now() + timeoutMs;
   for (;;) {
     const v = await fn();

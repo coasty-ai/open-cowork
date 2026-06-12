@@ -27,7 +27,9 @@ export function useGlobalFeed(): GlobalFeedResult {
   });
 
   const banner = useMemo(() => {
-    const pending = events.filter((e) => e.type.endsWith('awaiting_human') && e.seq > dismissed).at(-1);
+    const pending = events
+      .filter((e) => e.type.endsWith('awaiting_human') && e.seq > dismissed)
+      .at(-1);
     if (!pending) return null;
     const runId = (pending.data.runId ?? pending.data.workflowRunId) as string | undefined;
     const isWorkflow = pending.data.workflowRunId !== undefined;

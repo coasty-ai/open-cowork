@@ -73,7 +73,13 @@ export class Ingestor {
   }
 
   private handleEvent(target: IngestTarget, evt: RunEvent): void {
-    const inserted = this.db.ingestEvent(target.kind, target.localId, evt.seq, String(evt.type), evt.data);
+    const inserted = this.db.ingestEvent(
+      target.kind,
+      target.localId,
+      evt.seq,
+      String(evt.type),
+      evt.data,
+    );
     if (!inserted) return; // replay overlap — already stored + published
 
     this.applyStateChange(target, evt);
@@ -117,7 +123,8 @@ export class Ingestor {
         case 'awaiting_human': {
           this.db.updateRun(target.localId, {
             status: 'awaiting_human',
-            awaiting_human_reason: typeof data.reason === 'string' ? data.reason : 'Human takeover requested',
+            awaiting_human_reason:
+              typeof data.reason === 'string' ? data.reason : 'Human takeover requested',
           });
           break;
         }
@@ -172,7 +179,10 @@ export class Ingestor {
         }
         case 'done': {
           const status = typeof data.status === 'string' ? data.status : 'succeeded';
-          this.db.updateWorkflowRun(target.localId, { status, finished_at: new Date().toISOString() });
+          this.db.updateWorkflowRun(target.localId, {
+            status,
+            finished_at: new Date().toISOString(),
+          });
           break;
         }
         default:

@@ -31,13 +31,17 @@ export function registerWebhookRoutes(app: FastifyInstance, deps: WebhookRouteDe
     const header = request.headers['coasty-signature'];
     const signature = Array.isArray(header) ? header[0] : header;
     if (!raw || !signature) {
-      return reply.status(401).send({ error: { code: 'INVALID_SIGNATURE', message: 'Missing signature' } });
+      return reply
+        .status(401)
+        .send({ error: { code: 'INVALID_SIGNATURE', message: 'Missing signature' } });
     }
 
     const payload = request.body as WebhookPayload;
     const upstream = payload.run;
     if (!upstream?.id || typeof payload.event !== 'string') {
-      return reply.status(400).send({ error: { code: 'BAD_REQUEST', message: 'Unrecognized payload' } });
+      return reply
+        .status(400)
+        .send({ error: { code: 'BAD_REQUEST', message: 'Unrecognized payload' } });
     }
 
     // Locate the matching run (cloud run or workflow run) to find its secret.
@@ -47,14 +51,16 @@ export function registerWebhookRoutes(app: FastifyInstance, deps: WebhookRouteDe
     const secret = runRow?.webhook_secret ?? wfRow?.webhook_secret;
     if (!secret) {
       // Unknown run or no secret stored: refuse. (404 would leak which ids exist.)
-      return reply.status(401).send({ error: { code: 'INVALID_SIGNATURE', message: 'Unknown delivery' } });
+      return reply
+        .status(401)
+        .send({ error: { code: 'INVALID_SIGNATURE', message: 'Unknown delivery' } });
     }
 
     const verdict = await verifyWebhookSignature({ body: raw, header: signature, secret });
     if (!verdict.valid) {
-      return reply
-        .status(401)
-        .send({ error: { code: 'INVALID_SIGNATURE', message: `Signature rejected (${verdict.reason})` } });
+      return reply.status(401).send({
+        error: { code: 'INVALID_SIGNATURE', message: `Signature rejected (${verdict.reason})` },
+      });
     }
 
     // Verified: reconcile state + notify the owner's activity feed.
@@ -63,7 +69,9 @@ export function registerWebhookRoutes(app: FastifyInstance, deps: WebhookRouteDe
       db.updateRun(runRow.id, {
         status,
         ...(TERMINAL.has(status) ? { finished_at: new Date().toISOString() } : {}),
-        ...('result' in upstream && upstream.result ? { result_json: JSON.stringify(upstream.result) } : {}),
+        ...('result' in upstream && upstream.result
+          ? { result_json: JSON.stringify(upstream.result) }
+          : {}),
         ...('cost_cents' in upstream && typeof upstream.cost_cents === 'number'
           ? { cost_cents: upstream.cost_cents }
           : {}),

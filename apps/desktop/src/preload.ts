@@ -21,7 +21,9 @@ function readSessionToken(): string | null {
     const raw = window.localStorage.getItem('cowork-session');
     if (!raw) return null;
     const parsed = JSON.parse(raw) as { state?: { token?: unknown } };
-    return typeof parsed.state?.token === 'string' && parsed.state.token.length > 0 ? parsed.state.token : null;
+    return typeof parsed.state?.token === 'string' && parsed.state.token.length > 0
+      ? parsed.state.token
+      : null;
   } catch {
     return null;
   }
@@ -31,6 +33,9 @@ contextBridge.exposeInMainWorld('cowork', {
   platform: 'desktop' as const,
   backendUrl: config.backendUrl,
   startLocalRun: (input: { task: string; maxSteps?: number }): Promise<{ runId: string }> =>
-    ipcRenderer.invoke('cowork:local-run', { ...input, token: readSessionToken() }) as Promise<{ runId: string }>,
-  cancelLocalRun: (): Promise<void> => ipcRenderer.invoke('cowork:cancel-local-run') as Promise<void>,
+    ipcRenderer.invoke('cowork:local-run', { ...input, token: readSessionToken() }) as Promise<{
+      runId: string;
+    }>,
+  cancelLocalRun: (): Promise<void> =>
+    ipcRenderer.invoke('cowork:cancel-local-run') as Promise<void>,
 });
