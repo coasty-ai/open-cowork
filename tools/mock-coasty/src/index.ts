@@ -84,6 +84,8 @@ export function createMockCoasty(options: Partial<MockOptions> = {}): MockCoasty
     return payload;
   });
 
+  app.get('/health', async () => ({ ok: true, service: 'mock-coasty' }));
+
   registerInferenceRoutes(app, ctx);
   registerRunRoutes(app, ctx);
   registerMachineRoutes(app, ctx);

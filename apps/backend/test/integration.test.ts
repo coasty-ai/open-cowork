@@ -317,6 +317,14 @@ describe('local runs (desktop mirror)', () => {
     // The same SSE route used for cloud runs replays the local timeline.
     const events = await collectSse(`${h.backendUrl}/api/runs/${run.id}/events`, h.token);
     expect(events.map((e) => e.type)).toEqual(['status', 'step', 'billing', 'done']);
+
+    // REST polling fallback (mobile) returns the same timeline with a cursor.
+    const pollRes = (await (await h.api(`/api/runs/${run.id}/events.json?after=1`)).json()) as {
+      events: { seq: number; type: string }[];
+      done: boolean;
+    };
+    expect(pollRes.events.map((e) => e.type)).toEqual(['step', 'billing', 'done']);
+    expect(pollRes.done).toBe(true);
   });
 });
 

@@ -1,0 +1,18 @@
+# Maestro flow: sign in to open-cowork mobile.
+#
+# Emulator-only (not run in CI — see DECISIONS.md D7; CI covers the same
+# screens via react-native-web component tests). Prerequisites:
+#   1. Backend running and reachable from the device/emulator
+#      (set EXPO_PUBLIC_BACKEND_URL before `pnpm dev`, e.g. http://10.0.2.2:4000
+#      for the Android emulator).
+#   2. App open in Expo Go (appId below) or change appId for a dev build.
+#
+# Run: maestro test .maestro/login.yaml
+appId: host.exp.exponent
+---
+- launchApp
+- assertVisible: 'open-cowork'
+- tapOn: 'Email'
+- inputText: 'demo@open-cowork.dev'
+- tapOn: 'Sign in'
+- assertVisible: 'Runs'

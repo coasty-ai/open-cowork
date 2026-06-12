@@ -1,0 +1,20 @@
+# Maestro flow: approve a paused (awaiting_human) run from the phone.
+#
+# Emulator-only (not run in CI — see DECISIONS.md D7). Prerequisites:
+#   1. Backend + mock-coasty running; a run paused in 'awaiting_human'
+#      (e.g. delegate a task containing "ask me" against mock-coasty from the
+#      web app, or use the desktop app's takeover flow).
+#   2. Same setup as login.yaml.
+#
+# Run: maestro test .maestro/approve-run.yaml
+appId: host.exp.exponent
+---
+- runFlow: login.yaml
+- assertVisible: 'A run needs your approval'
+- tapOn: 'A run needs your approval'
+- assertVisible: 'Approve'
+- tapOn: 'Approval note'
+- inputText: 'Approved from my phone'
+- tapOn: 'Approve'
+- assertNotVisible: 'Approve'
+- assertVisible: 'running'

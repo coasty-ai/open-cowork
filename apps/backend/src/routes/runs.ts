@@ -263,6 +263,21 @@ export function registerRunRoutes(app: FastifyInstance, deps: RunRouteDeps): voi
     streamSse(request, reply, { db, bus, streamKind: 'run', streamId: id, closeOnType: 'done' });
   });
 
+  // REST polling fallback for clients without streaming fetch (React Native).
+  app.get('/api/runs/:id/events.json', async (request) => {
+    const { id } = request.params as { id: string };
+    const row = db.getRun(request.user.id, id);
+    if (!row) throw notFound('Run');
+    const after = Number((request.query as { after?: string }).after ?? 0) || 0;
+    const events = db.eventsAfter('run', id, after).map((e) => ({
+      seq: e.seq,
+      type: e.type,
+      data: JSON.parse(e.data_json) as Record<string, unknown>,
+      createdAt: e.created_at,
+    }));
+    return { events, done: events.some((e) => e.type === 'done') };
+  });
+
   // ── local runs (desktop LocalExecutor mirror) ───────────────────────────────
   const localCreateSchema = z.object({
     task: z.string().min(1).max(16000),

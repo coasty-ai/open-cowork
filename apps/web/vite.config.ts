@@ -11,7 +11,7 @@ const backendProxy = {
 
 export default defineConfig({
   plugins: [react()],
-  server: { port: 5173, strictPort: true, proxy: backendProxy },
-  preview: { port: 4173, strictPort: true, proxy: backendProxy },
+  server: { host: '127.0.0.1', port: 5173, strictPort: true, proxy: backendProxy },
+  preview: { host: '127.0.0.1', port: 4173, strictPort: true, proxy: backendProxy },
   build: { outDir: 'dist', sourcemap: false },
 });

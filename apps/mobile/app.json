@@ -1,0 +1,26 @@
+{
+  "expo": {
+    "name": "open-cowork",
+    "slug": "open-cowork",
+    "version": "0.1.0",
+    "scheme": "opencowork",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#0b0e14",
+    "platforms": ["ios", "android", "web"],
+    "splash": {
+      "backgroundColor": "#0b0e14",
+      "resizeMode": "contain"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "edgeToEdgeEnabled": true
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    }
+  }
+}
