@@ -9,6 +9,7 @@
     "e2e:web": "playwright test --project=web",
     "e2e:desktop": "playwright test --project=desktop",
     "e2e:mobile-web": "playwright test --project=mobile-web",
+    "smoke:bootstrap": "node bootstrap-smoke.mjs",
     "test": "echo \"e2e package: run 'pnpm e2e' from the repo root\" && exit 0",
     "typecheck": "tsc --noEmit"
   },
