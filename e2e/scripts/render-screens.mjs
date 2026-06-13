@@ -236,6 +236,19 @@ const SCREENS = [
     h: 900,
     coastyKey: { configured: true, mode: 'live', demoMode: false, source: 'env' },
   },
+  // Delegate (Home) — the centered single-focus composer.
+  {
+    name: 'home-typed',
+    path: '/',
+    theme: 'dark',
+    w: 1280,
+    h: 900,
+    typeTask:
+      'Reconcile the June vendor invoices against the PO ledger,\nflag any mismatches over $50,\nand email me a summary.',
+    selectMachine: 'm1',
+  },
+  { name: 'home-no-machine', path: '/', theme: 'dark', w: 1280, h: 900, noMachines: true },
+  { name: 'home-mobile', path: '/', theme: 'dark', w: 390, h: 760 },
   { name: 'settings-key-demo', path: '/settings', theme: 'dark', w: 1280, h: 980 },
   {
     name: 'settings-key-connected',
@@ -339,6 +352,15 @@ try {
         }),
       );
     }
+    if (s.noMachines) {
+      await context.route('**/api/machines', (route) =>
+        route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ machines: [] }),
+        }),
+      );
+    }
     const page = await context.newPage();
     await page.goto(`${BASE_URL}${s.path}`, { waitUntil: 'networkidle' }).catch(() => {});
     await page.evaluate((t) => {
@@ -351,6 +373,12 @@ try {
         const m = document.querySelector('.app-main');
         if (m) m.scrollTop = m.scrollHeight;
       });
+    }
+    if (s.typeTask) {
+      await page.fill('textarea[aria-label="Task"]', s.typeTask).catch(() => {});
+      if (s.selectMachine) {
+        await page.selectOption('select[aria-label="Machine"]', s.selectMachine).catch(() => {});
+      }
     }
     await page.waitForTimeout(350);
     await page.screenshot({ path: path.join(OUT, `${s.name}.png`), fullPage: !s.scroll });
