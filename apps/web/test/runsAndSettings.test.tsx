@@ -7,6 +7,7 @@ import { cleanup, render, screen, waitFor, within } from '@testing-library/react
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { setClientForTests, useAuth } from '../src/store';
+import { CoastyKeyProvider } from '../src/coastyKey';
 import { RunsPage } from '../src/pages/RunsPage';
 import { SettingsPage } from '../src/pages/SettingsPage';
 import { stubClient, makeRun } from './helpers';
@@ -28,14 +29,32 @@ afterEach(() => {
 function renderRuns() {
   return render(
     <MemoryRouter>
-      <Routes>
-        <Route path="/" element={<RunsPage />} />
-      </Routes>
+      <CoastyKeyProvider>
+        <Routes>
+          <Route path="/" element={<RunsPage />} />
+        </Routes>
+      </CoastyKeyProvider>
     </MemoryRouter>,
   );
 }
 
 describe('RunsPage', () => {
+  it('shows the API-key gate when there are no runs and no key is configured', async () => {
+    setClientForTests(
+      stubClient({
+        listRuns: vi.fn(async () => ({ runs: [] })),
+        coastyKeyStatus: vi.fn(async () => ({
+          configured: false,
+          mode: null,
+          demoMode: true,
+          source: 'demo',
+        })),
+      }),
+    );
+    renderRuns();
+    expect(await screen.findByText(/coasty api key required/i)).toBeInTheDocument();
+  });
+
   it('renders runs with local/cloud markers', async () => {
     setClientForTests(
       stubClient({
@@ -114,7 +133,9 @@ describe('SettingsPage', () => {
     );
     render(
       <MemoryRouter>
-        <SettingsPage />
+        <CoastyKeyProvider>
+          <SettingsPage />
+        </CoastyKeyProvider>
       </MemoryRouter>,
     );
     const input = (await screen.findByLabelText(/budget cap/i)) as HTMLInputElement;
@@ -135,7 +156,9 @@ describe('SettingsPage', () => {
     );
     render(
       <MemoryRouter>
-        <SettingsPage />
+        <CoastyKeyProvider>
+          <SettingsPage />
+        </CoastyKeyProvider>
       </MemoryRouter>,
     );
     const input = await screen.findByLabelText(/budget cap/i);
@@ -163,7 +186,9 @@ describe('SettingsPage', () => {
     setClientForTests(stubClient());
     render(
       <MemoryRouter>
-        <SettingsPage />
+        <CoastyKeyProvider>
+          <SettingsPage />
+        </CoastyKeyProvider>
       </MemoryRouter>,
     );
     await userEvent.click(await screen.findByRole('button', { name: /^save$/i }));
@@ -176,7 +201,9 @@ describe('SettingsPage', () => {
     );
     render(
       <MemoryRouter>
-        <SettingsPage />
+        <CoastyKeyProvider>
+          <SettingsPage />
+        </CoastyKeyProvider>
       </MemoryRouter>,
     );
     expect(await screen.findByRole('alert')).toHaveTextContent('me failed');

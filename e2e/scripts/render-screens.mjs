@@ -205,9 +205,25 @@ const SCREENS = [
   { name: 'home', path: '/', theme: 'dark', w: 1280, h: 900 },
   { name: 'runs', path: '/runs', theme: 'dark', w: 1280, h: 900 },
   { name: 'run-detail', path: '/runs/r1', theme: 'dark', w: 1280, h: 1040 },
-  { name: 'machines', path: '/machines', theme: 'dark', w: 1280, h: 900 },
+  {
+    name: 'machines',
+    path: '/machines',
+    theme: 'dark',
+    w: 1280,
+    h: 900,
+    coastyKey: { configured: true, mode: 'test', demoMode: false, source: 'env' },
+  },
+  { name: 'machines-gated', path: '/machines', theme: 'dark', w: 1280, h: 900 },
   { name: 'settings', path: '/settings', theme: 'dark', w: 1280, h: 900 },
-  { name: 'workflows', path: '/workflows', theme: 'dark', w: 1280, h: 900 },
+  {
+    name: 'workflows',
+    path: '/workflows',
+    theme: 'dark',
+    w: 1280,
+    h: 900,
+    coastyKey: { configured: true, mode: 'test', demoMode: false, source: 'env' },
+  },
+  { name: 'workflows-gated', path: '/workflows', theme: 'dark', w: 1280, h: 900 },
   { name: 'home-light', path: '/', theme: 'light', w: 1280, h: 900 },
   { name: 'runs-light', path: '/runs', theme: 'light', w: 1280, h: 900 },
   { name: 'run-detail-light', path: '/runs/r1', theme: 'light', w: 1280, h: 1040 },
@@ -249,6 +265,11 @@ const SCREENS = [
   },
   { name: 'home-no-machine', path: '/', theme: 'dark', w: 1280, h: 900, noMachines: true },
   { name: 'home-mobile', path: '/', theme: 'dark', w: 390, h: 760 },
+  // Desktop (Electron) variant — different subtitle + a local run target.
+  { name: 'home-desktop', path: '/', theme: 'dark', w: 1280, h: 900, desktop: true },
+  // In-house machine dropdown, opened — both themes.
+  { name: 'home-menu', path: '/', theme: 'dark', w: 1280, h: 900, openMachine: true },
+  { name: 'home-menu-light', path: '/', theme: 'light', w: 1280, h: 900, openMachine: true },
   { name: 'settings-key-demo', path: '/settings', theme: 'dark', w: 1280, h: 980 },
   {
     name: 'settings-key-connected',
@@ -324,6 +345,12 @@ try {
         /* storage unavailable */
       }
     }, s.theme);
+    if (s.desktop) {
+      await context.addInitScript(() => {
+        // eslint-disable-next-line no-undef
+        window.cowork = { platform: 'desktop' };
+      });
+    }
     if (s.manyRuns) {
       const many = Array.from({ length: 30 }, (_, i) =>
         run({
@@ -376,9 +403,9 @@ try {
     }
     if (s.typeTask) {
       await page.fill('textarea[aria-label="Task"]', s.typeTask).catch(() => {});
-      if (s.selectMachine) {
-        await page.selectOption('select[aria-label="Machine"]', s.selectMachine).catch(() => {});
-      }
+    }
+    if (s.openMachine) {
+      await page.click('[role="combobox"][aria-label="Machine"]').catch(() => {});
     }
     await page.waitForTimeout(350);
     await page.screenshot({ path: path.join(OUT, `${s.name}.png`), fullPage: !s.scroll });

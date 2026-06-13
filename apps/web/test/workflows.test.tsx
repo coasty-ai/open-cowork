@@ -7,16 +7,19 @@ import { cleanup, render, screen, waitFor, within } from '@testing-library/react
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { setClientForTests, useAuth } from '../src/store';
+import { CoastyKeyProvider } from '../src/coastyKey';
 import { WorkflowsPage } from '../src/pages/WorkflowsPage';
 import { stubClient, makeWorkflow, makeWorkflowRun } from './helpers';
 
 function renderWorkflows() {
   return render(
     <MemoryRouter initialEntries={['/workflows']}>
-      <Routes>
-        <Route path="/workflows" element={<WorkflowsPage />} />
-        <Route path="/workflows/:id" element={<div>workflow detail</div>} />
-      </Routes>
+      <CoastyKeyProvider>
+        <Routes>
+          <Route path="/workflows" element={<WorkflowsPage />} />
+          <Route path="/workflows/:id" element={<div>workflow detail</div>} />
+        </Routes>
+      </CoastyKeyProvider>
     </MemoryRouter>,
   );
 }
@@ -33,6 +36,22 @@ afterEach(() => {
 });
 
 describe('WorkflowsPage', () => {
+  it('shows the API-key gate (no new-workflow action) when no key is configured', async () => {
+    setClientForTests(
+      stubClient({
+        coastyKeyStatus: vi.fn(async () => ({
+          configured: false,
+          mode: null,
+          demoMode: true,
+          source: 'demo',
+        })),
+      }),
+    );
+    renderWorkflows();
+    expect(await screen.findByText(/workflows need a coasty api key/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /new workflow/i })).not.toBeInTheDocument();
+  });
+
   it('renders the empty state when there are no workflows or runs', async () => {
     setClientForTests(
       stubClient({

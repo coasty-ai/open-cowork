@@ -224,6 +224,29 @@ describe('cloud run lifecycle', () => {
     const r = (await (await h.api(`/api/runs/${run.id}`)).json()) as { status: string };
     expect(r.status).toBe('cancelled');
   });
+
+  // Regression: a create-run failure must surface the REAL upstream cause with
+  // the correct status — never a generic, opaque wrapper. (A stale backend once
+  // masked this as "Could not create run. [RUN_CREATE_FAILED]", which told the
+  // user nothing about why.) Mirrors the most common real cause: the selected
+  // machine no longer exists (e.g. the mock/backend was restarted).
+  it('surfaces the real cause when creating a run on a missing machine (not a masked error)', async () => {
+    h = await startHarness();
+    const res = await h.api('/api/runs', {
+      method: 'POST',
+      body: JSON.stringify({
+        machineId: 'mch_does_not_exist',
+        task: 'do a thing',
+        maxSteps: 10,
+        confirmCostCents: RUN_CONFIRM, // matches the v3×10 estimate → reaches Coasty
+      }),
+    });
+    expect(res.status).toBe(404); // upstream status preserved
+    const body = (await res.json()) as { error: { code: string; message: string } };
+    expect(body.error.code).toBe('MACHINE_NOT_FOUND'); // the actionable cause
+    expect(body.error.code).not.toBe('RUN_CREATE_FAILED'); // never masked
+    expect(body.error.message).toMatch(/machine/i);
+  });
 });
 
 describe('webhook receiver (HMAC)', () => {

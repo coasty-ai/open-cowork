@@ -32,11 +32,13 @@ export function stubClient(overrides: Stub = {}): BackendClient {
       monthSpendCents: 12,
     })),
     estimate: vi.fn(async () => ({ kind: 'run', cents: 125, breakdown: {} })),
+    // Default: a key IS configured, so gated pages show normal content. Tests
+    // that exercise the gated/demo state override this with a demo status.
     coastyKeyStatus: vi.fn(async () => ({
-      configured: false,
-      mode: null as 'live' | 'test' | 'legacy' | null,
-      demoMode: true,
-      source: 'demo' as 'runtime' | 'env' | 'demo',
+      configured: true,
+      mode: 'test' as 'live' | 'test' | 'legacy' | null,
+      demoMode: false,
+      source: 'env' as 'runtime' | 'env' | 'demo',
     })),
     setCoastyKey: vi.fn(async () => ({
       ok: true as const,

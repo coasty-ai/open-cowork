@@ -6,6 +6,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
+  ApiKeyGate,
   Badge,
   Button,
   EmptyState,
@@ -19,6 +20,7 @@ import {
   Text,
 } from '@open-cowork/ui';
 import { getClient } from '../store';
+import { useCoastyKey } from '../coastyKey';
 import type { WorkflowDto, WorkflowRunDto } from '../api/client';
 
 const TEMPLATE = JSON.stringify(
@@ -47,6 +49,7 @@ const TEMPLATE = JSON.stringify(
 export function WorkflowsPage() {
   const client = getClient();
   const navigate = useNavigate();
+  const { configured, ready } = useCoastyKey();
   const [workflows, setWorkflows] = useState<WorkflowDto[] | null>(null);
   const [runs, setRuns] = useState<WorkflowRunDto[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -72,8 +75,9 @@ export function WorkflowsPage() {
     }
   };
   useEffect(() => {
+    if (!configured) return; // gated — workflows run on Coasty machines
     void load();
-  }, []);
+  }, [configured]);
 
   const validate = async (): Promise<Record<string, unknown> | null> => {
     setBuilderError(null);
@@ -111,54 +115,70 @@ export function WorkflowsPage() {
     }
   };
 
-  if (error) return <ErrorState message={error} onRetry={() => void load()} />;
-  if (workflows === null || runs === null) return <Spinner aria-label="Loading workflows" />;
-
   return (
     <>
       <div className="page-header">
         <Heading level={1}>Workflows</Heading>
-        <Button onClick={() => setBuilderOpen(true)}>New workflow</Button>
+        {ready && configured ? (
+          <Button onClick={() => setBuilderOpen(true)}>New workflow</Button>
+        ) : null}
       </div>
 
-      {workflows.length === 0 ? (
-        <EmptyState
-          title="No workflows yet"
-          description="Compose multi-step automations: tasks, asserts, branches, loops, parallel branches, retries, and human approvals."
-          action={<Button onClick={() => setBuilderOpen(true)}>Create your first workflow</Button>}
+      {!ready ? (
+        <Spinner aria-label="Loading workflows" />
+      ) : !configured ? (
+        <ApiKeyGate
+          feature="Workflows"
+          action={<Button onClick={() => navigate('/settings')}>Add API key</Button>}
         />
+      ) : error ? (
+        <ErrorState message={error} onRetry={() => void load()} />
+      ) : workflows === null || runs === null ? (
+        <Spinner aria-label="Loading workflows" />
       ) : (
-        <div className="stack">
-          {workflows.map((wf) => (
-            <Link key={wf.id} className="run-row" to={`/workflows/${wf.id}`}>
-              <Badge tone={wf.status === 'active' ? 'success' : 'neutral'}>v{wf.version}</Badge>
-              <span className="run-row__task">
-                <strong>{wf.name}</strong>{' '}
-                <Text variant="muted" as="span">
-                  ({wf.slug})
-                </Text>
-              </span>
-            </Link>
-          ))}
-        </div>
-      )}
+        <>
+          {workflows.length === 0 ? (
+            <EmptyState
+              title="No workflows yet"
+              description="Compose multi-step automations: tasks, asserts, branches, loops, parallel branches, retries, and human approvals."
+              action={
+                <Button onClick={() => setBuilderOpen(true)}>Create your first workflow</Button>
+              }
+            />
+          ) : (
+            <div className="stack">
+              {workflows.map((wf) => (
+                <Link key={wf.id} className="run-row" to={`/workflows/${wf.id}`}>
+                  <Badge tone={wf.status === 'active' ? 'success' : 'neutral'}>v{wf.version}</Badge>
+                  <span className="run-row__task">
+                    <strong>{wf.name}</strong>{' '}
+                    <Text variant="muted" as="span">
+                      ({wf.slug})
+                    </Text>
+                  </span>
+                </Link>
+              ))}
+            </div>
+          )}
 
-      <Heading level={2}>Recent workflow runs</Heading>
-      {runs.length === 0 ? (
-        <EmptyState title="No workflow runs yet" />
-      ) : (
-        <div className="stack">
-          {runs.map((run) => (
-            <Link key={run.id} className="run-row" to={`/workflows/runs/${run.id}`}>
-              <RunStatusBadge status={run.status as RunStatus} />
-              <span className="run-row__task">{run.id}</span>
-              <Text variant="caption" as="span">
-                spent ${(run.spentCents / 100).toFixed(2)} / cap $
-                {(run.budgetCents / 100).toFixed(2)}
-              </Text>
-            </Link>
-          ))}
-        </div>
+          <Heading level={2}>Recent workflow runs</Heading>
+          {runs.length === 0 ? (
+            <EmptyState title="No workflow runs yet" />
+          ) : (
+            <div className="stack">
+              {runs.map((run) => (
+                <Link key={run.id} className="run-row" to={`/workflows/runs/${run.id}`}>
+                  <RunStatusBadge status={run.status as RunStatus} />
+                  <span className="run-row__task">{run.id}</span>
+                  <Text variant="caption" as="span">
+                    spent ${(run.spentCents / 100).toFixed(2)} / cap $
+                    {(run.budgetCents / 100).toFixed(2)}
+                  </Text>
+                </Link>
+              ))}
+            </div>
+          )}
+        </>
       )}
 
       <Modal open={builderOpen} onClose={() => setBuilderOpen(false)} title="New workflow">

@@ -33,6 +33,8 @@ export function HomePage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const isDesktop = typeof window !== 'undefined' && window.cowork?.platform === 'desktop';
+  // Desktop drives the local screen; web targets remote cloud machines.
+  const subtitle = isDesktop ? 'I will work on this computer' : 'I can work on remote computers';
 
   const load = async () => {
     setLoadError(null);
@@ -108,10 +110,8 @@ export function HomePage() {
       <div className="delegate">
         <div className="delegate__stack">
           <div className="delegate__header">
-            <Logo size={44} />
-            <p className="delegate__caption">
-              Describe a task in plain language and delegate it to your agent.
-            </p>
+            <Logo mark={false} size={44} />
+            <p className="delegate__caption">{subtitle}</p>
           </div>
 
           {options.length === 0 ? (
@@ -127,7 +127,6 @@ export function HomePage() {
           ) : (
             <TaskComposer
               options={options}
-              estimateCents={estimateCents}
               pending={submitting}
               onSubmit={(payload) =>
                 setPendingTask({ task: payload.task, machineId: payload.machineId })

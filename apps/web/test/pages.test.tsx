@@ -8,6 +8,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { ApiError, type BackendClient } from '../src/api/client';
 import { setClientForTests, useAuth } from '../src/store';
+import { CoastyKeyProvider } from '../src/coastyKey';
 import { LoginPage } from '../src/pages/LoginPage';
 import { HomePage } from '../src/pages/HomePage';
 import { MachinesPage } from '../src/pages/MachinesPage';
@@ -34,10 +35,10 @@ function stubClient(overrides: Stub = {}): BackendClient {
     })),
     estimate: vi.fn(async () => ({ kind: 'run', cents: 125, breakdown: {} })),
     coastyKeyStatus: vi.fn(async () => ({
-      configured: false,
-      mode: null,
-      demoMode: true,
-      source: 'demo',
+      configured: true,
+      mode: 'test',
+      demoMode: false,
+      source: 'env',
     })),
     setCoastyKey: vi.fn(async () => ({
       ok: true,
@@ -162,7 +163,8 @@ describe('HomePage (delegate flow)', () => {
     // Loads machines + estimate, shows the composer.
     const taskBox = await screen.findByLabelText(/task/i);
     await userEvent.type(taskBox, 'Download the invoices');
-    await userEvent.selectOptions(screen.getByRole('combobox'), 'm1');
+    await userEvent.click(screen.getByRole('combobox'));
+    await userEvent.click(await screen.findByRole('option', { name: /worker-1/ }));
     await userEvent.click(screen.getByRole('button', { name: /delegate|run|start|submit|send/i }));
 
     // Confirm modal: nothing started yet.
@@ -192,7 +194,8 @@ describe('HomePage (delegate flow)', () => {
     setClientForTests(client);
     renderHome();
     await userEvent.type(await screen.findByLabelText(/task/i), 'big job');
-    await userEvent.selectOptions(screen.getByRole('combobox'), 'm1');
+    await userEvent.click(screen.getByRole('combobox'));
+    await userEvent.click(await screen.findByRole('option', { name: /worker-1/ }));
     await userEvent.click(screen.getByRole('button', { name: /delegate|run|start|submit|send/i }));
     await userEvent.click(await screen.findByRole('button', { name: /start run/i }));
     expect(await screen.findByText(/exceeds the budget cap/)).toBeInTheDocument();
@@ -218,12 +221,36 @@ describe('HomePage (delegate flow)', () => {
 });
 
 describe('MachinesPage', () => {
+  it('shows the API-key gate (no provision action) when no key is configured', async () => {
+    setClientForTests(
+      stubClient({
+        coastyKeyStatus: vi.fn(async () => ({
+          configured: false,
+          mode: null,
+          demoMode: true,
+          source: 'demo',
+        })),
+      }),
+    );
+    render(
+      <MemoryRouter>
+        <CoastyKeyProvider>
+          <MachinesPage />
+        </CoastyKeyProvider>
+      </MemoryRouter>,
+    );
+    expect(await screen.findByText(/machines need a coasty api key/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /provision machine/i })).not.toBeInTheDocument();
+  });
+
   it('provisions a machine with the rate confirmation', async () => {
     const client = stubClient();
     setClientForTests(client);
     render(
       <MemoryRouter>
-        <MachinesPage />
+        <CoastyKeyProvider>
+          <MachinesPage />
+        </CoastyKeyProvider>
       </MemoryRouter>,
     );
     await userEvent.click(await screen.findByRole('button', { name: /provision machine/i }));
@@ -241,7 +268,9 @@ describe('MachinesPage', () => {
     setClientForTests(stubClient());
     render(
       <MemoryRouter>
-        <MachinesPage />
+        <CoastyKeyProvider>
+          <MachinesPage />
+        </CoastyKeyProvider>
       </MemoryRouter>,
     );
     expect(await screen.findByText(/\$93\.00/)).toBeInTheDocument();

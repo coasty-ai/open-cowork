@@ -19,6 +19,13 @@ describe('Logo', () => {
     expect(container.querySelector('.oc-logo__word')).toBeNull();
   });
 
+  it('renders a wordmark-only lockup (no mark) when mark is false', () => {
+    const { container } = render(<Logo mark={false} />);
+    expect(container.querySelector('svg')).toBeNull();
+    const word = container.querySelector('.oc-logo__word');
+    expect(word?.textContent).toBe('Open Co-Work');
+  });
+
   it('sizes the mark from the size prop', () => {
     render(<Logo size={40} withWordmark={false} />);
     const mark = screen.getByRole('img', { name: 'Open Co-Work' });

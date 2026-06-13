@@ -5,6 +5,8 @@ import { cx } from '../cx';
 export interface LogoProps {
   /** Mark size in px; the wordmark scales to match. Default 28. */
   size?: number;
+  /** Render the gradient mark. Default true. Set false for a wordmark-only lockup. */
+  mark?: boolean;
   /** Render the "Open Co-Work" wordmark next to the mark. Default true. */
   withWordmark?: boolean;
   className?: string;
@@ -23,6 +25,7 @@ export interface LogoProps {
  */
 export function Logo({
   size = 28,
+  mark = true,
   withWordmark = true,
   className,
   title = 'Open Co-Work',
@@ -30,29 +33,33 @@ export function Logo({
   const gradId = useId();
   return (
     <span className={cx('oc-logo', className)} style={{ fontSize: size * 0.62 }}>
-      <svg
-        width={size}
-        height={size}
-        viewBox="0 0 200 200"
-        role="img"
-        aria-label={title}
-        focusable="false"
-        className="oc-logo__mark"
-      >
-        <defs>
-          <linearGradient id={gradId} x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="currentColor" stopOpacity="0" />
-            <stop offset="25%" stopColor="currentColor" stopOpacity="0.06" />
-            <stop offset="45%" stopColor="currentColor" stopOpacity="0.18" />
-            <stop offset="60%" stopColor="currentColor" stopOpacity="0.4" />
-            <stop offset="80%" stopColor="currentColor" stopOpacity="0.75" />
-            <stop offset="100%" stopColor="currentColor" stopOpacity="1" />
-          </linearGradient>
-        </defs>
-        <circle cx="100" cy="100" r="100" fill={`url(#${gradId})`} />
-      </svg>
+      {mark ? (
+        <svg
+          width={size}
+          height={size}
+          viewBox="0 0 200 200"
+          role="img"
+          aria-label={title}
+          focusable="false"
+          className="oc-logo__mark"
+        >
+          <defs>
+            <linearGradient id={gradId} x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="currentColor" stopOpacity="0" />
+              <stop offset="25%" stopColor="currentColor" stopOpacity="0.06" />
+              <stop offset="45%" stopColor="currentColor" stopOpacity="0.18" />
+              <stop offset="60%" stopColor="currentColor" stopOpacity="0.4" />
+              <stop offset="80%" stopColor="currentColor" stopOpacity="0.75" />
+              <stop offset="100%" stopColor="currentColor" stopOpacity="1" />
+            </linearGradient>
+          </defs>
+          <circle cx="100" cy="100" r="100" fill={`url(#${gradId})`} />
+        </svg>
+      ) : null}
       {withWordmark ? (
-        <span className="oc-logo__word" aria-hidden="true">
+        // When the mark is shown it carries the accessible name, so the wordmark
+        // is decorative; without the mark, the wordmark IS the accessible name.
+        <span className="oc-logo__word" aria-hidden={mark || undefined}>
           <span className="oc-logo__word-soft">Open</span> Co-Work
         </span>
       ) : null}

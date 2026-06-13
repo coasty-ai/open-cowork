@@ -11,20 +11,22 @@ import {
   Text,
 } from '@open-cowork/ui';
 import { getClient, useAuth } from '../store';
-import { formatApiError, type CoastyKeyStatus } from '../api/client';
+import { formatApiError } from '../api/client';
+import { useCoastyKey } from '../coastyKey';
 
 export function SettingsPage() {
   const client = getClient();
   const user = useAuth((s) => s.user);
   const setAuth = useAuth((s) => s.setAuth);
   const token = useAuth((s) => s.token);
+  // The Coasty-key status comes from the single shared source so this page and
+  // every gated feature stay in lockstep; refresh() updates them all at once.
+  const { status: keyStatus, refresh: refreshKey } = useCoastyKey();
   const [budget, setBudget] = useState<number | null>(null);
   const [spend, setSpend] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [saved, setSaved] = useState(false);
-  // Coasty API key
-  const [keyStatus, setKeyStatus] = useState<CoastyKeyStatus | null>(null);
   const [apiKey, setApiKey] = useState('');
   const [keyPending, setKeyPending] = useState(false);
   const [keySaved, setKeySaved] = useState(false);
@@ -40,10 +42,6 @@ export function SettingsPage() {
         setError(err instanceof Error ? err.message : 'Failed to load settings');
       }
     })();
-    void client
-      .coastyKeyStatus()
-      .then(setKeyStatus)
-      .catch(() => setKeyStatus(null));
   }, []);
 
   const saveKey = async () => {
@@ -53,7 +51,8 @@ export function SettingsPage() {
     setKeySaved(false);
     setKeyError(null);
     try {
-      setKeyStatus(await client.setCoastyKey(key));
+      await client.setCoastyKey(key);
+      await refreshKey(); // updates this page + all gated features
       setApiKey('');
       setKeySaved(true);
     } catch (err) {
@@ -68,7 +67,8 @@ export function SettingsPage() {
     setKeySaved(false);
     setKeyError(null);
     try {
-      setKeyStatus(await client.clearCoastyKey());
+      await client.clearCoastyKey();
+      await refreshKey();
     } catch (err) {
       setKeyError(formatApiError(err));
     } finally {

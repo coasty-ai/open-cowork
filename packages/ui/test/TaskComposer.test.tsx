@@ -8,6 +8,12 @@ const options = [
   { id: 'mch_test_2', label: 'qa-box (windows)' },
 ];
 
+/** Pick a machine from the in-house dropdown: open the combobox, click an option. */
+async function selectMachine(user: ReturnType<typeof userEvent.setup>, name: RegExp) {
+  await user.click(screen.getByRole('combobox', { name: 'Machine' }));
+  await user.click(await screen.findByRole('option', { name }));
+}
+
 describe('TaskComposer', () => {
   it('renders the task textarea, machine select, and disabled Submit', () => {
     render(<TaskComposer options={options} onSubmit={() => undefined} />);
@@ -24,14 +30,14 @@ describe('TaskComposer', () => {
     await user.type(screen.getByLabelText('Task'), 'Download the latest invoice');
     expect(submit).toBeDisabled();
 
-    await user.selectOptions(screen.getByLabelText('Machine'), 'mch_test_1');
+    await selectMachine(user, /invoice-bot/);
     expect(submit).toBeEnabled();
   });
 
   it('whitespace-only task does not enable Submit', async () => {
     const user = userEvent.setup();
     render(<TaskComposer options={options} onSubmit={() => undefined} />);
-    await user.selectOptions(screen.getByLabelText('Machine'), 'mch_test_1');
+    await selectMachine(user, /invoice-bot/);
     await user.type(screen.getByLabelText('Task'), '   ');
     expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
   });
@@ -42,7 +48,7 @@ describe('TaskComposer', () => {
     render(<TaskComposer options={options} onSubmit={onSubmit} />);
 
     await user.type(screen.getByLabelText('Task'), '  Open the billing page  ');
-    await user.selectOptions(screen.getByLabelText('Machine'), 'mch_test_2');
+    await selectMachine(user, /qa-box/);
     await user.click(screen.getByRole('button', { name: 'Send' }));
 
     expect(onSubmit).toHaveBeenCalledTimes(1);
@@ -76,11 +82,6 @@ describe('TaskComposer', () => {
     await user.click(textarea);
     await user.keyboard('{Control>}{Enter}{/Control}');
     expect(onSubmit).not.toHaveBeenCalled();
-  });
-
-  it('shows the cost estimate pill when estimateCents is provided', () => {
-    render(<TaskComposer options={options} estimateCents={250} onSubmit={() => undefined} />);
-    expect(screen.getByLabelText('estimated cost $2.50')).toBeInTheDocument();
   });
 
   it('disables the whole form while pending', () => {

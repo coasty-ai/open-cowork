@@ -248,7 +248,8 @@ textarea {
 .oc-sidebar__nav {
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
+  /* Sections sit close — just enough air to read as groups, not a wide gap. */
+  gap: var(--space-3);
   flex: 1;
   min-height: 0;
   padding: var(--space-2) 0;
@@ -265,13 +266,14 @@ textarea {
 .oc-sidebar__section-items {
   display: flex;
   flex-direction: column;
-  /* Tight rhythm between items — they read as one dense list, separated by the
-     hover/active fill rather than whitespace. */
-  gap: 2px;
+  /* Items hug each other as one dense list, separated by the hover/active fill
+     rather than whitespace — the sleek, professional rhythm. */
+  gap: 1px;
 }
 
 .oc-sidebar__section-label {
   margin: 0;
+  /* Tight to the items it heads; the gap above (nav gap) carries the grouping. */
   padding: 0 var(--space-3) var(--space-1);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
@@ -819,6 +821,19 @@ textarea {
   color: var(--color-text-muted);
 }
 
+.oc-empty-state__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 3rem;
+  margin-bottom: var(--space-1);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-raised);
+  color: var(--color-text-muted);
+}
+
 .oc-empty-state__title {
   margin: 0;
   color: var(--color-text);
@@ -827,7 +842,13 @@ textarea {
 
 .oc-empty-state__description {
   margin: 0;
+  max-width: 30rem;
   font-size: var(--font-size-base);
+}
+
+/* A bit more breathing room + a sensible cap when the action follows. */
+.oc-empty-state :where(.oc-button) {
+  margin-top: var(--space-2);
 }
 
 .oc-error-state {
@@ -1203,6 +1224,7 @@ textarea {
    focal input (auto-grows via JS); the machine selector sits inside bottom-left
    and the send affordance bottom-right. */
 .oc-composer {
+  position: relative; /* anchors the focus aura (::before) */
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -1213,17 +1235,30 @@ textarea {
   border-radius: var(--radius-lg);
   padding: var(--space-3);
   box-shadow: var(--shadow-sm);
-  transition:
-    border-color var(--oc-duration) var(--oc-ease),
-    box-shadow var(--oc-duration) var(--oc-ease);
+  transition: border-color var(--oc-duration) var(--oc-ease);
 }
 
-/* Focus rings the whole box (the textarea itself is borderless). It is the
-   single focus indicator for the box's controls — so the inner select and send
-   button suppress their own rings (below) to avoid a double ring. */
-.oc-composer:focus-within {
-  border-color: var(--ring);
-  box-shadow: 0 0 0 var(--focus-ring-width) var(--ring);
+/* Focus indicator: a clean monochrome aura — the foreground colour (near-white
+   on dark, near-black on light), softly blurred into an even halo that hugs the
+   rounded input. The box's opaque background masks the centre, so only the halo
+   peeks evenly around the edges. Shown only while a control inside is focused. */
+.oc-composer::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  z-index: -1;
+  border-radius: calc(var(--radius-lg) + 3px);
+  background: var(--ring);
+  filter: blur(11px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--oc-duration) var(--oc-ease);
+}
+
+/* The aura is the only focus indicator — the border stays at its resting colour
+   (no highlight ring/border change on focus). */
+.oc-composer:focus-within::before {
+  opacity: 0.45;
 }
 
 /* The send button relies on the box ring, like the select — no double ring. */
@@ -1266,33 +1301,121 @@ textarea {
   gap: var(--space-2);
 }
 
-/* Inline machine selector (bottom-left). The box's focus-within ring covers it,
-   so it doesn't carry its own ring. */
-.oc-composer__select {
-  height: var(--control-height-sm);
+/* In-house machine selector (bottom-left): a sleek trigger — leading machine
+   icon, label, trailing chevron — that opens a custom popover listbox (no native
+   OS dropdown). The composer's focus aura carries focus, so the trigger is quiet.
+   Themed via --popover / --popover-foreground so it looks right in both themes. */
+.oc-mselect {
+  position: relative;
+  display: inline-flex;
+}
+
+.oc-mselect__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
   max-width: 16rem;
-  border: 1px solid var(--input);
+  height: var(--control-height-sm);
+  padding: 0 var(--space-2);
   border-radius: var(--radius-md);
+  border: 1px solid var(--input);
   background: var(--color-bg);
   color: var(--color-text);
   font-size: var(--font-size-sm);
-  padding: 0 var(--space-2);
   cursor: pointer;
-  transition: border-color var(--oc-duration) var(--oc-ease);
+  transition:
+    border-color var(--oc-duration) var(--oc-ease),
+    background-color var(--oc-duration) var(--oc-ease);
 }
 
-.oc-composer__select:hover:not(:disabled) {
+.oc-mselect__trigger:hover:not(:disabled) {
   border-color: var(--color-text-muted);
+  background: var(--color-surface-raised);
 }
 
-.oc-composer__select:focus-visible {
-  outline: none;
-  border-color: var(--ring);
+.oc-mselect__trigger[data-placeholder] {
+  color: var(--color-text-muted);
 }
 
-.oc-composer__select:disabled {
+.oc-mselect__trigger:disabled {
   cursor: not-allowed;
   opacity: var(--disabled-opacity);
+}
+
+.oc-mselect__trigger:focus-visible {
+  /* The composer's focus aura is the indicator; no separate ring here. */
+  outline: none;
+}
+
+.oc-mselect__icon,
+.oc-mselect__chevron {
+  flex: none;
+  color: var(--color-text-muted);
+}
+
+.oc-mselect__chevron {
+  margin-left: auto;
+  transition: transform var(--oc-duration) var(--oc-ease);
+}
+
+.oc-mselect__trigger[aria-expanded='true'] .oc-mselect__chevron {
+  transform: rotate(180deg);
+}
+
+.oc-mselect__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The popover listbox — elevated, rounded, themed. */
+.oc-mselect__menu {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  left: 0;
+  z-index: 30;
+  min-width: 100%;
+  max-width: 22rem;
+  max-height: 15rem;
+  overflow-y: auto;
+  margin: 0;
+  padding: var(--space-1);
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  background: var(--popover);
+  color: var(--popover-foreground);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+}
+
+.oc-mselect__option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+/* Active = keyboard/hover highlight; selected = the current value (bolded + tick). */
+.oc-mselect__option[data-active] {
+  background: var(--accent);
+}
+
+.oc-mselect__option[data-selected] {
+  font-weight: var(--font-weight-semibold);
+}
+
+.oc-mselect__check {
+  flex: none;
+  color: var(--color-text-muted);
 }
 
 .oc-composer__actions {

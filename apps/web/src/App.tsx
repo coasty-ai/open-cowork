@@ -11,6 +11,7 @@ import {
 } from '@open-cowork/ui';
 import type { IconName } from '@open-cowork/ui';
 import { useAuth } from './store';
+import { CoastyKeyProvider } from './coastyKey';
 import { ThemeSwitch } from './components/ThemeSwitch';
 import { useGlobalFeed } from './useGlobalFeed';
 import { LoginPage } from './pages/LoginPage';
@@ -174,74 +175,76 @@ function RequireAuth({ children }: { children: ReactNode }) {
 export function App() {
   return (
     <ErrorBoundary>
-      <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route
-          path="/"
-          element={
-            <RequireAuth>
-              <HomePage />
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/runs"
-          element={
-            <RequireAuth>
-              <RunsPage />
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/runs/:id"
-          element={
-            <RequireAuth>
-              <RunDetailPage />
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/workflows"
-          element={
-            <RequireAuth>
-              <WorkflowsPage />
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/workflows/runs/:id"
-          element={
-            <RequireAuth>
-              <WorkflowRunDetailPage />
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/workflows/:id"
-          element={
-            <RequireAuth>
-              <WorkflowDetailPage />
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/machines"
-          element={
-            <RequireAuth>
-              <MachinesPage />
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/settings"
-          element={
-            <RequireAuth>
-              <SettingsPage />
-            </RequireAuth>
-          }
-        />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <CoastyKeyProvider>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route
+            path="/"
+            element={
+              <RequireAuth>
+                <HomePage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/runs"
+            element={
+              <RequireAuth>
+                <RunsPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/runs/:id"
+            element={
+              <RequireAuth>
+                <RunDetailPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/workflows"
+            element={
+              <RequireAuth>
+                <WorkflowsPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/workflows/runs/:id"
+            element={
+              <RequireAuth>
+                <WorkflowRunDetailPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/workflows/:id"
+            element={
+              <RequireAuth>
+                <WorkflowDetailPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/machines"
+            element={
+              <RequireAuth>
+                <MachinesPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/settings"
+            element={
+              <RequireAuth>
+                <SettingsPage />
+              </RequireAuth>
+            }
+          />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </CoastyKeyProvider>
     </ErrorBoundary>
   );
 }

@@ -4,7 +4,9 @@
  * confirmCostCents handshake; the backend re-checks everything.
  */
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
+  ApiKeyGate,
   Button,
   Card,
   EmptyState,
@@ -18,12 +20,15 @@ import {
   Heading,
 } from '@open-cowork/ui';
 import { getClient } from '../store';
+import { useCoastyKey } from '../coastyKey';
 import type { MachineDto, WalletDto } from '../api/client';
 
 const RATES = { linux: 5, windows: 9 } as const;
 
 export function MachinesPage() {
   const client = getClient();
+  const navigate = useNavigate();
+  const { configured, ready } = useCoastyKey();
   const [machines, setMachines] = useState<MachineDto[] | null>(null);
   const [wallet, setWallet] = useState<WalletDto | null>(null);
   const [walletError, setWalletError] = useState<string | null>(null);
@@ -51,10 +56,11 @@ export function MachinesPage() {
     }
   };
   useEffect(() => {
+    if (!configured) return; // gated — don't poll Coasty without a key
     void load();
     const timer = setInterval(() => void load(), 10_000);
     return () => clearInterval(timer);
-  }, []);
+  }, [configured]);
 
   const provision = async () => {
     setPending(true);
@@ -84,53 +90,67 @@ export function MachinesPage() {
     }
   };
 
-  if (error && machines === null) return <ErrorState message={error} onRetry={() => void load()} />;
-  if (machines === null) return <Spinner aria-label="Loading machines" />;
-
   return (
     <>
       <div className="page-header">
         <Heading level={1}>Machines</Heading>
-        <Button onClick={() => setProvisionOpen(true)}>Provision machine</Button>
+        {ready && configured ? (
+          <Button onClick={() => setProvisionOpen(true)}>Provision machine</Button>
+        ) : null}
       </div>
 
-      <WalletCard
-        balanceCents={wallet?.balanceCents ?? undefined}
-        spentThisMonthCents={wallet?.monthSpendCents}
-        loading={wallet === null && walletError === null}
-        error={
-          walletError ??
-          (wallet && wallet.walletAvailable === false
-            ? `Wallet balance unavailable — ${wallet.walletUnavailableReason ?? 'usage endpoint unreachable'}. Spend caps still apply.`
-            : undefined)
-        }
-        onRetry={() => void load()}
-      />
-      {error ? <ErrorState message={error} onRetry={() => void load()} /> : null}
-
-      {machines.length === 0 ? (
-        <EmptyState
-          title="No machines"
-          description="Provision a cloud VM for the agent to work on. Linux machines bill $0.05/hour while running."
+      {!ready ? (
+        <Spinner aria-label="Loading machines" />
+      ) : !configured ? (
+        <ApiKeyGate
+          feature="Machines"
+          action={<Button onClick={() => navigate('/settings')}>Add API key</Button>}
         />
+      ) : error && machines === null ? (
+        <ErrorState message={error} onRetry={() => void load()} />
+      ) : machines === null ? (
+        <Spinner aria-label="Loading machines" />
       ) : (
-        <div className="grid-cards">
-          {machines.map((m) => (
-            <MachineCard
-              key={m.id}
-              machine={{
-                id: m.id,
-                displayName: m.display_name,
-                status: m.status as MachineStatus,
-                osType: m.os_type,
-                centsPerHour: RATES[m.os_type],
-              }}
-              onStart={(machineId) => void act(() => client.startMachine(machineId))}
-              onStop={(machineId) => void act(() => client.stopMachine(machineId))}
-              onTerminate={(machineId) => void act(() => client.terminateMachine(machineId))}
+        <>
+          <WalletCard
+            balanceCents={wallet?.balanceCents ?? undefined}
+            spentThisMonthCents={wallet?.monthSpendCents}
+            loading={wallet === null && walletError === null}
+            error={
+              walletError ??
+              (wallet && wallet.walletAvailable === false
+                ? `Wallet balance unavailable — ${wallet.walletUnavailableReason ?? 'usage endpoint unreachable'}. Spend caps still apply.`
+                : undefined)
+            }
+            onRetry={() => void load()}
+          />
+          {error ? <ErrorState message={error} onRetry={() => void load()} /> : null}
+
+          {machines.length === 0 ? (
+            <EmptyState
+              title="No machines"
+              description="Provision a cloud VM for the agent to work on. Linux machines bill $0.05/hour while running."
             />
-          ))}
-        </div>
+          ) : (
+            <div className="grid-cards">
+              {machines.map((m) => (
+                <MachineCard
+                  key={m.id}
+                  machine={{
+                    id: m.id,
+                    displayName: m.display_name,
+                    status: m.status as MachineStatus,
+                    osType: m.os_type,
+                    centsPerHour: RATES[m.os_type],
+                  }}
+                  onStart={(machineId) => void act(() => client.startMachine(machineId))}
+                  onStop={(machineId) => void act(() => client.stopMachine(machineId))}
+                  onTerminate={(machineId) => void act(() => client.terminateMachine(machineId))}
+                />
+              ))}
+            </div>
+          )}
+        </>
       )}
 
       <Modal

@@ -8,6 +8,7 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { setClientForTests, useAuth } from '../src/store';
+import { CoastyKeyProvider } from '../src/coastyKey';
 import { ApiError } from '../src/api/client';
 import { LoginPage } from '../src/pages/LoginPage';
 import { SettingsPage } from '../src/pages/SettingsPage';
@@ -107,20 +108,29 @@ describe('SettingsPage — Coasty key section', () => {
   function renderSettings() {
     return render(
       <MemoryRouter>
-        <SettingsPage />
+        <CoastyKeyProvider>
+          <SettingsPage />
+        </CoastyKeyProvider>
       </MemoryRouter>,
     );
   }
 
+  const CONNECTED_RUNTIME = {
+    configured: true,
+    mode: 'test' as const,
+    demoMode: false,
+    source: 'runtime' as const,
+  };
+
   it('shows Demo mode and saves a key', async () => {
-    const setCoastyKey = vi.fn(async () => ({
-      ok: true as const,
-      configured: true,
-      mode: 'test' as const,
-      demoMode: false,
-      source: 'runtime' as const,
-    }));
-    setClientForTests(stubClient({ coastyKeyStatus: vi.fn(async () => DEMO), setCoastyKey }));
+    // Settings re-reads status via the shared source after a save, so the stub
+    // is stateful: demo until the key is set, connected afterwards.
+    let current: typeof DEMO | typeof CONNECTED_RUNTIME = DEMO;
+    const setCoastyKey = vi.fn(async () => {
+      current = CONNECTED_RUNTIME;
+      return { ok: true as const, ...CONNECTED_RUNTIME };
+    });
+    setClientForTests(stubClient({ coastyKeyStatus: vi.fn(async () => current), setCoastyKey }));
     renderSettings();
 
     expect(await screen.findByText(/demo mode/i)).toBeInTheDocument();
@@ -132,18 +142,12 @@ describe('SettingsPage — Coasty key section', () => {
   });
 
   it('clears a runtime key via Remove key', async () => {
-    const clearCoastyKey = vi.fn(async () => DEMO);
-    setClientForTests(
-      stubClient({
-        coastyKeyStatus: vi.fn(async () => ({
-          configured: true,
-          mode: 'test' as const,
-          demoMode: false,
-          source: 'runtime' as const,
-        })),
-        clearCoastyKey,
-      }),
-    );
+    let current: typeof DEMO | typeof CONNECTED_RUNTIME = CONNECTED_RUNTIME;
+    const clearCoastyKey = vi.fn(async () => {
+      current = DEMO;
+      return DEMO;
+    });
+    setClientForTests(stubClient({ coastyKeyStatus: vi.fn(async () => current), clearCoastyKey }));
     renderSettings();
 
     await userEvent.click(await screen.findByRole('button', { name: /remove key/i }));

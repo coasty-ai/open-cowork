@@ -47,6 +47,8 @@ export { Tabs } from './components/Tabs';
 export type { TabItem, TabsProps } from './components/Tabs';
 export { EmptyState } from './components/EmptyState';
 export type { EmptyStateProps } from './components/EmptyState';
+export { ApiKeyGate } from './components/ApiKeyGate';
+export type { ApiKeyGateProps } from './components/ApiKeyGate';
 export { ErrorState } from './components/ErrorState';
 export type { ErrorStateProps } from './components/ErrorState';
 export { OfflineBanner } from './components/OfflineBanner';

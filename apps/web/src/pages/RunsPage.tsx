@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
+  ApiKeyGate,
+  Button,
   CostPill,
   EmptyState,
   ErrorState,
@@ -12,10 +14,13 @@ import {
   Text,
 } from '@open-cowork/ui';
 import { getClient } from '../store';
+import { useCoastyKey } from '../coastyKey';
 import type { RunDto } from '../api/client';
 
 export function RunsPage() {
   const client = getClient();
+  const navigate = useNavigate();
+  const { configured } = useCoastyKey();
   const [runs, setRuns] = useState<RunDto[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,7 +48,11 @@ export function RunsPage() {
         <Heading level={1}>Runs</Heading>
       </div>
       {runs.length === 0 ? (
-        <EmptyState title="No runs yet" description="Delegate a task from the home screen." />
+        configured ? (
+          <EmptyState title="No runs yet" description="Delegate a task from the home screen." />
+        ) : (
+          <ApiKeyGate action={<Button onClick={() => navigate('/settings')}>Add API key</Button>} />
+        )
       ) : (
         <div className="stack">
           {runs.map((run) => (

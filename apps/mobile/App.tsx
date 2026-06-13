@@ -82,7 +82,9 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
     borderTopWidth: 1,
     flexDirection: 'row',
-    gap: spacing.xs,
+    // Tabs sit snug (a 2px hairline gap) — denser, more professional, mirroring
+    // the web sidebar's tight item rhythm.
+    gap: spacing.xs / 2,
     paddingHorizontal: spacing.sm,
     paddingTop: spacing.sm,
     paddingBottom: spacing.lg,
