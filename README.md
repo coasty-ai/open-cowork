@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://github.com/coasty-ai/open-cowork">
-    <img src="docs/banner.svg" alt="open-cowork — hand off computer tasks to an AI coworker; watch it work, approve from anywhere" width="100%">
+    <img src="public/image.png" alt="open-cowork — hand off computer tasks to an AI coworker; watch it work, approve from anywhere" width="100%">
   </a>
 </p>
 
