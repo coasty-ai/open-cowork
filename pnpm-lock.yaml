@@ -350,6 +350,9 @@ importers:
         specifier: workspace:*
         version: link:../core
     devDependencies:
+      '@open-cowork/tokens':
+        specifier: workspace:*
+        version: link:../tokens
       '@testing-library/jest-dom':
         specifier: 'catalog:'
         version: 6.9.1
