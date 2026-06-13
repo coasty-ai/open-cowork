@@ -242,10 +242,17 @@ describe('cloud run lifecycle', () => {
       }),
     });
     expect(res.status).toBe(404); // upstream status preserved
-    const body = (await res.json()) as { error: { code: string; message: string } };
+    const body = (await res.json()) as {
+      error: { code: string; message: string; requestId?: string; suggestion?: string };
+    };
     expect(body.error.code).toBe('MACHINE_NOT_FOUND'); // the actionable cause
     expect(body.error.code).not.toBe('RUN_CREATE_FAILED'); // never masked
     expect(body.error.message).toMatch(/machine/i);
+    // Coasty's request id + actionable suggestion are forwarded (not dropped) so
+    // the UI can show WHY and the user can quote the id to support.
+    expect(typeof body.error.requestId).toBe('string');
+    expect(typeof body.error.suggestion).toBe('string');
+    expect(body.error.suggestion!.length).toBeGreaterThan(0);
   });
 });
 

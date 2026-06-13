@@ -99,6 +99,8 @@ export class ApiError extends Error {
     readonly details?: unknown,
     /** Coasty request id, when the failure originated upstream (for support). */
     readonly requestId?: string,
+    /** Coasty's actionable hint for resolving this error, when it provides one. */
+    readonly suggestion?: string,
   ) {
     super(message);
   }
@@ -130,6 +132,11 @@ export function formatApiError(err: unknown): string {
   // it bare, without an error-code tag or request id to clutter the banner.
   if (isBackendUnreachable(err)) return err.message;
   const parts = [err.message];
+  // Coasty's own suggestion is the most actionable thing we can show — surface
+  // it right after the message (e.g. why a run couldn't be created).
+  if (err.suggestion && !err.message.includes(err.suggestion)) {
+    parts.push(err.suggestion.endsWith('.') ? err.suggestion : `${err.suggestion}.`);
+  }
   if (err.code && err.code !== 'UNKNOWN' && !err.message.includes(err.code)) {
     parts.push(`[${err.code}]`);
   }
@@ -219,7 +226,13 @@ export class BackendClient {
     }
     if (!res.ok) {
       let body: {
-        error?: { code?: string; message?: string; details?: unknown; requestId?: string };
+        error?: {
+          code?: string;
+          message?: string;
+          details?: unknown;
+          requestId?: string;
+          suggestion?: string;
+        };
       } = {};
       try {
         body = (await res.json()) as typeof body;
@@ -244,6 +257,7 @@ export class BackendClient {
         body.error?.message ?? `Request failed (${res.status})`,
         body.error?.details,
         body.error?.requestId,
+        body.error?.suggestion,
       );
     }
     return (await res.json()) as T;

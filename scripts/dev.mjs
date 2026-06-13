@@ -130,6 +130,24 @@ if (wantDesktop)
   );
 console.log('  (Ctrl+C stops everything)\n');
 
+// Loud guardrail: a real key means runs/machines hit your REAL Coasty account
+// and bill real credits. Easy to set once in .env and forget — so say so.
+if (!usesMock) {
+  const Y = '\x1b[33m';
+  console.log(
+    `${Y}  ⚠  LIVE Coasty key — runs & machines will hit your REAL account and BILL credits.${RESET}`,
+  );
+  console.log(
+    `${Y}     Errors like "RUN_CREATE_FAILED" then come from Coasty (machine state, credits, …).${RESET}`,
+  );
+  console.log(
+    `${Y}     For free local dev: unset COASTY_API_KEY in .env (demo mode → bundled mock), or set${RESET}`,
+  );
+  console.log(
+    `${Y}     COASTY_BASE_URL=http://127.0.0.1:4010/v1 to point your key at the mock.${RESET}\n`,
+  );
+}
+
 if (usesMock) run('mock', next(), ['--filter', '@open-cowork/mock-coasty', 'dev']);
 run('backend', next(), ['--filter', '@open-cowork/backend', 'dev']);
 if (wantWeb) run('web', next(), ['--filter', '@open-cowork/web', 'dev']);

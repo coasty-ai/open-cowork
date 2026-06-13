@@ -69,6 +69,12 @@ const RETRYABLE_CODES: ReadonlySet<string> = new Set([
   'PREDICTION_FAILED',
   'GROUNDING_FAILED',
   'RATE_LIMITED',
+  // Transient run/workflow-run create failures. Coasty's own guidance is to
+  // retry with the SAME Idempotency-Key (a successful retry returns the cached
+  // run, never a duplicate) — and createRun/startWorkflowRun always send a
+  // stable key, so honoring that here is safe and self-heals the common hiccup.
+  'RUN_CREATE_FAILED',
+  'WORKFLOW_RUN_CREATE_FAILED',
 ]);
 
 /**

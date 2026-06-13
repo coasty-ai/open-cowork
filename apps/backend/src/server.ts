@@ -137,13 +137,17 @@ export function buildServer(deps: ServerDeps): BuiltServer {
       return;
     }
     if (err instanceof CoastyApiError) {
-      // Propagate Coasty's status + code; the request_id makes support possible.
+      // Propagate Coasty's status + code; the request_id makes support possible,
+      // and `suggestion` is Coasty's own actionable hint (e.g. WHY a run could
+      // not be created) — without forwarding it the UI is stuck showing a
+      // generic "Could not create run." with no cause.
       void reply.status(err.status).send({
         error: {
           code: err.code,
           message: err.message,
           requestId: err.requestId,
           details: err.details,
+          suggestion: err.suggestion,
         },
       });
       return;

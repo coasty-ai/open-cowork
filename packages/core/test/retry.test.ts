@@ -207,4 +207,17 @@ describe('isRetryableError', () => {
     ).toBe(false);
     expect(isRetryableError(new Error('random'))).toBe(false);
   });
+
+  it('treats transient create failures as retryable by CODE (even on a 4xx)', () => {
+    // Coasty advises retrying these with the same Idempotency-Key; createRun /
+    // startWorkflowRun always send one, so the retry is safe (cached, not dup).
+    for (const code of ['RUN_CREATE_FAILED', 'WORKFLOW_RUN_CREATE_FAILED']) {
+      expect(
+        isRetryableError(new CoastyApiError({ status: 409, code, message: 'Could not create' })),
+      ).toBe(true);
+      expect(
+        isRetryableError(new CoastyApiError({ status: 502, code, message: 'Could not create' })),
+      ).toBe(true);
+    }
+  });
 });

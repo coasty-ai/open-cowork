@@ -56,6 +56,34 @@ function client(
   });
 }
 
+describe('createRun retry (idempotent self-heal)', () => {
+  it('retries RUN_CREATE_FAILED with the SAME Idempotency-Key and returns the run', async () => {
+    const { fetchImpl, calls } = scriptedFetch([
+      json({ error: { code: 'RUN_CREATE_FAILED', message: 'Could not create the run.' } }, 409),
+      json({ id: 'run_1', object: 'agent.run', status: 'queued' }, 201),
+    ]);
+    const run = await client(fetchImpl).createRun(
+      { machine_id: 'm1', task: 'do a thing' },
+      { idempotencyKey: 'cwk-run-abc' },
+    );
+    expect(run.id).toBe('run_1');
+    expect(calls).toHaveLength(2); // failed once, then succeeded
+    // Same key on both attempts → Coasty returns the cached run, never a duplicate.
+    expect(calls[0]!.headers['Idempotency-Key']).toBe('cwk-run-abc');
+    expect(calls[1]!.headers['Idempotency-Key']).toBe('cwk-run-abc');
+  });
+
+  it('never retries a create WITHOUT an Idempotency-Key (would risk double-billing)', async () => {
+    const { fetchImpl, calls } = scriptedFetch([
+      json({ error: { code: 'RUN_CREATE_FAILED', message: 'Could not create the run.' } }, 409),
+    ]);
+    await expect(
+      client(fetchImpl).createRun({ machine_id: 'm1', task: 't' }),
+    ).rejects.toMatchObject({ code: 'RUN_CREATE_FAILED' });
+    expect(calls).toHaveLength(1); // no retry without an idempotency key
+  });
+});
+
 describe('CoastyClient transport', () => {
   it('sends X-API-Key always; Content-Type only when a body is sent', async () => {
     const { fetchImpl, calls } = scriptedFetch([
