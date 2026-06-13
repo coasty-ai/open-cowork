@@ -15,7 +15,7 @@ import { RunDetailScreen } from './src/screens/RunDetailScreen';
 import { WorkflowRunsScreen } from './src/screens/WorkflowRunsScreen';
 import { MachinesScreen } from './src/screens/MachinesScreen';
 import { WalletScreen } from './src/screens/WalletScreen';
-import { colors, spacing } from './src/theme';
+import { colors, spacing, typography } from './src/theme';
 
 const TABS = [
   { key: 'runs', label: 'Runs' },
@@ -53,7 +53,7 @@ function Shell() {
             accessibilityLabel={t.label}
             accessibilityState={{ selected: tab === t.key }}
             onPress={() => setTab(t.key)}
-            style={styles.tabItem}
+            style={[styles.tabItem, tab === t.key && styles.tabItemActive]}
           >
             <Text style={[styles.tabLabel, tab === t.key && styles.tabLabelActive]}>{t.label}</Text>
           </Pressable>
@@ -88,7 +88,16 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingBottom: spacing.lg,
     paddingTop: spacing.md,
+    // Reserve the indicator height on every tab so the active one doesn't shift.
+    borderTopColor: 'transparent',
+    borderTopWidth: 2,
   },
-  tabLabel: { color: colors.textMuted, fontSize: 13, fontWeight: '600' },
-  tabLabelActive: { color: colors.accent },
+  // Active indicator: a top accent bar, mirroring the web sidebar's accent rail.
+  tabItemActive: { borderTopColor: colors.accent },
+  tabLabel: {
+    color: colors.textMuted,
+    fontSize: typography.fontSize.sm,
+    fontWeight: '600',
+  },
+  tabLabelActive: { color: colors.accent, fontWeight: '700' },
 });
