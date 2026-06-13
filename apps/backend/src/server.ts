@@ -118,10 +118,11 @@ export function buildServer(deps: ServerDeps): BuiltServer {
       return;
     }
     if (err instanceof ZodError) {
+      const fields = err.issues.map((i) => i.path.join('.') || '(body)');
       void reply.status(400).send({
         error: {
           code: 'BAD_REQUEST',
-          message: 'Request validation failed',
+          message: `Request validation failed: ${[...new Set(fields)].join(', ')}`,
           details: err.issues.map((i) => ({ path: i.path.join('.'), message: i.message })),
         },
       });

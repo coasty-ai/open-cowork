@@ -54,7 +54,19 @@ export interface BackendConfig extends z.infer<typeof configSchema> {
   demoMode: boolean;
   /** True when the resolved key is a sandbox key (never bills). */
   sandbox: boolean;
+  /**
+   * The webhook URL to register with Coasty for runs/workflow runs, or `null`
+   * when we must not send one. Coasty requires HTTPS webhook URLs, so a
+   * non-https `COWORK_PUBLIC_URL` (the local-dev default) would make the real
+   * API reject every run with a validation error. We therefore send a webhook
+   * URL only when `COWORK_PUBLIC_URL` is https, OR when the upstream is the
+   * local mock (which accepts http). When null, run state still converges via
+   * the SSE ingestor + read-time reconcile — webhooks are an optimization.
+   */
+  webhookUrl: string | null;
 }
+
+const LOCAL_UPSTREAM_RE = /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d+)?(\/|$)/i;
 
 /** Generate a syntactically valid sandbox key for demo mode (the mock accepts any). */
 function ephemeralSandboxKey(): string {
@@ -91,10 +103,19 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): BackendConfig 
   }
 
   const sandbox = coastyApiKey.startsWith('sk-coasty-test-');
-  if (!sandbox && !parsed.data.publicUrl.startsWith('https://')) {
-    // Loud warning, not fatal: local development against live keys is legal but risky.
+  const publicIsHttps = parsed.data.publicUrl.startsWith('https://');
+  const upstreamIsLocal = LOCAL_UPSTREAM_RE.test(parsed.data.coastyBaseUrl);
+  // Coasty rejects non-https webhook URLs. Only register one when we have a
+  // public https URL, or when the upstream is the local mock (accepts http).
+  const webhookUrl =
+    publicIsHttps || upstreamIsLocal ? `${parsed.data.publicUrl}/webhooks/coasty` : null;
+
+  if (!publicIsHttps && !upstreamIsLocal) {
+    // Talking to the real Coasty API over a non-https public URL: webhooks
+    // can't be registered (they require https). Not fatal — run/workflow state
+    // still syncs via the SSE ingestor + read reconcile.
     console.warn(
-      '[config] WARNING: live Coasty key with a non-https COWORK_PUBLIC_URL — webhooks require https in production.',
+      '[config] COWORK_PUBLIC_URL is not https — Coasty webhooks are disabled (state still syncs via SSE). Set an https COWORK_PUBLIC_URL to enable instant webhook updates.',
     );
   }
   if (!env.COWORK_SESSION_SECRET?.trim()) {
@@ -103,5 +124,5 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): BackendConfig 
     );
   }
 
-  return { ...parsed.data, demoMode, sandbox };
+  return { ...parsed.data, demoMode, sandbox, webhookUrl };
 }

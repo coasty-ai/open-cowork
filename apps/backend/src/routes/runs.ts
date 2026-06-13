@@ -168,7 +168,7 @@ export function registerRunRoutes(app: FastifyInstance, deps: RunRouteDeps): voi
         max_steps: body.maxSteps,
         on_awaiting_human: body.onAwaitingHuman,
         instructions: body.instructions ?? null,
-        webhook_url: `${config.publicUrl}/webhooks/coasty`,
+        webhook_url: config.webhookUrl,
         metadata: { cowork_user: user.id },
       },
       { idempotencyKey: `cwk-run-${randomUUID()}` },

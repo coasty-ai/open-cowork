@@ -133,7 +133,7 @@ export function registerWorkflowRoutes(app: FastifyInstance, deps: WorkflowRoute
       budget_cents: budget,
       max_iterations: body.maxIterations ?? null,
       deadline_seconds: body.deadlineSeconds ?? null,
-      webhook_url: `${config.publicUrl}/webhooks/coasty`,
+      webhook_url: config.webhookUrl,
       ...(workflowId === null ? { definition } : {}),
     };
     const run: WorkflowRun = workflowId

@@ -107,7 +107,62 @@ describe('loadConfig — one-key contract', () => {
   it('warns (does not throw) for a live key on a non-https public URL', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     loadConfig({ COASTY_API_KEY: LIVE, COWORK_PUBLIC_URL: 'http://example.com' });
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining('non-https'));
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('not https'));
     warn.mockRestore();
+  });
+});
+
+describe('loadConfig — webhookUrl gating (Coasty requires HTTPS)', () => {
+  it('REAL Coasty + non-https public URL → no webhook (the bug that 422d every run)', () => {
+    // The exact default: a real key + default http://127.0.0.1:4000. Sending an
+    // http webhook_url made the real Coasty API reject every run creation.
+    const cfg = quietLoad({ COASTY_API_KEY: LIVE });
+    expect(cfg.coastyBaseUrl).toBe(LIVE_BASE_URL);
+    expect(cfg.webhookUrl).toBeNull();
+  });
+
+  it('REAL Coasty + https public URL → webhook registered', () => {
+    const cfg = quietLoad({
+      COASTY_API_KEY: LIVE,
+      COWORK_PUBLIC_URL: 'https://cowork.example.com',
+    });
+    expect(cfg.webhookUrl).toBe('https://cowork.example.com/webhooks/coasty');
+  });
+
+  it('sandbox key against real Coasty + non-https public URL → no webhook', () => {
+    const cfg = quietLoad({ COASTY_API_KEY: SANDBOX });
+    expect(cfg.coastyBaseUrl).toBe(LIVE_BASE_URL);
+    expect(cfg.webhookUrl).toBeNull();
+  });
+
+  it('local mock upstream → webhook kept even over http (mock accepts it; tests rely on it)', () => {
+    const cfg = quietLoad({ COASTY_API_KEY: SANDBOX, COASTY_BASE_URL: MOCK_BASE_URL });
+    expect(cfg.webhookUrl).toBe('http://127.0.0.1:4000/webhooks/coasty');
+  });
+
+  it('demo mode (no key, mock base URL) → webhook kept', () => {
+    const cfg = quietLoad({});
+    expect(cfg.demoMode).toBe(true);
+    expect(cfg.webhookUrl).toBe('http://127.0.0.1:4000/webhooks/coasty');
+  });
+
+  it('localhost / 127.0.0.1 / [::1] upstreams are all treated as the local mock', () => {
+    for (const base of [
+      'http://localhost:4010/v1',
+      'http://127.0.0.1:9999/v1',
+      'http://[::1]:4010/v1',
+    ]) {
+      expect(
+        quietLoad({ COASTY_API_KEY: SANDBOX, COASTY_BASE_URL: base }).webhookUrl,
+      ).not.toBeNull();
+    }
+  });
+
+  it('a custom https public URL with a real upstream registers that exact URL', () => {
+    const cfg = quietLoad({
+      COASTY_API_KEY: LIVE,
+      COWORK_PUBLIC_URL: 'https://my.tunnel.example:8443',
+    });
+    expect(cfg.webhookUrl).toBe('https://my.tunnel.example:8443/webhooks/coasty');
   });
 });

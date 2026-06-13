@@ -80,7 +80,7 @@ entrypoint smoke.
 | core (unit) | 166 + live-smoke gate | loop, DSL, cost table, HMAC vectors (valid/tampered/stale/future/malformed/rotation), retry, SSE parser, client incl. SSE-reconnect Last-Event-ID |
 | executor (unit) | 98 (+1 opt-in native smoke) | macOS/Linux bridge command-string construction via mocked child_process (proves cross-platform drive without that hardware), Windows daemon protocol, agent-loop↔all-3-executors integration, DPI scaling, action mapping |
 | mock-coasty | 134 | full error catalog + types, pricing/HD boundary, run+workflow state machines, SSE drop→reconnect (no dupes/gaps) incl. ?after= replay, hand-verified HMAC webhooks, idempotency, machines (FS/terminal/browser/batch) |
-| backend (integration) | 83 | real HTTP vs in-process mock: run+workflow lifecycle/SSE/reconnect, webhook tamper/stale/unknown→401, BUDGET_EXCEEDED/ESTIMATE_CHANGED/402, machines, wallet+budget, inference proxy errors, entrypoint banners; config (12) + zero-config bootstrap (1) |
+| backend (integration) | 93 | real HTTP vs in-process mock: run+workflow lifecycle/SSE/reconnect, webhook tamper/stale/unknown→401, BUDGET_EXCEEDED/ESTIMATE_CHANGED/402, machines, wallet+budget, inference proxy errors, entrypoint banners; config (12) + zero-config bootstrap (1) + **webhook_url HTTPS gating (10)** incl. a fetch-spy proving the exact outbound body to a real upstream |
 | ui (RTL) | 107 | all 20 components: roles/names, loading/error/empty, keyboard interactions |
 | web (RTL) | 82 | login, delegate→confirm-cost→create, run/workflow detail (stubbed SSE), workflow builder validation, settings, useSse reconnect, global feed banner, 401 auto-logout |
 | desktop (unit) | 8 | LocalRunManager happy path/cancel/failure/batching vs fake executor + scripted backend; build smoke |
@@ -88,20 +88,29 @@ entrypoint smoke.
 | **E2E web** | 3 | full journey: login→provision→delegate→confirm $1.25→live timeline+frames→approve with note→succeeded+cost summary; workflow build→validate→run→approve→output; server-side budget refusal. Plus a runtime watcher asserting **no request ever contains key/secret material** |
 | **E2E desktop** | 1 | Electron boots, secure bridge present, no Node leak in renderer, login works, "This computer (local screen)" target + local-control warning |
 | **E2E bootstrap smoke** | 1 | real entrypoint, zero config, full flow over HTTP |
-| **Total** | **≈712 unit/integration + 5 E2E** | |
+| **Total** | **≈722 unit/integration + 5 E2E** | |
 
 Coverage (v8, lines): ui **99.9%**, mobile **98.4%**, mock-coasty **96.6%**,
 backend **96.2%**, executor **95.3%**, core **94.1%**, web **83.2%** (App/main
 routing is E2E territory), desktop **63.4%** (Electron main/preload are
 E2E-covered instead).
 
-Two real UI bugs were found and fixed during the coverage push: `RunDetailPage`
-and `WorkflowRunDetailPage` never cleared a prior error on a successful
-refresh, leaving the Retry button dead. A resilience fix was also added — the
-web client auto-logs-out on any `401` (so a backend restart that forgets a
-session, the norm with an auto-generated secret, returns the user to login
-instead of stranding them on a broken screen), covered by unit + the desktop
-E2E.
+Bugs found and fixed along the way:
+
+- **`webhook_url` rejected by real Coasty (every delegate 422'd).** The backend
+  always sent `${COWORK_PUBLIC_URL}/webhooks/coasty` — http by default — but
+  Coasty requires **HTTPS** webhook URLs, so the live API rejected run/workflow
+  creation with a validation error. (The mock accepted http, so every offline
+  test passed.) Fixed: `config.webhookUrl` is sent only when the public URL is
+  https or the upstream is the local mock; otherwise it's `null` and run state
+  still converges via the SSE ingestor + read reconcile. Proven by config unit
+  tests and a fetch-spy integration test that captures the exact outbound body.
+- **Two dead Retry buttons** — `RunDetailPage`/`WorkflowRunDetailPage` never
+  cleared a prior error on a successful refresh.
+- **401 resilience** — the web client auto-logs-out on any `401` (so a backend
+  restart that forgets a session, the norm with an auto-generated secret,
+  returns the user to login instead of stranding them), covered by unit + the
+  desktop E2E.
 
 ## Platform status matrix
 

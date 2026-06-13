@@ -91,9 +91,12 @@ talks to the real Coasty API and does **not** start the mock. Start with a
 **sandbox key (`sk-coasty-test-…`)** — it exercises the full real API and never
 bills. Switch to a live key only when you're ready to spend.
 
-For webhooks (instant status without polling), the backend must be reachable
-over **https** — set `COWORK_PUBLIC_URL` (see `DEPLOYMENT.md`). Without it, run
-state still converges via SSE + read-time reconcile.
+Webhooks (instant status without polling) require an **https**
+`COWORK_PUBLIC_URL` — Coasty only accepts HTTPS webhook URLs. open-cowork
+detects this: against the real API over a non-https URL it simply doesn't
+register a webhook (so run creation never fails), and run/workflow state still
+syncs live via SSE + read-time reconcile. Set an https `COWORK_PUBLIC_URL`
+(e.g. a tunnel or your deployment, see `DEPLOYMENT.md`) to turn webhooks on.
 
 > ⚠ **Cost warning.** With a live key (`sk-coasty-live-…`): runs bill
 > **$0.05/step** (v3/v4), machines bill **$0.05–0.09/hour** while running and
