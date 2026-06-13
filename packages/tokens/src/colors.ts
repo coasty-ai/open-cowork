@@ -21,7 +21,7 @@ export interface ColorScale {
   mutedForeground: string;
   secondary: string;
   secondaryForeground: string;
-  /** Neutral hover/selected wash (shadcn "accent" — NOT the brand blue). */
+  /** Neutral hover/selected wash (shadcn "accent" — NOT the primary accent). */
   accent: string;
   accentForeground: string;
   /** 1px separator. */
@@ -30,7 +30,7 @@ export interface ColorScale {
   input: string;
   /** Focus ring (= primary). */
   ring: string;
-  /** The restrained brand accent. */
+  /** The primary accent — monochrome: near-white on dark, near-black on light. */
   primary: string;
   primaryForeground: string;
   /** Solid-fill danger (buttons, banners). */
@@ -70,8 +70,8 @@ export const dark: ColorScale = {
   accentForeground: '#e8ebf2',
   border: '#2b3349',
   input: '#3a4358',
-  ring: '#6c8cff',
-  primary: '#6c8cff',
+  ring: '#e8ebf2',
+  primary: '#e8ebf2',
   primaryForeground: '#0b0e15',
   destructive: '#d83a3f',
   destructiveForeground: '#ffffff',
@@ -100,8 +100,8 @@ export const light: ColorScale = {
   accentForeground: '#1a1f2e',
   border: '#d6dae3',
   input: '#c2c8d4',
-  ring: '#2f5fe0',
-  primary: '#2f5fe0',
+  ring: '#1a1f2e',
+  primary: '#1a1f2e',
   primaryForeground: '#ffffff',
   destructive: '#c5303a',
   destructiveForeground: '#ffffff',
@@ -115,15 +115,15 @@ export const light: ColorScale = {
 };
 
 export const interactionDark: InteractionColors = {
-  primaryHover: '#7d9aff',
-  primaryActive: '#5b7df0',
+  primaryHover: '#d4d8e2',
+  primaryActive: '#c2c7d4',
   secondaryHover: '#2a3349',
   destructiveHover: '#e5484d',
 };
 
 export const interactionLight: InteractionColors = {
-  primaryHover: '#2a55cc',
-  primaryActive: '#244aad',
+  primaryHover: '#2c3242',
+  primaryActive: '#10131c',
   secondaryHover: '#e4e7ee',
   destructiveHover: '#b32a33',
 };

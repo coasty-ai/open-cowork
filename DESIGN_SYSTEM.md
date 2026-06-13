@@ -10,7 +10,7 @@
 
 1. **Dark-first.** Dark is the product identity and the default (`:root` = dark, `color-scheme: dark`). Light is a *first-class peer* under `[data-theme='light']`, not an afterthought — both themes pass WCAG AA for text and UI. (shadcn ships light as `:root`; we deliberately invert this. It is our one intentional deviation from shadcn's posture.)
 2. **Borders over heavy shadows.** Surfaces are separated primarily by 1px borders plus surface-color steps. Elevation (shadow) is *additive and subtle*, introduced only where a surface genuinely floats (modal, popover) — never as the sole boundary signal.
-3. **Restrained accent.** The brand blue is pulled toward neutral periwinkle (lower chroma, hue preserved ~`hsl(225)`) so it reads as engineered chrome, not a marketing CTA. Accent color is reserved for *functional signals* — primary action, focus ring, selected tab, running pulse — never a large background wash (that role belongs to neutral `--accent`/`--muted`).
+3. **Monochrome accent.** There is no brand hue: the primary accent is neutral — near-white on dark (`#e8ebf2`: a white primary button / focus ring / active rail) and near-black on light (`#1a1f2e`). Saturated color is reserved *exclusively* for semantic status (success/warning/info/destructive); the accent itself never carries hue. The result reads calm, sleek, and unmistakably black-and-white. (The legacy `--color-accent` alias still points at `--primary`, so existing rules pick up the monochrome accent automatically.)
 4. **One type hierarchy.** A single typographic ladder (`--font-size-xs..3xl`) with paired line-heights, four weights, and named heading presets (`h1..h4`, `body`, `caption`) drives every surface. No per-page magic font sizes; no one-off weights.
 5. **Single token source.** One platform-neutral package (`@open-cowork/tokens`, plain JS hex/numbers) is the origin. `tokens.css` (web custom properties) and `theme.ts` (RN object) are both *generated* from it and guarded by a parity test, so they cannot drift. Anything CSS-only (`color-mix`, `calc`, `rem`, `:focus-visible`) is composed *per platform* from shared plain inputs — never shared as a CSS string.
 
@@ -38,9 +38,9 @@ shadcn-style **role pairs**: a `*-foreground` token is the text/icon color that 
 | `--accent-foreground` | `#e8ebf2` | AAA |
 | `--border` | `#2b3349` | 1px separators (decorative reinforcement; exempt from 3:1) |
 | `--input` | `#3a4358` | stronger control border — the visible affordance on form fields |
-| `--ring` | `#6c8cff` | focus ring = primary, 6.28:1 on bg (>> 3:1) |
-| `--primary` | `#6c8cff` | **restrained accent** (was `#5b8cff`) |
-| `--primary-foreground` | `#0b0e15` | **ink, not white** — 6.28:1 on primary (AA). White-on-primary is only 3.07:1 and would fail. |
+| `--ring` | `#e8ebf2` | focus ring = primary; near-white, ~16:1 on bg |
+| `--primary` | `#e8ebf2` | **monochrome accent** — near-white (a white primary button on dark) |
+| `--primary-foreground` | `#0b0e15` | ink on the white primary — ~16:1 (AAA) |
 | `--destructive` | `#d83a3f` | **solid-fill** danger (buttons/banners) |
 | `--destructive-foreground` | `#ffffff` | 4.57:1 on the red fill (AA-normal) |
 | `--destructive-text` | `#ff7070` | danger used **as text/border/dot** on bg → 7.17:1 (AAA) |
@@ -69,9 +69,9 @@ shadcn-style **role pairs**: a `*-foreground` token is the text/icon color that 
 | `--accent-foreground` | `#1a1f2e` | AAA |
 | `--border` | `#d6dae3` | (was `#d4d9e3`) |
 | `--input` | `#c2c8d4` | stronger field border |
-| `--ring` | `#2f5fe0` | 5.15:1 on bg (>> 3:1) |
-| `--primary` | `#2f5fe0` | **restrained accent** (was `#2f6bff`) |
-| `--primary-foreground` | `#ffffff` | 5.48:1 on primary (AA) — best headroom of the candidates |
+| `--ring` | `#1a1f2e` | focus ring = primary; near-black, ~15:1 on bg |
+| `--primary` | `#1a1f2e` | **monochrome accent** — near-black (a black primary button on light) |
+| `--primary-foreground` | `#ffffff` | white on the near-black primary — ~15:1 (AAA) |
 | `--destructive` | `#c5303a` | solid-fill danger |
 | `--destructive-foreground` | `#ffffff` | AA on fill |
 | `--destructive-text` | `#c5303a` | as text on bg → 5.12:1 (AA) |
@@ -84,16 +84,24 @@ shadcn-style **role pairs**: a `*-foreground` token is the text/icon color that 
 
 > **Why the light status hues changed (a real fix, not cosmetics):** badges render on `--muted` (`#eef0f5`). The previous `#14855c`/`#9a6a00` compute to 4.13:1 / 4.23:1 on that surface — below AA-normal (4.5:1). The darkened values clear AA on both `--muted` and `--background`. Adopting the rest of the palette without this change would ship a known-failing light theme.
 
-### 2.3 The restrained accent (exact value + contrast notes)
+### 2.3 The monochrome accent (exact value + contrast notes)
+
+The accent is neutral, not blue. In dark mode it is near-white (so the primary
+button, focus ring, active sidebar rail, tab underline, and spinner all read as
+white); in light mode it is near-black (a black primary button). This is the
+classic black-and-white shadcn look.
 
 | | Dark | Light |
 |---|---|---|
-| `--primary` / `--ring` | **`#6c8cff`** (from `#5b8cff`) | **`#2f5fe0`** (from `#2f6bff`) |
+| `--primary` / `--ring` | **`#e8ebf2`** (near-white) | **`#1a1f2e`** (near-black) |
 | Foreground on the solid fill | `#0b0e15` (ink) | `#ffffff` (white) |
-| Foreground-on-fill contrast | **6.28:1 (AA, near-AAA)** | **5.48:1 (AA)** |
-| Ring-on-background contrast | **6.28:1** | **5.15:1** (both >> the 3:1 non-text minimum) |
+| Foreground-on-fill contrast | **~16:1 (AAA)** | **~15:1 (AAA)** |
+| Ring-on-background contrast | **~16:1** | **~15:1** (both ≫ the 3:1 non-text minimum) |
 
-**The dark primary uses an INK foreground, not white** — this is the single most common dark-UI button bug: white-on-`#6c8cff` is only **3.07:1 (fails AA-normal)** while ink-on-`#6c8cff` is **6.28:1**. The data forces ink. Chroma is reduced and hue preserved, so brand recognition holds while the accent reads calmer. (A rejected alternative, `#5c7cff`, gives only 5.32:1 ink contrast — tightest margin and an unreproducible "6.9:1" claim — so it is **not** used.)
+Because the accent equals the foreground neutral, primary actions get maximum
+contrast (and the dark primary keeps its ink foreground — white-on-white would
+be invisible). Hue is reserved for status only, so nothing competes with the
+black-and-white chrome.
 
 ### 2.4 Migration: current `--color-*` → new role token (lossless aliases)
 
@@ -264,8 +272,8 @@ Per-role hover/active so contrast never drops below AA, and `Pressable` pressed-
 
 ```css
 /* dark / light */
---primary-hover:     #7d9aff / #2a55cc   /* ink-fg still ≥5:1 (verified 7.3 / 6.42) */
---primary-active:    #5b7df0 / #244aad
+--primary-hover:     #d4d8e2 / #2c3242   /* white dims on dark; black lifts on light */
+--primary-active:    #c2c7d4 / #10131c
 --secondary-hover:   #2a3349 / #e4e7ee
 --destructive-hover: #e5484d / #b32a33
 --disabled-opacity:  0.5                 /* + cursor:not-allowed; never recolor text */

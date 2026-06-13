@@ -27,8 +27,8 @@
   --accent-foreground: #e8ebf2;
   --border: #2b3349;
   --input: #3a4358;
-  --ring: #6c8cff;
-  --primary: #6c8cff;
+  --ring: #e8ebf2;
+  --primary: #e8ebf2;
   --primary-foreground: #0b0e15;
   --destructive: #d83a3f;
   --destructive-foreground: #ffffff;
@@ -41,8 +41,8 @@
   --info-foreground: #04161b;
 
   /* ---- Interaction states ---- */
-  --primary-hover: #7d9aff;
-  --primary-active: #5b7df0;
+  --primary-hover: #d4d8e2;
+  --primary-active: #c2c7d4;
   --secondary-hover: #2a3349;
   --destructive-hover: #e5484d;
   --disabled-opacity: 0.5;
@@ -129,8 +129,8 @@
   --accent-foreground: #1a1f2e;
   --border: #d6dae3;
   --input: #c2c8d4;
-  --ring: #2f5fe0;
-  --primary: #2f5fe0;
+  --ring: #1a1f2e;
+  --primary: #1a1f2e;
   --primary-foreground: #ffffff;
   --destructive: #c5303a;
   --destructive-foreground: #ffffff;
@@ -143,8 +143,8 @@
   --info-foreground: #ffffff;
 
   /* ---- Interaction states ---- */
-  --primary-hover: #2a55cc;
-  --primary-active: #244aad;
+  --primary-hover: #2c3242;
+  --primary-active: #10131c;
   --secondary-hover: #e4e7ee;
   --destructive-hover: #b32a33;
 
