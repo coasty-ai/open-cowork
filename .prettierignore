@@ -8,3 +8,6 @@ playwright-report
 test-results
 pnpm-lock.yaml
 *.md
+
+# Generated from @open-cowork/tokens (guarded by a byte-parity test); never hand-format.
+packages/ui/src/tokens.css

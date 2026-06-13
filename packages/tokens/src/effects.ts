@@ -52,3 +52,6 @@ export const shadow: {
 
 /** The inset ring on the logo mark — derived from the mark's own color. */
 export const logoRing = { source: 'currentColor', alpha: 0.12 } as const;
+
+/** Focus ring geometry (theme-invariant; the ring color is the `ring` role token). */
+export const focusRing = { width: 2, offset: 2 } as const;

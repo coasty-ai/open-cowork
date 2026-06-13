@@ -8,9 +8,14 @@
     ".": {
       "types": "./src/index.ts",
       "default": "./src/index.ts"
+    },
+    "./generate": {
+      "types": "./src/generate.ts",
+      "default": "./src/generate.ts"
     }
   },
   "scripts": {
+    "gen:css": "tsx scripts/gen-tokens-css.ts",
     "test": "vitest run --passWithNoTests",
     "test:coverage": "vitest run --coverage --passWithNoTests",
     "typecheck": "tsc --noEmit"
@@ -18,6 +23,7 @@
   "devDependencies": {
     "@types/node": "catalog:",
     "@vitest/coverage-v8": "catalog:",
+    "tsx": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

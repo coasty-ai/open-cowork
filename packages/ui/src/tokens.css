@@ -1,29 +1,53 @@
 /**
- * open-cowork design tokens — dark-first.
+ * open-cowork design tokens — GENERATED FILE, DO NOT EDIT BY HAND.
  *
- * The :root block defines the dark palette (the default). Setting
- * data-theme='light' on <html> (or any ancestor) swaps the color scale;
- * spacing, radii, and typography are theme-invariant.
+ * Source of truth: packages/tokens/src/*.ts
+ * Regenerate:      pnpm --filter @open-cowork/tokens gen:css
+ * A parity test (packages/ui) byte-compares this file to the generator output.
+ *
+ * Dark is the default (:root); light is a first-class peer ([data-theme='light']).
+ * Legacy --color-* names are kept as aliases so existing oc-* rules keep working.
  */
 
 :root {
   color-scheme: dark;
 
-  /* Color scale */
-  --color-bg: #0b0e14;
-  --color-surface: #131826;
-  --color-surface-raised: #1c2333;
-  --color-border: #2a3247;
-  --color-text: #e7eaf2;
-  --color-text-muted: #98a2b8;
-  --color-accent: #5b8cff;
-  --color-accent-contrast: #0b0e14;
-  --color-success: #3ecf8e;
-  --color-warning: #f5b83d;
-  --color-danger: #ff6b6b;
-  --color-info: #58c4dc;
+  /* ---- Color roles (dark) ---- */
+  --background: #0b0e15;
+  --foreground: #e8ebf2;
+  --card: #151a27;
+  --card-foreground: #e8ebf2;
+  --popover: #1a2030;
+  --popover-foreground: #e8ebf2;
+  --muted: #1d2435;
+  --muted-foreground: #9aa3b8;
+  --secondary: #222a3d;
+  --secondary-foreground: #e8ebf2;
+  --accent: #222a3d;
+  --accent-foreground: #e8ebf2;
+  --border: #2b3349;
+  --input: #3a4358;
+  --ring: #6c8cff;
+  --primary: #6c8cff;
+  --primary-foreground: #0b0e15;
+  --destructive: #d83a3f;
+  --destructive-foreground: #ffffff;
+  --destructive-text: #ff7070;
+  --success: #4ade80;
+  --success-foreground: #06140c;
+  --warning: #f5b83d;
+  --warning-foreground: #1a1300;
+  --info: #56c7e0;
+  --info-foreground: #04161b;
 
-  /* Spacing scale (4px base) */
+  /* ---- Interaction states ---- */
+  --primary-hover: #7d9aff;
+  --primary-active: #5b7df0;
+  --secondary-hover: #2a3349;
+  --destructive-hover: #e5484d;
+  --disabled-opacity: 0.5;
+
+  /* ---- Spacing (4px scale) ---- */
   --space-1: 0.25rem;
   --space-2: 0.5rem;
   --space-3: 0.75rem;
@@ -33,36 +57,100 @@
   --space-7: 2rem;
   --space-8: 2.5rem;
 
-  /* Radii */
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
+  /* ---- Radii (single base, derived steps) ---- */
+  --radius: 8px;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 4px);
   --radius-full: 999px;
 
-  /* Typography */
+  /* ---- Typography ---- */
+  --font-size-2xs: 0.6875rem;
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.8125rem;
+  --font-size-base: 0.875rem;
+  --font-size-md: 0.9375rem;
+  --font-size-lg: 1rem;
+  --font-size-xl: 1.125rem;
+  --font-size-2xl: 1.3125rem;
+  --font-size-3xl: 1.625rem;
+  --lh-tight: 1.25;
+  --lh-snug: 1.4;
+  --lh-normal: 1.5;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
   --font-sans: 'Inter', 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
-  --font-mono:
-    ui-monospace, 'Cascadia Code', 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
+  --font-mono: ui-monospace, 'Cascadia Code', 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
 
-  /* Focus ring */
-  --focus-ring-color: var(--color-accent);
+  /* ---- Focus ring ---- */
   --focus-ring-width: 2px;
   --focus-ring-offset: 2px;
+
+  /* ---- Elevation (subtle; borders remain primary) ---- */
+  --shadow-sm: 0px 1px 2px 0px rgb(0 0 0 / 0.4);
+  --shadow-md: 0px 4px 12px -2px rgb(0 0 0 / 0.45);
+  --shadow-lg: 0px 16px 40px -8px rgb(0 0 0 / 0.6);
+  --shadow-ring: inset 0 0 0 1px color-mix(in srgb, currentColor 12%, transparent);
+  --overlay-scrim: rgb(0 0 0 / 0.66);
+
+  /* ---- Legacy aliases (generated; prefer the role tokens above in new code) ---- */
+  --color-bg: var(--background);
+  --color-surface: var(--card);
+  --color-surface-raised: var(--muted);
+  --color-border: var(--border);
+  --color-text: var(--foreground);
+  --color-text-muted: var(--muted-foreground);
+  --color-accent: var(--primary);
+  --color-accent-contrast: var(--primary-foreground);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--destructive-text);
+  --color-info: var(--info);
+  --focus-ring-color: var(--ring);
 }
 
 [data-theme='light'] {
   color-scheme: light;
 
-  --color-bg: #f6f7fa;
-  --color-surface: #ffffff;
-  --color-surface-raised: #f0f2f7;
-  --color-border: #d4d9e3;
-  --color-text: #171c28;
-  --color-text-muted: #5a6478;
-  --color-accent: #2f6bff;
-  --color-accent-contrast: #ffffff;
-  --color-success: #14855c;
-  --color-warning: #9a6a00;
-  --color-danger: #cc3340;
-  --color-info: #0e7490;
+  /* ---- Color roles (light) ---- */
+  --background: #f7f8fa;
+  --foreground: #1a1f2e;
+  --card: #ffffff;
+  --card-foreground: #1a1f2e;
+  --popover: #ffffff;
+  --popover-foreground: #1a1f2e;
+  --muted: #eef0f5;
+  --muted-foreground: #586074;
+  --secondary: #eef0f5;
+  --secondary-foreground: #1a1f2e;
+  --accent: #eef0f5;
+  --accent-foreground: #1a1f2e;
+  --border: #d6dae3;
+  --input: #c2c8d4;
+  --ring: #2f5fe0;
+  --primary: #2f5fe0;
+  --primary-foreground: #ffffff;
+  --destructive: #c5303a;
+  --destructive-foreground: #ffffff;
+  --destructive-text: #c5303a;
+  --success: #0f7a4f;
+  --success-foreground: #ffffff;
+  --warning: #8a5a00;
+  --warning-foreground: #ffffff;
+  --info: #0c6f8a;
+  --info-foreground: #ffffff;
+
+  /* ---- Interaction states ---- */
+  --primary-hover: #2a55cc;
+  --primary-active: #244aad;
+  --secondary-hover: #e4e7ee;
+  --destructive-hover: #b32a33;
+
+  /* ---- Elevation (light) ---- */
+  --shadow-sm: 0px 1px 2px 0px rgb(16 20 38 / 0.06), 0px 1px 3px 0px rgb(16 20 38 / 0.1);
+  --shadow-md: 0px 4px 12px -2px rgb(16 20 38 / 0.1);
+  --shadow-lg: 0px 16px 40px -8px rgb(16 20 38 / 0.18);
+  --overlay-scrim: rgb(16 20 38 / 0.4);
 }
