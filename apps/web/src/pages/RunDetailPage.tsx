@@ -1,24 +1,29 @@
 /**
- * Live run view: event timeline over SSE (with reconnect), a live screen view
- * (machine screenshot frames while running), human-takeover approval, cancel,
- * and the final cost summary.
+ * Live run view, rendered as a chat transcript: the delegated task is the
+ * opening message and the agent's narration / actions stream below it over SSE
+ * (with reconnect). One live "shared screen" frame (the machine screenshot for
+ * cloud runs, the forwarded desktop screen for local runs) tails the thread and
+ * can be zoomed; the bottom dock — shaped like the Delegate composer — reports
+ * working status, morphs into the approval bar when the agent pauses for a
+ * human, and into a finish/return footer once the run is terminal.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import {
   ApprovalBar,
   Button,
-  Card,
   CostPill,
   ErrorState,
-  EventTimeline,
+  Heading,
+  Icon,
+  LiveIndicator,
+  Modal,
+  RunChat,
   RunStatusBadge,
   ScreenView,
   Spinner,
+  formatCents,
   type RunStatus,
-  Heading,
-  LiveIndicator,
-  Text,
 } from '@open-cowork/ui';
 import { getClient } from '../store';
 import { useSse } from '../api/useSse';
@@ -27,13 +32,24 @@ import type { RunDto } from '../api/client';
 
 const TERMINAL = new Set(['succeeded', 'failed', 'cancelled', 'timed_out']);
 
+function prefersReducedMotion(): boolean {
+  return (
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  );
+}
+
 export function RunDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const client = getClient();
   const [run, setRun] = useState<RunDto | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [actionPending, setActionPending] = useState(false);
   const [frame, setFrame] = useState<{ b64: string; at: string } | null>(null);
+  const [zoom, setZoom] = useState(false);
+  const bottomRef = useRef<HTMLDivElement>(null);
 
   const refresh = useCallback(async () => {
     if (!id) return;
@@ -70,8 +86,9 @@ export function RunDetailPage() {
   });
 
   // Live screen view. Cloud runs: poll the machine screenshot endpoint. Local
-  // runs: poll the local-run frame channel the desktop forwards into. We keep
-  // polling briefly after a run finishes so the final frame lands.
+  // runs: poll the local-run frame channel the desktop forwards into. Polling
+  // runs only while the run is active; the last captured frame stays on screen
+  // after it finishes (relabelled "Final screen").
   const kind = run?.kind ?? null;
   const machineId = run?.kind === 'coasty' ? run.machineId : null;
   const runId = run?.id ?? null;
@@ -92,7 +109,7 @@ export function RunDetailPage() {
           if (f.base64) setFrame({ b64: f.base64, at: f.capturedAt ?? new Date().toISOString() });
         }
       } catch {
-        // screenshot polling is best-effort; the timeline still tells the story
+        // screenshot polling is best-effort; the transcript still tells the story
       }
     };
     void poll();
@@ -103,6 +120,23 @@ export function RunDetailPage() {
   }, [client, kind, machineId, runId, active]);
 
   const timeline = useMemo(() => events.map(eventToTimeline), [events]);
+
+  // Auto-scroll to the latest activity — but only when the user is already near
+  // the bottom, so scrolling up to read history is never fought.
+  useEffect(() => {
+    const el = bottomRef.current;
+    if (!el || typeof el.scrollIntoView !== 'function') return;
+    const scroller = el.closest('.app-main');
+    if (scroller instanceof HTMLElement) {
+      const nearBottom = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 200;
+      if (!nearBottom) return;
+    }
+    try {
+      el.scrollIntoView({ block: 'end', behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+    } catch {
+      // jsdom / unsupported environments — scrolling is a progressive nicety
+    }
+  }, [timeline.length, run?.status]);
 
   if (error) return <ErrorState message={error} onRetry={() => void refresh()} />;
   if (!run) return <Spinner aria-label="Loading run" />;
@@ -131,14 +165,28 @@ export function RunDetailPage() {
     }
   };
 
+  const terminal = TERMINAL.has(run.status);
+  const isLocal = run.kind === 'local';
+  const screenAlt = isLocal ? 'Local screen' : 'Machine screen';
+  const screenLabel = terminal ? 'Final screen' : isLocal ? 'Your screen' : 'Shared screen';
+
   return (
-    <>
-      <div className="page-header">
-        <div className="row">
+    <div className="run-chat-page">
+      <h1 className="sr-only">Run details</h1>
+      <header className="run-chat-page__header">
+        <div className="run-chat-page__id">
           <RunStatusBadge status={run.status as RunStatus} />
-          <Heading level={1} className="run-title">
-            {run.task}
-          </Heading>
+          <span className="run-chat-page__id-machine">
+            <Icon
+              name={isLocal ? 'laptop' : 'cloud'}
+              size={15}
+              title={isLocal ? 'Local run' : 'Cloud run'}
+            />
+            {isLocal ? 'This computer' : 'Cloud machine'}
+          </span>
+          <span className="run-chat-page__steps">
+            {run.stepsCompleted} / {run.maxSteps} steps
+          </span>
         </div>
         <div className="row">
           <CostPill cents={run.costCents} variant="actual" />
@@ -153,64 +201,108 @@ export function RunDetailPage() {
             </Button>
           ) : null}
         </div>
-      </div>
+      </header>
 
-      {run.status === 'awaiting_human' ? (
-        <ApprovalBar
-          reason={run.awaitingHumanReason ?? 'The agent paused for a human decision.'}
-          pending={actionPending}
-          onApprove={(note) => void approve(note)}
-          onReject={() => void cancel()}
-        />
-      ) : null}
-
-      <div className="run-detail-grid">
-        <Card>
-          <Heading level={4}>
-            {run.kind === 'local' ? 'Your screen (local run)' : 'Machine screen'}
-          </Heading>
-          <ScreenView
-            frameB64={frame?.b64}
-            live={active && connected}
-            lastFrameAt={frame?.at}
-            staleAfterSeconds={10}
-            alt={run.kind === 'local' ? 'Local screen' : 'Remote machine screen'}
-          />
-          {run.kind === 'local' ? (
-            <Text variant="caption" as="p">
-              This is a live view of your own screen, captured by the desktop app each step.
-            </Text>
-          ) : null}
-        </Card>
-        <Card>
-          <Heading level={4} className="card-title-row">
-            Timeline
-            {connected ? <LiveIndicator /> : null}
-          </Heading>
-          {streamError && events.length === 0 ? (
-            <ErrorState message={`Event stream: ${streamError}`} />
-          ) : null}
-          <EventTimeline
-            events={timeline}
-            loading={events.length === 0 && active}
-            emptyTitle="No events yet"
-          />
-        </Card>
-      </div>
-
-      {TERMINAL.has(run.status) ? (
-        <Card>
-          <Heading level={4}>Summary</Heading>
-          <p>
-            Finished <strong>{run.status}</strong> after {run.stepsCompleted} steps — total cost{' '}
-            <CostPill cents={run.costCents} variant="actual" />.
+      <RunChat className="run-chat-page__body" task={run.task} events={timeline} working={active}>
+        {streamError && events.length === 0 && active ? (
+          <p className="oc-chat__screen-note" role="status">
+            Reconnecting to the live stream…
           </p>
-          {run.result?.summary ? <p className="notice">{run.result.summary}</p> : null}
-          {run.error?.message ? (
-            <ErrorState message={`${run.error.code ?? 'ERROR'}: ${run.error.message}`} />
-          ) : null}
-        </Card>
-      ) : null}
-    </>
+        ) : null}
+
+        {frame || active ? (
+          <figure className="oc-chat__screen">
+            <figcaption className="oc-chat__screen-head">
+              <Icon name={isLocal ? 'laptop' : 'cloud'} size={15} />
+              {screenLabel}
+              {active && connected ? <LiveIndicator /> : null}
+            </figcaption>
+            <button
+              type="button"
+              className="oc-chat__screen-btn"
+              onClick={() => setZoom(true)}
+              disabled={!frame}
+              aria-label={frame ? 'Expand screen' : 'No screen captured yet'}
+            >
+              <ScreenView
+                frameB64={frame?.b64}
+                live={active && connected}
+                lastFrameAt={frame?.at}
+                staleAfterSeconds={10}
+                alt={screenAlt}
+              />
+            </button>
+            {isLocal ? (
+              <p className="oc-chat__screen-note">
+                This is a live view of your own screen, captured by the desktop app each step.
+              </p>
+            ) : null}
+          </figure>
+        ) : null}
+
+        {terminal ? (
+          <section className="oc-chat__summary" aria-label="Run summary">
+            <Heading level={2} className="oc-chat__summary-title">
+              Summary
+            </Heading>
+            <p className="oc-chat__summary-line">
+              Finished <strong>{run.status}</strong> after {run.stepsCompleted} steps — total cost{' '}
+              <CostPill cents={run.costCents} variant="actual" />
+            </p>
+            {run.result?.summary ? (
+              <p className="oc-chat__summary-note">{run.result.summary}</p>
+            ) : null}
+            {run.error?.message ? (
+              <ErrorState message={`${run.error.code ?? 'ERROR'}: ${run.error.message}`} />
+            ) : null}
+          </section>
+        ) : null}
+      </RunChat>
+
+      <div className="run-chat-page__dock">
+        {run.status === 'awaiting_human' ? (
+          <ApprovalBar
+            reason={run.awaitingHumanReason ?? 'The agent paused for a human decision.'}
+            pending={actionPending}
+            onApprove={(note) => void approve(note)}
+            onReject={() => void cancel()}
+          />
+        ) : active ? (
+          <div className="oc-chat-dock__shell">
+            <span className="oc-chat-dock__status">
+              Working — step {run.stepsCompleted} of {run.maxSteps}
+              <span className="oc-chat-dock__spent">· {formatCents(run.costCents)} spent</span>
+            </span>
+            {connected ? <LiveIndicator /> : null}
+          </div>
+        ) : (
+          <div className="oc-chat-dock__shell">
+            <span className="oc-chat-dock__status">Run {run.status}.</span>
+            <Button variant="secondary" size="sm" onClick={() => navigate('/')}>
+              Delegate another task
+            </Button>
+          </div>
+        )}
+      </div>
+
+      <div ref={bottomRef} aria-hidden="true" />
+
+      <Modal
+        open={zoom}
+        onClose={() => setZoom(false)}
+        title={screenLabel}
+        className="oc-chat__screen-modal"
+      >
+        {frame ? (
+          <img
+            className="oc-chat__screen-zoom"
+            src={`data:image/png;base64,${frame.b64}`}
+            alt={screenAlt}
+          />
+        ) : (
+          <p>No frame captured yet.</p>
+        )}
+      </Modal>
+    </div>
   );
 }

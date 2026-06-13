@@ -1423,3 +1423,245 @@ textarea {
   align-items: center;
   gap: var(--space-2);
 }
+
+/* ---------- RunChat (run transcript as a chat) ----------
+
+   The run rendered as a calm single-column conversation: the delegated task is
+   the one filled bubble (the user's message), and everything the agent does is
+   bubble-less monochrome prose below it. Colour is reserved for status (amber
+   pause, red error); raw payloads stay tucked behind quiet disclosures; the
+   noisy lifecycle events (status/step/billing/done) are demoted to faint
+   centred system markers so a chatty run still reads like a quiet thread. */
+
+.oc-chat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  width: 100%;
+}
+
+/* The opening user turn — the delegated task, as one quiet filled bubble. A
+   fill (not a hairline rule) keeps the role legible in BOTH themes. */
+.oc-chat__turn {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.oc-chat__turn--user {
+  align-items: flex-end;
+}
+
+.oc-chat__role {
+  font-size: var(--font-size-xs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.oc-chat__bubble {
+  max-width: min(85%, 34rem);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--secondary);
+  color: var(--secondary-foreground);
+  font-size: var(--font-size-md);
+  line-height: var(--lh-normal);
+  text-align: left;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* The agent stream — a live region; bubble-less prose is the spine. */
+.oc-chat__log {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.oc-chat__row {
+  margin: 0;
+}
+
+.oc-chat__row--meta {
+  text-align: center;
+}
+
+.oc-chat__prose {
+  margin: 0;
+  color: var(--color-text);
+  font-size: var(--font-size-md);
+  line-height: var(--lh-normal);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Paused for a human — the one warm note in the thread. */
+.oc-chat__row--awaiting .oc-chat__prose {
+  color: var(--color-warning);
+  font-weight: var(--font-weight-medium);
+}
+
+.oc-chat__row--error .oc-chat__prose {
+  color: var(--color-danger);
+}
+
+/* Lifecycle bookkeeping (status/step/billing/done/resumed) — faint punctuation,
+   like a date divider in a messaging app, never a turn. */
+.oc-chat__meta {
+  display: inline-block;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* An action the agent took — a quiet one-liner; the raw payload hides behind a
+   disclosure so the default read stays clean. */
+.oc-chat__action {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  align-items: flex-start;
+}
+
+.oc-chat__action-label {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+/* Reasoning / raw JSON disclosure — inherits the timeline's collapsible look. */
+.oc-chat__disclosure {
+  width: 100%;
+}
+
+/* The agent "sharing its screen" — one live frame, the tail of the thread. */
+.oc-chat__screen {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 100%;
+}
+
+.oc-chat__screen-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.oc-chat__screen-btn {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  border-radius: var(--radius-md);
+  cursor: zoom-in;
+}
+
+.oc-chat__screen-btn:focus-visible {
+  outline: var(--focus-ring-width) solid var(--ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+/* No frame captured yet — the preview can't be zoomed. */
+.oc-chat__screen-btn:disabled {
+  cursor: not-allowed;
+}
+
+/* Cap the inline preview so the screen never dominates the calm column — the
+   frame stays a glanceable "what it's looking at", and click-to-zoom opens the
+   full-resolution frame in a wide modal. */
+.oc-chat__screen .oc-screen-view__frame {
+  max-height: 20rem;
+  object-fit: contain;
+}
+
+/* The zoom modal is wider than the default dialog so a desktop frame is legible. */
+.oc-chat__screen-modal {
+  max-width: min(92vw, 64rem);
+}
+
+.oc-chat__screen-note {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+/* The zoomed frame inside the Modal. */
+.oc-chat__screen-zoom {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: var(--radius-md);
+}
+
+/* Terminal summary — the closing message of the conversation. */
+.oc-chat__summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.oc-chat__summary-title {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+}
+
+.oc-chat__summary-line {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text);
+}
+
+.oc-chat__summary-note {
+  margin: 0;
+  color: var(--color-text-muted);
+  line-height: var(--lh-normal);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* The bottom dock — deliberately the same shell as the Delegate composer
+   (border --input, radius-lg, shadow-sm) so the run "replies" in the very
+   surface you typed the task into. Switches content by lifecycle state. */
+.oc-chat-dock__shell {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-raised);
+  box-shadow: var(--shadow-sm);
+}
+
+.oc-chat-dock__status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+}
+
+.oc-chat-dock__spent {
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}

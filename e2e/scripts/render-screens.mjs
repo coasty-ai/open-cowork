@@ -43,6 +43,35 @@ const TIMELINE_SSE =
     'id: 8\nevent: awaiting_human\ndata: {"reason":"About to send 3 emails — approve?"}',
   ].join('\n\n') + '\n\n';
 
+// A run mid-flight (no terminal event) — the live running transcript.
+const RUNNING_SSE =
+  [
+    'id: 1\nevent: status\ndata: {"status":"running"}',
+    'id: 2\nevent: text\ndata: {"text":"Opening the vendor portal and locating the June invoices."}',
+    'id: 3\nevent: action\ndata: {"action":{"action_type":"click"}}',
+    'id: 4\nevent: step\ndata: {"steps_completed":1}',
+    'id: 5\nevent: reasoning\ndata: {"text":"The June statement lists 14 invoices; I will reconcile each against the PO ledger and flag any variance over $50."}',
+    'id: 6\nevent: text\ndata: {"text":"Cross-checking invoice #4471 against PO-2231 — the amounts match."}',
+    'id: 7\nevent: billing\ndata: {"cost_cents":415}',
+    'id: 8\nevent: step\ndata: {"steps_completed":2}',
+    'id: 9\nevent: text\ndata: {"text":"Reviewing invoice #4472 next."}',
+  ].join('\n\n') + '\n\n';
+
+// A run that finishes cleanly — closes with a terminal `done` event.
+const DONE_SSE =
+  [
+    'id: 1\nevent: status\ndata: {"status":"running"}',
+    'id: 2\nevent: text\ndata: {"text":"Exporting the Q2 dashboard to PDF."}',
+    'id: 3\nevent: action\ndata: {"action":{"action_type":"click"}}',
+    'id: 4\nevent: step\ndata: {"steps_completed":1}',
+    'id: 5\nevent: text\ndata: {"text":"Saved Q2-dashboard.pdf and filed it under Reports/."}',
+    'id: 6\nevent: billing\ndata: {"cost_cents":310}',
+    'id: 7\nevent: done\ndata: {"status":"succeeded"}',
+  ].join('\n\n') + '\n\n';
+
+/** Which SSE body each run id streams (others get an empty, well-formed stream). */
+const SSE_BY_RUN = { r1: TIMELINE_SSE, r2: RUNNING_SSE, r3: DONE_SSE, r5: RUNNING_SSE };
+
 const run = (over) => ({
   id: 'r1',
   kind: 'coasty',
@@ -152,8 +181,14 @@ const GET = {
   },
   '/api/runs': { runs: RUNS },
   '/api/runs/r1': RUNS[0],
+  '/api/runs/r2': RUNS[1],
+  '/api/runs/r3': RUNS[2],
+  '/api/runs/r4': RUNS[3],
+  '/api/runs/r5': run({ id: 'r5', status: 'running', costCents: 415, stepsCompleted: 9 }),
   '/api/machines': { machines: MACHINES },
   '/api/machines/m1/screenshot': { image_b64: '', width: 1280, height: 800, captured_at: ISO },
+  // Local-run live frame (the desktop forwards the user's own screen).
+  '/api/local-runs/r2/frame': { base64: '', width: 1280, height: 800, capturedAt: ISO },
   '/api/workflows': { workflows: WORKFLOWS },
   '/api/workflows/runs': { runs: [] },
   // Default Coasty-key status: demo mode (no real key). Per-screen `coastyKey`
@@ -167,8 +202,10 @@ async function fulfillApi(route) {
   const p = url.pathname;
   // The reference run's timeline streams a representative set of events; other
   // SSE streams hand back an empty, well-formed event-stream and close.
-  if (p === '/api/runs/r1/events') {
-    return route.fulfill({ status: 200, contentType: 'text/event-stream', body: TIMELINE_SSE });
+  const sse = p.match(/^\/api\/runs\/(\w+)\/events$/);
+  if (sse) {
+    const body = SSE_BY_RUN[sse[1]] ?? ': ok\n\n';
+    return route.fulfill({ status: 200, contentType: 'text/event-stream', body });
   }
   if (p.endsWith('/events')) {
     return route.fulfill({ status: 200, contentType: 'text/event-stream', body: ': ok\n\n' });
@@ -228,6 +265,17 @@ const SCREENS = [
   { name: 'runs-light', path: '/runs', theme: 'light', w: 1280, h: 900 },
   { name: 'run-detail-light', path: '/runs/r1', theme: 'light', w: 1280, h: 1040 },
   { name: 'run-detail-tablet', path: '/runs/r1', theme: 'dark', w: 820, h: 1180 },
+  // Run-as-chat: the full lifecycle across themes and viewports.
+  { name: 'run-chat-running', path: '/runs/r5', theme: 'dark', w: 1280, h: 1080 },
+  { name: 'run-chat-running-light', path: '/runs/r5', theme: 'light', w: 1280, h: 1080 },
+  { name: 'run-chat-done', path: '/runs/r3', theme: 'dark', w: 1280, h: 1080 },
+  { name: 'run-chat-done-light', path: '/runs/r3', theme: 'light', w: 1280, h: 1080 },
+  { name: 'run-chat-failed', path: '/runs/r4', theme: 'dark', w: 1280, h: 1080 },
+  { name: 'run-chat-local', path: '/runs/r2', theme: 'dark', w: 1280, h: 1080 },
+  { name: 'run-chat-mobile', path: '/runs/r1', theme: 'dark', w: 390, h: 900 },
+  { name: 'run-chat-zoom', path: '/runs/r5', theme: 'dark', w: 1280, h: 1080, expandScreen: true },
+  // Scrolled to the bottom so the live status dock (below the screen) is shown.
+  { name: 'run-chat-running-dock', path: '/runs/r5', theme: 'dark', w: 1280, h: 760, scroll: true },
   { name: 'runs-mobile', path: '/runs', theme: 'dark', w: 390, h: 900 },
   { name: 'home-collapsed', path: '/', theme: 'dark', w: 1280, h: 900, collapsed: true },
   { name: 'home-collapsed-light', path: '/', theme: 'light', w: 1280, h: 900, collapsed: true },
@@ -305,6 +353,7 @@ try {
   });
   await framePage.close();
   GET['/api/machines/m1/screenshot'].image_b64 = frameB64;
+  GET['/api/local-runs/r2/frame'].base64 = frameB64;
 
   for (const s of SCREENS) {
     const context = await browser.newContext({
@@ -406,6 +455,11 @@ try {
     }
     if (s.openMachine) {
       await page.click('[role="combobox"][aria-label="Machine"]').catch(() => {});
+    }
+    if (s.expandScreen) {
+      // Let the first live frame land so the expand button is enabled.
+      await page.waitForTimeout(300);
+      await page.click('.oc-chat__screen-btn').catch(() => {});
     }
     await page.waitForTimeout(350);
     await page.screenshot({ path: path.join(OUT, `${s.name}.png`), fullPage: !s.scroll });

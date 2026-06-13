@@ -61,6 +61,8 @@ export { CostPill, formatCents } from './components/CostPill';
 export type { CostPillProps } from './components/CostPill';
 export { EventTimeline } from './components/EventTimeline';
 export type { EventTimelineProps, TimelineEvent } from './components/EventTimeline';
+export { RunChat } from './components/RunChat';
+export type { RunChatProps } from './components/RunChat';
 export { ScreenView } from './components/ScreenView';
 export type { ScreenViewProps } from './components/ScreenView';
 export { ApprovalBar } from './components/ApprovalBar';

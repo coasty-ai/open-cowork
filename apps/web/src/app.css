@@ -68,8 +68,67 @@
   font-size: var(--font-size-md);
   line-height: 1.5;
 }
-.run-title {
-  word-break: break-word;
+/* Run detail as a chat: a centred ~46rem column that fills the main height so
+   the dock sits at the bottom on short runs and scrolls naturally on long ones.
+   .app-main stays the single scroll container — no nested scroller. */
+.run-chat-page {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  width: 100%;
+  max-width: 46rem;
+  margin: 0 auto;
+  min-height: 0;
+}
+.run-chat-page__header {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  padding: var(--space-2) 0 var(--space-3);
+  background: var(--color-bg);
+  border-bottom: 1px solid var(--color-border);
+}
+.run-chat-page__id {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+.run-chat-page__id-machine {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.run-chat-page__steps {
+  font-variant-numeric: tabular-nums;
+}
+/* The transcript grows so the dock is pushed to the bottom edge when short. */
+.run-chat-page__body {
+  flex: 1;
+}
+/* The dock keeps its intrinsic height — it must never collapse under the body. */
+.run-chat-page__dock {
+  flex-shrink: 0;
+}
+/* Visually hidden but available to assistive tech (page title, etc.). */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 .page-header {
   display: flex;
