@@ -172,6 +172,9 @@ importers:
       '@open-cowork/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@open-cowork/tokens':
+        specifier: workspace:*
+        version: link:../../packages/tokens
       expo:
         specifier: ~53.0.0
         version: 53.0.27(@babel/core@7.29.7)(@expo/metro-runtime@5.0.5(react-native@0.79.2(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.0.0)))(react-native@0.79.2(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.0.0))(react@19.0.0)

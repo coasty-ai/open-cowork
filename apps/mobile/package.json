@@ -16,6 +16,7 @@
   "dependencies": {
     "@expo/metro-runtime": "~5.0.4",
     "@open-cowork/core": "workspace:*",
+    "@open-cowork/tokens": "workspace:*",
     "expo": "~53.0.0",
     "react": "catalog:",
     "react-dom": "catalog:",
