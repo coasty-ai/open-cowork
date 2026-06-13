@@ -120,7 +120,7 @@ describe('RunDetailScreen', () => {
     const call = findCall(fetchMock, '/api/runs/r_1/resume');
     expect(call).toBeDefined();
     expect(bodyOf(call!.init)).toEqual({ note: 'Yes — ship it' });
-    expect(screen.getByText('running')).toBeInTheDocument();
+    expect(screen.getByText('Running')).toBeInTheDocument();
   });
 
   it('rejects an awaiting_human run via cancelRun', async () => {
@@ -138,7 +138,7 @@ describe('RunDetailScreen', () => {
     await flush();
 
     expect(findCall(fetchMock, '/api/runs/r_1/cancel')).toBeDefined();
-    expect(screen.getByText('cancelled')).toBeInTheDocument();
+    expect(screen.getByText('Cancelled')).toBeInTheDocument();
   });
 
   it('cancels an active run from the Cancel button', async () => {
@@ -156,7 +156,7 @@ describe('RunDetailScreen', () => {
     await flush();
 
     expect(findCall(fetchMock, '/api/runs/r_1/cancel')).toBeDefined();
-    expect(screen.getByText('cancelled')).toBeInTheDocument();
+    expect(screen.getByText('Cancelled')).toBeInTheDocument();
   });
 
   it('shows the final cost line for a finished run and hides the controls', async () => {

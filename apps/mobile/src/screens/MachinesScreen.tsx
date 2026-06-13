@@ -6,8 +6,17 @@
 import { useCallback, useEffect, useState } from 'react';
 import { FlatList, StyleSheet, Text, View } from 'react-native';
 import { api, ApiError, type MachineDto } from '../api';
-import { AppButton, EmptyState, ErrorNote, Loading, ScreenTitle, StatusChip } from '../components';
-import { colors, radius, spacing } from '../theme';
+import {
+  AppButton,
+  CardHeader,
+  EmptyState,
+  ErrorNote,
+  ListCard,
+  Loading,
+  ScreenTitle,
+  StatusChip,
+} from '../components';
+import { colors, spacing, typography } from '../theme';
 
 export function MachinesScreen() {
   const [machines, setMachines] = useState<MachineDto[] | null>(null);
@@ -55,11 +64,11 @@ export function MachinesScreen() {
           ) : null
         }
         renderItem={({ item }) => (
-          <View style={styles.card}>
-            <View style={styles.cardHeader}>
+          <ListCard style={styles.card}>
+            <CardHeader>
               <Text style={styles.name}>{item.display_name}</Text>
               <StatusChip status={item.status} />
-            </View>
+            </CardHeader>
             <Text style={styles.meta}>
               {item.os_type}
               {item.is_test ? ' · test machine' : ''} · {item.id}
@@ -75,32 +84,26 @@ export function MachinesScreen() {
               <AppButton
                 accessibilityLabel={`Stop ${item.display_name}`}
                 disabled={busyId === item.id || item.status === 'stopped'}
-                kind="danger"
+                kind="destructive"
                 label="Stop"
                 onPress={() => void act(item.id, () => api.stopMachine(item.id))}
               />
             </View>
-          </View>
+          </ListCard>
         )}
       />
     </View>
   );
 }
 
+const { fontSize, fontWeight } = typography;
+
 const styles = StyleSheet.create({
   root: { backgroundColor: colors.bg, flex: 1 },
-  card: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    gap: spacing.sm,
-    marginHorizontal: spacing.lg,
-    marginVertical: spacing.xs,
-    padding: spacing.md,
-  },
-  cardHeader: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
-  name: { color: colors.text, fontSize: 16, fontWeight: '600' },
-  meta: { color: colors.textMuted, fontSize: 12 },
+  // Machine cards carry more stacked content, so override the shared card's
+  // tighter row gap with the slightly looser `sm` rhythm.
+  card: { gap: spacing.sm },
+  name: { color: colors.text, fontSize: fontSize.lg, fontWeight: fontWeight.semibold },
+  meta: { color: colors.textMuted, fontSize: fontSize.xs },
   actions: { flexDirection: 'row', gap: spacing.md },
 });

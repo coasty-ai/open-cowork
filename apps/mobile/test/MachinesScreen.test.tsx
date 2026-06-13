@@ -21,8 +21,8 @@ describe('MachinesScreen', () => {
 
     expect(await screen.findByText('worker-1')).toBeInTheDocument();
     expect(screen.getByText('worker-2')).toBeInTheDocument();
-    expect(screen.getByText('running')).toBeInTheDocument();
-    expect(screen.getByText('stopped')).toBeInTheDocument();
+    expect(screen.getByText('Running')).toBeInTheDocument();
+    expect(screen.getByText('Stopped')).toBeInTheDocument();
   });
 
   it('stops a running machine and refreshes the list', async () => {

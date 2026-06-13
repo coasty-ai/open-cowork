@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { api, ApiError, setToken, type SessionUser } from '../api';
 import { AppButton, BrandLogo } from '../components';
-import { colors, radius, spacing } from '../theme';
+import { colors, radius, spacing, typography } from '../theme';
 
 export interface LoginScreenProps {
   onSuccess: (user: SessionUser) => void;
@@ -57,8 +57,8 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <AppButton
         accessibilityLabel="Sign in"
-        disabled={busy}
         label={busy ? 'Signing in…' : 'Sign in'}
+        loading={busy}
         onPress={() => void submit()}
       />
       <Text style={styles.hint}>
@@ -78,7 +78,7 @@ const styles = StyleSheet.create({
   },
   tagline: {
     color: colors.textMuted,
-    fontSize: 15,
+    fontSize: typography.fontSize.md,
     marginTop: spacing.sm,
     marginBottom: spacing.md,
   },
@@ -88,10 +88,10 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     borderWidth: 1,
     color: colors.text,
-    fontSize: 16,
+    fontSize: typography.fontSize.lg,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
   },
-  error: { color: colors.danger, fontSize: 14 },
-  hint: { color: colors.textMuted, fontSize: 12, marginTop: spacing.md },
+  error: { color: colors.danger, fontSize: typography.fontSize.base },
+  hint: { color: colors.textMuted, fontSize: typography.fontSize.xs, marginTop: spacing.md },
 });

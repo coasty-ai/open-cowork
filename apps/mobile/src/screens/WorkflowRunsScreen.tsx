@@ -4,10 +4,20 @@
  * {approved, note} — unlike plain run resume, which only takes {note}.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { FlatList, StyleSheet, Text, View } from 'react-native';
 import { api, ApiError, type WorkflowRunDto } from '../api';
-import { AppButton, EmptyState, ErrorNote, Loading, ScreenTitle, StatusChip } from '../components';
-import { colors, formatCents, radius, spacing } from '../theme';
+import {
+  ApprovalBar,
+  BackHeader,
+  CardHeader,
+  EmptyState,
+  ErrorNote,
+  ListCard,
+  Loading,
+  ScreenTitle,
+  StatusChip,
+} from '../components';
+import { colors, formatCents, spacing, typography } from '../theme';
 
 const POLL_MS = 5000;
 
@@ -67,17 +77,12 @@ export function WorkflowRunsScreen() {
   if (selected) {
     return (
       <View style={styles.root}>
-        <View style={styles.header}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Back to workflow runs"
-            onPress={() => setSelected(null)}
-            style={styles.backButton}
-          >
-            <Text style={styles.backLabel}>‹ Workflow runs</Text>
-          </Pressable>
-          <StatusChip status={selected.status} />
-        </View>
+        <BackHeader
+          accessibilityLabel="Back to workflow runs"
+          label="Workflow runs"
+          onBack={() => setSelected(null)}
+          trailing={<StatusChip status={selected.status} />}
+        />
         <View style={styles.detail}>
           <Text style={styles.detailTitle}>
             {selected.workflowId ? `Workflow ${selected.workflowId}` : 'Ad-hoc workflow'} ·{' '}
@@ -92,34 +97,14 @@ export function WorkflowRunsScreen() {
           {error !== null ? <Text style={styles.error}>{error}</Text> : null}
 
           {selected.status === 'awaiting_human' ? (
-            <View style={styles.approval}>
-              <Text style={styles.approvalReason}>
-                {selected.awaitingReason ?? 'This workflow paused for your approval.'}
-              </Text>
-              <TextInput
-                accessibilityLabel="Approval note"
-                onChangeText={setNote}
-                placeholder="Add a note (optional)"
-                placeholderTextColor={colors.textMuted}
-                style={styles.noteInput}
-                value={note}
-              />
-              <View style={styles.approvalActions}>
-                <AppButton
-                  accessibilityLabel="Approve"
-                  disabled={acting}
-                  label="Approve"
-                  onPress={() => void decide(true)}
-                />
-                <AppButton
-                  accessibilityLabel="Reject"
-                  disabled={acting}
-                  kind="danger"
-                  label="Reject"
-                  onPress={() => void decide(false)}
-                />
-              </View>
-            </View>
+            <ApprovalBar
+              acting={acting}
+              note={note}
+              onApprove={() => void decide(true)}
+              onChangeNote={setNote}
+              onReject={() => void decide(false)}
+              reason={selected.awaitingReason ?? 'This workflow paused for your approval.'}
+            />
           ) : null}
           {selected.error?.message ? (
             <Text style={styles.error}>{selected.error.message}</Text>
@@ -140,72 +125,32 @@ export function WorkflowRunsScreen() {
         keyExtractor={(r) => r.id}
         ListEmptyComponent={runs !== null ? <EmptyState message="No workflow runs yet." /> : null}
         renderItem={({ item }) => (
-          <Pressable
-            accessibilityRole="button"
+          <ListCard
             accessibilityLabel={`Open workflow run ${item.id}`}
             onPress={() => void open(item.id)}
-            style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
           >
-            <View style={styles.cardHeader}>
+            <CardHeader>
               <StatusChip status={item.status} />
               <Text style={styles.meta}>{formatCents(item.spentCents)}</Text>
-            </View>
+            </CardHeader>
             <Text style={styles.cardTitle}>
               {item.workflowId ? `Workflow ${item.workflowId}` : 'Ad-hoc workflow'}
             </Text>
             <Text style={styles.meta}>{item.id}</Text>
-          </Pressable>
+          </ListCard>
         )}
       />
     </View>
   );
 }
 
+const { fontSize, fontWeight } = typography;
+
 const styles = StyleSheet.create({
   root: { backgroundColor: colors.bg, flex: 1 },
-  header: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    padding: spacing.lg,
-  },
-  backButton: { paddingVertical: spacing.xs, paddingRight: spacing.md },
-  backLabel: { color: colors.accent, fontSize: 16, fontWeight: '600' },
   detail: { gap: spacing.md, paddingHorizontal: spacing.lg },
-  detailTitle: { color: colors.text, fontSize: 16, fontWeight: '600' },
-  meta: { color: colors.textMuted, fontSize: 13 },
-  approval: {
-    backgroundColor: colors.surface,
-    borderColor: colors.warning,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    gap: spacing.md,
-    padding: spacing.md,
-  },
-  approvalReason: { color: colors.warning, fontSize: 14, fontWeight: '600' },
-  approvalActions: { flexDirection: 'row', gap: spacing.md },
-  noteInput: {
-    backgroundColor: colors.bg,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    color: colors.text,
-    fontSize: 14,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  card: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    gap: spacing.xs,
-    marginHorizontal: spacing.lg,
-    marginVertical: spacing.xs,
-    padding: spacing.md,
-  },
-  cardPressed: { backgroundColor: colors.surfaceRaised },
-  cardHeader: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
-  cardTitle: { color: colors.text, fontSize: 15, fontWeight: '500' },
-  error: { color: colors.danger, fontSize: 14 },
+  detailTitle: { color: colors.text, fontSize: fontSize.lg, fontWeight: fontWeight.semibold },
+  meta: { color: colors.textMuted, fontSize: fontSize.sm },
+  cardTitle: { color: colors.text, fontSize: fontSize.md, fontWeight: fontWeight.medium },
+  error: { color: colors.danger, fontSize: fontSize.base },
 });

@@ -7,8 +7,16 @@
 import { useCallback, useEffect, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { api, ApiError, type RunDto } from '../api';
-import { EmptyState, ErrorNote, Loading, ScreenTitle, StatusChip } from '../components';
-import { colors, formatCents, radius, spacing } from '../theme';
+import {
+  CardHeader,
+  EmptyState,
+  ErrorNote,
+  ListCard,
+  Loading,
+  ScreenTitle,
+  StatusChip,
+} from '../components';
+import { colors, formatCents, radius, spacing, typography } from '../theme';
 
 const POLL_MS = 5000;
 
@@ -74,16 +82,11 @@ export function RunsScreen({ onOpenRun }: RunsScreenProps) {
           ) : null
         }
         renderItem={({ item }) => (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`Open run ${item.id}`}
-            onPress={() => onOpenRun(item.id)}
-            style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
-          >
-            <View style={styles.cardHeader}>
+          <ListCard accessibilityLabel={`Open run ${item.id}`} onPress={() => onOpenRun(item.id)}>
+            <CardHeader>
               <StatusChip status={item.status} />
               <Text style={styles.cardCost}>{formatCents(item.costCents)}</Text>
-            </View>
+            </CardHeader>
             <Text numberOfLines={2} style={styles.cardTask}>
               {item.task}
             </Text>
@@ -91,38 +94,32 @@ export function RunsScreen({ onOpenRun }: RunsScreenProps) {
               {item.kind === 'local' ? 'local machine' : (item.machineId ?? 'cloud')} ·{' '}
               {item.stepsCompleted}/{item.maxSteps} steps
             </Text>
-          </Pressable>
+          </ListCard>
         )}
       />
     </View>
   );
 }
 
+const { fontSize, fontWeight } = typography;
+
 const styles = StyleSheet.create({
   root: { backgroundColor: colors.bg, flex: 1 },
   banner: {
     backgroundColor: colors.warning,
     borderRadius: radius.md,
-    gap: 2,
+    gap: spacing.xs / 2,
     marginHorizontal: spacing.lg,
     marginBottom: spacing.sm,
     padding: spacing.md,
   },
-  bannerTitle: { color: colors.accentContrast, fontSize: 14, fontWeight: '700' },
-  bannerTask: { color: colors.accentContrast, fontSize: 13 },
-  card: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    gap: spacing.xs,
-    marginHorizontal: spacing.lg,
-    marginVertical: spacing.xs,
-    padding: spacing.md,
+  bannerTitle: {
+    color: colors.accentContrast,
+    fontSize: fontSize.base,
+    fontWeight: fontWeight.bold,
   },
-  cardPressed: { backgroundColor: colors.surfaceRaised },
-  cardHeader: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
-  cardCost: { color: colors.textMuted, fontSize: 13 },
-  cardTask: { color: colors.text, fontSize: 15, fontWeight: '500' },
-  cardMeta: { color: colors.textMuted, fontSize: 12 },
+  bannerTask: { color: colors.accentContrast, fontSize: fontSize.sm },
+  cardCost: { color: colors.textMuted, fontSize: fontSize.sm },
+  cardTask: { color: colors.text, fontSize: fontSize.md, fontWeight: fontWeight.medium },
+  cardMeta: { color: colors.textMuted, fontSize: fontSize.xs },
 });

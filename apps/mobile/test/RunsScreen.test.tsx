@@ -31,8 +31,8 @@ describe('RunsScreen', () => {
 
     expect(await screen.findByText('Export the report')).toBeInTheDocument();
     expect(screen.getByText('Book the meeting room')).toBeInTheDocument();
-    expect(screen.getByText('running')).toBeInTheDocument();
-    expect(screen.getByText('succeeded')).toBeInTheDocument();
+    expect(screen.getByText('Running')).toBeInTheDocument();
+    expect(screen.getByText('Succeeded')).toBeInTheDocument();
     expect(screen.queryByText('A run needs your approval')).not.toBeInTheDocument();
   });
 

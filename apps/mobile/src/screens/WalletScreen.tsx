@@ -6,7 +6,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { api, ApiError, type WalletDto } from '../api';
 import { AppButton, ErrorNote, Loading, ScreenTitle } from '../components';
 import { useAuth } from '../auth';
-import { colors, formatCents, radius, spacing } from '../theme';
+import { colors, formatCents, radius, spacing, typography } from '../theme';
 
 export function WalletScreen() {
   const { user, signOut } = useAuth();
@@ -56,6 +56,8 @@ export function WalletScreen() {
   );
 }
 
+const { fontSize, fontWeight } = typography;
+
 const styles = StyleSheet.create({
   root: { backgroundColor: colors.bg, flex: 1 },
   body: { gap: spacing.md, paddingHorizontal: spacing.lg },
@@ -67,8 +69,9 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     padding: spacing.lg,
   },
-  cardLabel: { color: colors.textMuted, fontSize: 13 },
-  balance: { color: colors.success, fontSize: 32, fontWeight: '800' },
-  spend: { color: colors.text, fontSize: 24, fontWeight: '700' },
-  meta: { color: colors.textMuted, fontSize: 12 },
+  cardLabel: { color: colors.textMuted, fontSize: fontSize.sm },
+  // Hero figures land at the top of the shared scale (h1 / h2) for one hierarchy.
+  balance: { color: colors.success, fontSize: fontSize['3xl'], fontWeight: fontWeight.bold },
+  spend: { color: colors.text, fontSize: fontSize['2xl'], fontWeight: fontWeight.bold },
+  meta: { color: colors.textMuted, fontSize: fontSize.xs },
 });

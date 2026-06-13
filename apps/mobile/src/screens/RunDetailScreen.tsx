@@ -6,10 +6,10 @@
  * pauses in 'awaiting_human' (note + Approve→resume / Reject→cancel).
  */
 import { useEffect, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { api, ApiError, type RunDto, type RunEventDto } from '../api';
-import { AppButton, Loading, StatusChip } from '../components';
-import { colors, formatCents, radius, spacing } from '../theme';
+import { ApprovalBar, AppButton, BackHeader, Loading, StatusChip } from '../components';
+import { colors, formatCents, radius, spacing, typography } from '../theme';
 
 const POLL_MS = 2000;
 const ACTIVE_STATUSES = new Set(['queued', 'running', 'awaiting_human']);
@@ -78,17 +78,11 @@ export function RunDetailScreen({ runId, onBack }: RunDetailScreenProps) {
 
   return (
     <View style={styles.root}>
-      <View style={styles.header}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Back"
-          onPress={onBack}
-          style={styles.backButton}
-        >
-          <Text style={styles.backLabel}>‹ Back</Text>
-        </Pressable>
-        {run ? <StatusChip status={run.status} /> : null}
-      </View>
+      <BackHeader
+        label="Back"
+        onBack={onBack}
+        trailing={run ? <StatusChip status={run.status} /> : null}
+      />
 
       {run === null && error === null ? <Loading label="Loading run…" /> : null}
       {error !== null ? <Text style={styles.error}>{error}</Text> : null}
@@ -111,43 +105,24 @@ export function RunDetailScreen({ runId, onBack }: RunDetailScreenProps) {
           ) : null}
 
           {run.status === 'awaiting_human' ? (
-            <View style={styles.approval}>
-              <Text style={styles.approvalReason}>
-                {run.awaitingHumanReason ?? 'The agent paused and needs your decision.'}
-              </Text>
-              <TextInput
-                accessibilityLabel="Approval note"
-                onChangeText={setNote}
-                placeholder="Add a note for the agent (optional)"
-                placeholderTextColor={colors.textMuted}
-                style={styles.noteInput}
-                value={note}
-              />
-              <View style={styles.approvalActions}>
-                <AppButton
-                  accessibilityLabel="Approve"
-                  disabled={acting}
-                  label="Approve"
-                  onPress={() =>
-                    void act(() => api.resumeRun(runId, note.length > 0 ? note : undefined))
-                  }
-                />
-                <AppButton
-                  accessibilityLabel="Reject"
-                  disabled={acting}
-                  kind="danger"
-                  label="Reject"
-                  onPress={() => void act(() => api.cancelRun(runId))}
-                />
-              </View>
-            </View>
+            <ApprovalBar
+              acting={acting}
+              note={note}
+              notePlaceholder="Add a note for the agent (optional)"
+              onApprove={() =>
+                void act(() => api.resumeRun(runId, note.length > 0 ? note : undefined))
+              }
+              onChangeNote={setNote}
+              onReject={() => void act(() => api.cancelRun(runId))}
+              reason={run.awaitingHumanReason ?? 'The agent paused and needs your decision.'}
+            />
           ) : null}
 
           {ACTIVE_STATUSES.has(run.status) ? (
             <AppButton
               accessibilityLabel="Cancel run"
               disabled={acting}
-              kind="danger"
+              kind="destructive"
               label="Cancel run"
               onPress={() => void act(() => api.cancelRun(runId))}
             />
@@ -182,58 +157,38 @@ function summarize(data: Record<string, unknown>): string {
   return json.length > 160 ? `${json.slice(0, 160)}…` : json;
 }
 
+const { fontSize, fontWeight } = typography;
+
 const styles = StyleSheet.create({
   root: { backgroundColor: colors.bg, flex: 1 },
-  header: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    padding: spacing.lg,
-  },
-  backButton: { paddingVertical: spacing.xs, paddingRight: spacing.md },
-  backLabel: { color: colors.accent, fontSize: 16, fontWeight: '600' },
   scroll: { gap: spacing.md, paddingBottom: spacing.xl, paddingHorizontal: spacing.lg },
-  task: { color: colors.text, fontSize: 17, fontWeight: '600' },
-  meta: { color: colors.textMuted, fontSize: 13 },
+  task: { color: colors.text, fontSize: fontSize.xl, fontWeight: fontWeight.semibold },
+  meta: { color: colors.textMuted, fontSize: fontSize.sm },
   screen: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
     borderRadius: radius.md,
     borderWidth: 1,
+    // Fixed media viewport for the live machine frame (not spacing) — kept as-is.
     height: 220,
     width: '100%',
   },
-  approval: {
-    backgroundColor: colors.surface,
-    borderColor: colors.warning,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    gap: spacing.md,
-    padding: spacing.md,
-  },
-  approvalReason: { color: colors.warning, fontSize: 14, fontWeight: '600' },
-  approvalActions: { flexDirection: 'row', gap: spacing.md },
-  noteInput: {
-    backgroundColor: colors.bg,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    borderWidth: 1,
+  finalCost: { color: colors.success, fontSize: fontSize.lg, fontWeight: fontWeight.bold },
+  sectionTitle: {
     color: colors.text,
-    fontSize: 14,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    fontSize: fontSize.lg,
+    fontWeight: fontWeight.bold,
+    marginTop: spacing.sm,
   },
-  finalCost: { color: colors.success, fontSize: 16, fontWeight: '700' },
-  sectionTitle: { color: colors.text, fontSize: 16, fontWeight: '700', marginTop: spacing.sm },
   event: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
     borderRadius: radius.md,
     borderWidth: 1,
-    gap: 2,
+    gap: spacing.xs / 2,
     padding: spacing.sm,
   },
-  eventType: { color: colors.text, fontSize: 13, fontWeight: '600' },
-  eventData: { color: colors.textMuted, fontSize: 12 },
-  error: { color: colors.danger, fontSize: 14, paddingHorizontal: spacing.lg },
+  eventType: { color: colors.text, fontSize: fontSize.sm, fontWeight: fontWeight.semibold },
+  eventData: { color: colors.textMuted, fontSize: fontSize.xs },
+  error: { color: colors.danger, fontSize: fontSize.base, paddingHorizontal: spacing.lg },
 });

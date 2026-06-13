@@ -56,7 +56,7 @@ describe('WorkflowRunsScreen', () => {
     );
     const call = findCall(fetchMock, '/api/workflows/runs/wfr_1/resume');
     expect(bodyOf(call!.init)).toEqual({ approved: true, note: 'send it' });
-    expect(await screen.findByText('running')).toBeInTheDocument();
+    expect(await screen.findByText('Running')).toBeInTheDocument();
   });
 
   it('rejects a paused workflow run with {approved: false}', async () => {
@@ -72,7 +72,7 @@ describe('WorkflowRunsScreen', () => {
     );
     const call = findCall(fetchMock, '/api/workflows/runs/wfr_1/resume');
     expect(bodyOf(call!.init)).toEqual({ approved: false });
-    expect(await screen.findByText('cancelled')).toBeInTheDocument();
+    expect(await screen.findByText('Cancelled')).toBeInTheDocument();
   });
 
   it('shows the empty state when there are no workflow runs', async () => {
