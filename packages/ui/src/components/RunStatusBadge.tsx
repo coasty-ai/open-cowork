@@ -1,32 +1,13 @@
 import { cx } from '../cx';
 import { Badge } from './Badge';
-import type { BadgeTone } from './Badge';
+import { RUN_STATUS_META, type RunStatus } from '@open-cowork/tokens';
 
 /**
- * Run lifecycle states, mirroring the Coasty run state machine
- * (`queued -> running <-> awaiting_human -> terminal`).
- *
- * Defined locally so this package stays independent of `@open-cowork/core`;
- * apps map core's run status union into this identical type.
+ * Run lifecycle states + their curated tone/label come from the shared
+ * `@open-cowork/tokens` source, so web/desktop and React Native render an
+ * identical status vocabulary (mobile's StatusChip consumes the same map).
  */
-export type RunStatus =
-  | 'queued'
-  | 'running'
-  | 'awaiting_human'
-  | 'succeeded'
-  | 'failed'
-  | 'cancelled'
-  | 'timed_out';
-
-const RUN_STATUS_META: Record<RunStatus, { tone: BadgeTone; label: string }> = {
-  queued: { tone: 'neutral', label: 'Queued' },
-  running: { tone: 'info', label: 'Running' },
-  awaiting_human: { tone: 'warning', label: 'Awaiting human' },
-  succeeded: { tone: 'success', label: 'Succeeded' },
-  failed: { tone: 'danger', label: 'Failed' },
-  cancelled: { tone: 'neutral', label: 'Cancelled' },
-  timed_out: { tone: 'danger', label: 'Timed out' },
-};
+export type { RunStatus };
 
 /** Props for {@link RunStatusBadge}. */
 export interface RunStatusBadgeProps {

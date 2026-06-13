@@ -348,10 +348,11 @@ importers:
         version: 3.2.6(@types/node@22.19.21)(jsdom@25.0.1)(lightningcss@1.27.0)(terser@5.48.0)(tsx@4.22.4)
 
   packages/ui:
-    devDependencies:
+    dependencies:
       '@open-cowork/tokens':
         specifier: workspace:*
         version: link:../tokens
+    devDependencies:
       '@testing-library/jest-dom':
         specifier: 'catalog:'
         version: 6.9.1
