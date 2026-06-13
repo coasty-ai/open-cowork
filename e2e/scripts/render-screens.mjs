@@ -210,6 +210,8 @@ const SCREENS = [
   { name: 'run-detail-light', path: '/runs/r1', theme: 'light', w: 1280, h: 1040 },
   { name: 'run-detail-tablet', path: '/runs/r1', theme: 'dark', w: 820, h: 1180 },
   { name: 'runs-mobile', path: '/runs', theme: 'dark', w: 390, h: 900 },
+  { name: 'home-collapsed', path: '/', theme: 'dark', w: 1280, h: 900, collapsed: true },
+  { name: 'home-collapsed-light', path: '/', theme: 'light', w: 1280, h: 900, collapsed: true },
 ];
 
 await mkdir(OUT, { recursive: true });
@@ -256,6 +258,16 @@ try {
           /* storage unavailable */
         }
       }, SESSION);
+    }
+    if (s.collapsed) {
+      await context.addInitScript(() => {
+        try {
+          // eslint-disable-next-line no-undef
+          localStorage.setItem('oc-sidebar-collapsed', '1');
+        } catch {
+          /* storage unavailable */
+        }
+      });
     }
     const page = await context.newPage();
     await page.goto(`${BASE_URL}${s.path}`, { waitUntil: 'networkidle' }).catch(() => {});
