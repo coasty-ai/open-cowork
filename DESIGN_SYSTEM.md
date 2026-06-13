@@ -10,7 +10,7 @@
 
 1. **Dark-first.** Dark is the product identity and the default (`:root` = dark, `color-scheme: dark`). Light is a *first-class peer* under `[data-theme='light']`, not an afterthought — both themes pass WCAG AA for text and UI. (shadcn ships light as `:root`; we deliberately invert this. It is our one intentional deviation from shadcn's posture.)
 2. **Borders over heavy shadows.** Surfaces are separated primarily by 1px borders plus surface-color steps. Elevation (shadow) is *additive and subtle*, introduced only where a surface genuinely floats (modal, popover) — never as the sole boundary signal.
-3. **Monochrome accent.** There is no brand hue: the primary accent is neutral — near-white on dark (`#e8ebf2`: a white primary button / focus ring / active rail) and near-black on light (`#1a1f2e`). Saturated color is reserved *exclusively* for semantic status (success/warning/info/destructive); the accent itself never carries hue. The result reads calm, sleek, and unmistakably black-and-white. (The legacy `--color-accent` alias still points at `--primary`, so existing rules pick up the monochrome accent automatically.)
+3. **Black-and-white monochrome.** The whole neutral ramp is *pure grayscale* (R=G=B — no blue/slate tint): near-black `#0a0a0a` → near-white `#fafafa`. The primary accent is neutral too — near-white on dark (a white primary button / focus ring / active rail) and near-black on light (a black primary button). Saturated color is reserved *exclusively* for semantic status — **success (green), warning (amber), destructive (red)**; even `info` is neutral. Nothing in the chrome carries hue. (The legacy `--color-accent` alias points at `--primary`, so existing rules pick up the monochrome accent automatically.)
 4. **One type hierarchy.** A single typographic ladder (`--font-size-xs..3xl`) with paired line-heights, four weights, and named heading presets (`h1..h4`, `body`, `caption`) drives every surface. No per-page magic font sizes; no one-off weights.
 5. **Single token source.** One platform-neutral package (`@open-cowork/tokens`, plain JS hex/numbers) is the origin. `tokens.css` (web custom properties) and `theme.ts` (RN object) are both *generated* from it and guarded by a parity test, so they cannot drift. Anything CSS-only (`color-mix`, `calc`, `rem`, `:focus-visible`) is composed *per platform* from shared plain inputs — never shared as a CSS string.
 
@@ -24,65 +24,65 @@ shadcn-style **role pairs**: a `*-foreground` token is the text/icon color that 
 
 | Role token | Hex | Notes / verified contrast |
 |---|---|---|
-| `--background` | `#0b0e15` | near-black navy (nudged from `#0b0e14`) |
-| `--foreground` | `#e8ebf2` | 16.18:1 on bg (AAA) |
-| `--card` | `#151a27` | primary surface (was `--color-surface #131826`) |
-| `--card-foreground` | `#e8ebf2` | 14.56:1 on card (AAA) |
-| `--popover` | `#1a2030` | dialogs/menus sit one step above card |
-| `--popover-foreground` | `#e8ebf2` | AAA |
-| `--muted` | `#1d2435` | raised fill (was `--color-surface-raised #1c2333`) |
-| `--muted-foreground` | `#9aa3b8` | 7.63:1 on bg, 6.12:1 on muted (AA) — captions/hints |
-| `--secondary` | `#222a3d` | secondary button fill |
-| `--secondary-foreground` | `#e8ebf2` | 12.0:1 (AAA) |
-| `--accent` | `#222a3d` | neutral hover/selected wash (shadcn "accent", **not** brand blue) |
-| `--accent-foreground` | `#e8ebf2` | AAA |
-| `--border` | `#2b3349` | 1px separators (decorative reinforcement; exempt from 3:1) |
-| `--input` | `#3a4358` | stronger control border — the visible affordance on form fields |
-| `--ring` | `#e8ebf2` | focus ring = primary; near-white, ~16:1 on bg |
-| `--primary` | `#e8ebf2` | **monochrome accent** — near-white (a white primary button on dark) |
-| `--primary-foreground` | `#0b0e15` | ink on the white primary — ~16:1 (AAA) |
+| `--background` | `#0a0a0a` | pure-neutral near-black (no blue tint) |
+| `--foreground` | `#fafafa` | ~19:1 on bg (AAA) |
+| `--card` | `#161616` | primary surface |
+| `--card-foreground` | `#fafafa` | AAA |
+| `--popover` | `#1c1c1c` | dialogs/menus sit one step above card |
+| `--popover-foreground` | `#fafafa` | AAA |
+| `--muted` | `#1f1f1f` | raised fill |
+| `--muted-foreground` | `#a3a3a3` | ~7.9:1 on bg (AA) — captions/hints |
+| `--secondary` | `#272727` | secondary button fill |
+| `--secondary-foreground` | `#fafafa` | AAA |
+| `--accent` | `#272727` | neutral hover/selected wash |
+| `--accent-foreground` | `#fafafa` | AAA |
+| `--border` | `#2e2e2e` | 1px separators (decorative; exempt from 3:1) |
+| `--input` | `#404040` | stronger control border — the field affordance |
+| `--ring` | `#fafafa` | focus ring = primary; near-white, ~19:1 on bg |
+| `--primary` | `#fafafa` | **monochrome accent** — near-white (a white primary button on dark) |
+| `--primary-foreground` | `#0a0a0a` | ink on the white primary — ~19:1 (AAA) |
 | `--destructive` | `#d83a3f` | **solid-fill** danger (buttons/banners) |
 | `--destructive-foreground` | `#ffffff` | 4.57:1 on the red fill (AA-normal) |
-| `--destructive-text` | `#ff7070` | danger used **as text/border/dot** on bg → 7.17:1 (AAA) |
-| `--success` | `#4ade80` | as text 11.08:1 (AAA) |
+| `--destructive-text` | `#ff7070` | danger used **as text/border/dot** on bg (AAA) |
+| `--success` | `#4ade80` | as text (AAA) |
 | `--success-foreground` | `#06140c` | ink for solid success chips |
-| `--warning` | `#f5b83d` | as text 10.85:1 (AAA) — already strong, kept |
+| `--warning` | `#f5b83d` | as text (AAA) |
 | `--warning-foreground` | `#1a1300` | ink for solid warning banner/badge |
-| `--info` | `#56c7e0` | as text 9.78:1 (AAA) |
-| `--info-foreground` | `#04161b` | ink for solid info surfaces |
+| `--info` | `#fafafa` | **neutral, not blue** — "Running" reads via its label + pulse |
+| `--info-foreground` | `#0a0a0a` | ink for any solid info surface |
 
 ### 2.2 Light palette (`[data-theme='light']`)
 
 | Role token | Hex | Notes / verified contrast |
 |---|---|---|
-| `--background` | `#f7f8fa` | (was `#f6f7fa`) |
-| `--foreground` | `#1a1f2e` | 15.45:1 on bg (AAA) |
+| `--background` | `#fafafa` | pure-neutral near-white (no blue tint) |
+| `--foreground` | `#0a0a0a` | ~19:1 on bg (AAA) |
 | `--card` | `#ffffff` | |
-| `--card-foreground` | `#1a1f2e` | 16.41:1 (AAA) |
+| `--card-foreground` | `#0a0a0a` | AAA |
 | `--popover` | `#ffffff` | |
-| `--popover-foreground` | `#1a1f2e` | AAA |
-| `--muted` | `#eef0f5` | (was `#f0f2f7`) |
-| `--muted-foreground` | `#586074` | 5.92:1 on bg, 6.29:1 on card (AA) |
-| `--secondary` | `#eef0f5` | |
-| `--secondary-foreground` | `#1a1f2e` | AAA |
-| `--accent` | `#eef0f5` | neutral hover wash |
-| `--accent-foreground` | `#1a1f2e` | AAA |
-| `--border` | `#d6dae3` | (was `#d4d9e3`) |
-| `--input` | `#c2c8d4` | stronger field border |
-| `--ring` | `#1a1f2e` | focus ring = primary; near-black, ~15:1 on bg |
-| `--primary` | `#1a1f2e` | **monochrome accent** — near-black (a black primary button on light) |
-| `--primary-foreground` | `#ffffff` | white on the near-black primary — ~15:1 (AAA) |
+| `--popover-foreground` | `#0a0a0a` | AAA |
+| `--muted` | `#f4f4f4` | |
+| `--muted-foreground` | `#555555` | ~7:1 on bg/muted (AA) |
+| `--secondary` | `#f4f4f4` | |
+| `--secondary-foreground` | `#0a0a0a` | AAA |
+| `--accent` | `#f4f4f4` | neutral hover wash |
+| `--accent-foreground` | `#0a0a0a` | AAA |
+| `--border` | `#e4e4e4` | |
+| `--input` | `#cacaca` | stronger field border |
+| `--ring` | `#0a0a0a` | focus ring = primary; near-black, ~19:1 on bg |
+| `--primary` | `#0a0a0a` | **monochrome accent** — near-black (a black primary button on light) |
+| `--primary-foreground` | `#fafafa` | white on the near-black primary — ~19:1 (AAA) |
 | `--destructive` | `#c5303a` | solid-fill danger |
 | `--destructive-foreground` | `#ffffff` | AA on fill |
-| `--destructive-text` | `#c5303a` | as text on bg → 5.12:1 (AA) |
-| `--success` | `#0f7a4f` | as text 5.05:1 (AA) — **darkened** from `#14855c` (which was 4.32:1 → FAIL) |
+| `--destructive-text` | `#c5303a` | as text on bg (AA) |
+| `--success` | `#0f7a4f` | as text (AA) |
 | `--success-foreground` | `#ffffff` | |
-| `--warning` | `#8a5a00` | as text 5.58:1 (AA) — **darkened** from `#9a6a00` (which was 4.42:1 → FAIL) |
+| `--warning` | `#8a5a00` | as text (AA) |
 | `--warning-foreground` | `#ffffff` | |
-| `--info` | `#0c6f8a` | as text 5.40:1 (AA) — **darkened** from `#0e7490` |
+| `--info` | `#0a0a0a` | **neutral, not blue** |
 | `--info-foreground` | `#ffffff` | |
 
-> **Why the light status hues changed (a real fix, not cosmetics):** badges render on `--muted` (`#eef0f5`). The previous `#14855c`/`#9a6a00` compute to 4.13:1 / 4.23:1 on that surface — below AA-normal (4.5:1). The darkened values clear AA on both `--muted` and `--background`. Adopting the rest of the palette without this change would ship a known-failing light theme.
+> **Status hues on light surfaces:** badges render on `--muted` (`#f4f4f4`). The light `--success` `#0f7a4f` / `--warning` `#8a5a00` are deliberately dark so they clear AA-normal (4.5:1) on both `--muted` and `--background` — lighter greens/ambers fail there.
 
 ### 2.3 The monochrome accent (exact value + contrast notes)
 
@@ -93,8 +93,8 @@ classic black-and-white shadcn look.
 
 | | Dark | Light |
 |---|---|---|
-| `--primary` / `--ring` | **`#e8ebf2`** (near-white) | **`#1a1f2e`** (near-black) |
-| Foreground on the solid fill | `#0b0e15` (ink) | `#ffffff` (white) |
+| `--primary` / `--ring` | **`#fafafa`** (near-white) | **`#0a0a0a`** (near-black) |
+| Foreground on the solid fill | `#0a0a0a` (ink) | `#fafafa` (white) |
 | Foreground-on-fill contrast | **~16:1 (AAA)** | **~15:1 (AAA)** |
 | Ring-on-background contrast | **~16:1** | **~15:1** (both ≫ the 3:1 non-text minimum) |
 
@@ -105,7 +105,7 @@ black-and-white chrome.
 
 ### 2.4 Migration: current `--color-*` → new role token (lossless aliases)
 
-The **role tokens are the source**; the legacy names become thin aliases defined alongside them in `:root` and `[data-theme='light']`. This is the crux of low migration cost: **no existing rule in `styles.css` or `app.css` changes on day one.** The only values that move are `--primary`/`--ring` (and a few base neutrals nudged by ~1 step for AA), plus the modal gaining a shadow.
+The **role tokens are the source**; the legacy names are thin aliases defined in `:root` (re-themed at `:root` only — never on a nested element). **No existing `oc-*` rule needed to change:** they read `--color-*`, which now resolve to the pure-grayscale neutral ramp + the monochrome accent.
 
 ```css
 /* legacy alias  ->  new role token */
@@ -115,7 +115,7 @@ The **role tokens are the source**; the legacy names become thin aliases defined
 --color-border:          var(--border);
 --color-text:            var(--foreground);
 --color-text-muted:      var(--muted-foreground);
---color-accent:          var(--primary);          /* brand blue now lives in --primary */
+--color-accent:          var(--primary);          /* the monochrome accent */
 --color-accent-contrast: var(--primary-foreground);
 --color-success:         var(--success);
 --color-warning:         var(--warning);
@@ -126,13 +126,13 @@ The **role tokens are the source**; the legacy names become thin aliases defined
 
 | Current name | New role token (alias) | Notes |
 |---|---|---|
-| `--color-bg` | `--background` | value nudged `#0b0e14`→`#0b0e15` |
-| `--color-surface` | `--card` | nudged `#131826`→`#151a27` |
+| `--color-bg` | `--background` | pure-neutral `#0a0a0a` (dark) / `#fafafa` (light) |
+| `--color-surface` | `--card` | pure-neutral `#161616` (dark) / `#ffffff` (light) |
 | `--color-surface-raised` | `--muted` (also `--secondary`/`--accent`) | one tone, three roles |
 | `--color-border` | `--border` | new sibling `--input` for field affordance |
 | `--color-text` | `--foreground` | |
 | `--color-text-muted` | `--muted-foreground` | |
-| `--color-accent` | `--primary` | **value changes** `#5b8cff`→`#6c8cff` |
+| `--color-accent` | `--primary` | **now monochrome** — neutral white (dark) / black (light), not blue |
 | `--color-accent-contrast` | `--primary-foreground` | now correctly INK in dark |
 | `--color-success` | `--success` | light value darkened (AA) |
 | `--color-warning` | `--warning` | light value darkened (AA) |

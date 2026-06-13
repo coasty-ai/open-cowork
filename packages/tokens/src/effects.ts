@@ -17,7 +17,7 @@ export const tint = {
 /** Modal/dialog backdrop scrim, per theme. */
 export const overlayScrim = {
   dark: { base: '#000000', alpha: 0.66 },
-  light: { base: '#101426', alpha: 0.4 },
+  light: { base: '#0a0a0a', alpha: 0.4 },
 } as const;
 
 /** One layer of a box-shadow; web joins layers into a CSS string, RN maps to native props. */
@@ -42,11 +42,11 @@ export const shadow: {
   },
   light: {
     sm: [
-      { x: 0, y: 1, blur: 2, spread: 0, color: '#101426', alpha: 0.06 },
-      { x: 0, y: 1, blur: 3, spread: 0, color: '#101426', alpha: 0.1 },
+      { x: 0, y: 1, blur: 2, spread: 0, color: '#0a0a0a', alpha: 0.06 },
+      { x: 0, y: 1, blur: 3, spread: 0, color: '#0a0a0a', alpha: 0.1 },
     ],
-    md: [{ x: 0, y: 4, blur: 12, spread: -2, color: '#101426', alpha: 0.1 }],
-    lg: [{ x: 0, y: 16, blur: 40, spread: -8, color: '#101426', alpha: 0.18 }],
+    md: [{ x: 0, y: 4, blur: 12, spread: -2, color: '#0a0a0a', alpha: 0.1 }],
+    lg: [{ x: 0, y: 16, blur: 40, spread: -8, color: '#0a0a0a', alpha: 0.18 }],
   },
 };
 

@@ -6,12 +6,12 @@
     "scheme": "opencowork",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
-    "backgroundColor": "#0b0e14",
+    "backgroundColor": "#0a0a0a",
     "icon": "./assets/icon.png",
     "platforms": ["ios", "android", "web"],
     "splash": {
       "image": "./assets/splash.png",
-      "backgroundColor": "#0b0e14",
+      "backgroundColor": "#0a0a0a",
       "resizeMode": "contain"
     },
     "ios": {
@@ -21,7 +21,7 @@
       "edgeToEdgeEnabled": true,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#0b0e14"
+        "backgroundColor": "#0a0a0a"
       }
     },
     "web": {

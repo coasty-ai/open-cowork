@@ -156,7 +156,7 @@ export function BrandLogo({ size = 28, withWordmark = true }: BrandLogoProps) {
               key={i}
               style={{
                 flex: 1,
-                backgroundColor: `rgba(231,234,242,${brandOpacityAt(t).toFixed(3)})`,
+                backgroundColor: `rgba(250,250,250,${brandOpacityAt(t).toFixed(3)})`,
               }}
             />
           );

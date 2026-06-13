@@ -19,8 +19,8 @@ import { fileURLToPath } from 'node:url';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, '..', '..');
 
-const BRAND_BG = '#0b0e14'; // tokens.css --color-bg
-const MARK_LIGHT = '231, 234, 242'; // --color-text (white-ish), for dark backgrounds
+const BRAND_BG = '#0a0a0a'; // tokens.css --background (neutral near-black)
+const MARK_LIGHT = '250, 250, 250'; // --foreground (neutral near-white), for dark backgrounds
 const STOPS = [
   [0, 0],
   [25, 0.06],
