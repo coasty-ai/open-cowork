@@ -13,10 +13,9 @@ export interface LogoProps {
 }
 
 /**
- * The open-cowork brand mark + wordmark.
+ * The open-cowork brand mark + wordmark — the single source for the brand mark.
  *
- * The mark is the "horizon" gradient circle (the project's `logo_light.svg` /
- * `logo_dark.svg`) unified into a single theme-aware SVG: it fades from
+ * The mark is the "horizon" gradient circle as a theme-aware SVG: it fades from
  * transparent to `currentColor`, so on a dark surface it renders as the white
  * mark and on a light surface as the black one — no asset swap, always crisp.
  * Place it on any element that sets a text color (the nav, login, headers).
