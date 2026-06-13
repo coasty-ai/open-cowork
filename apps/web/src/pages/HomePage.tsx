@@ -11,6 +11,7 @@ import {
   CostPill,
   EmptyState,
   ErrorState,
+  Icon,
   Modal,
   RunStatusBadge,
   Spinner,
@@ -159,9 +160,12 @@ export function HomePage() {
             . You only pay for steps that actually execute.
           </p>
           {pendingTask?.machineId === LOCAL_TARGET_ID ? (
-            <p className="notice">
-              ⚠ This will control <strong>your own mouse and keyboard</strong>. Move the mouse to a
-              screen corner to abort at any time.
+            <p className="notice notice--warning">
+              <Icon name="alertTriangle" size={16} className="notice__icon" />
+              <span className="notice__body">
+                This will control <strong>your own mouse and keyboard</strong>. Move the mouse to a
+                screen corner to abort at any time.
+              </span>
             </p>
           ) : null}
           {submitError ? <ErrorState message={submitError} /> : null}

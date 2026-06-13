@@ -4,6 +4,9 @@ import { BrowserRouter } from 'react-router-dom';
 import '@open-cowork/ui/styles.css';
 import './app.css';
 import { App } from './App';
+import { initTheme } from './theme';
+
+initTheme();
 
 const rootElement = document.getElementById('root');
 if (!rootElement) throw new Error('Missing #root element');

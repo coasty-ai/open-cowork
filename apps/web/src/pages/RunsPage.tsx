@@ -4,6 +4,7 @@ import {
   CostPill,
   EmptyState,
   ErrorState,
+  Icon,
   RunStatusBadge,
   Spinner,
   type RunStatus,
@@ -48,10 +49,13 @@ export function RunsPage() {
           {runs.map((run) => (
             <Link className="run-row" to={`/runs/${run.id}`} key={run.id}>
               <RunStatusBadge status={run.status as RunStatus} />
-              <span className="run-row__task">
-                {run.kind === 'local' ? '💻 ' : '☁ '}
-                {run.task}
-              </span>
+              <Icon
+                name={run.kind === 'local' ? 'laptop' : 'cloud'}
+                size={16}
+                title={run.kind === 'local' ? 'Local run' : 'Cloud run'}
+                className="run-row__kind"
+              />
+              <span className="run-row__task">{run.task}</span>
               <Text variant="caption" as="span">
                 {run.stepsCompleted} steps
               </Text>

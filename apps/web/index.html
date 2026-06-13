@@ -6,6 +6,26 @@
     <meta name="color-scheme" content="dark light" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>open-cowork</title>
+    <script>
+      // Set the theme before first paint to avoid a flash. Dark-first default;
+      // honours a stored choice and `system` (the OS preference). Mirrors
+      // src/theme.ts — keep in sync.
+      (function () {
+        try {
+          var p = localStorage.getItem('oc-theme');
+          if (p !== 'light' && p !== 'dark' && p !== 'system') p = 'dark';
+          var t =
+            p === 'system'
+              ? window.matchMedia('(prefers-color-scheme: light)').matches
+                ? 'light'
+                : 'dark'
+              : p;
+          document.documentElement.dataset.theme = t;
+        } catch (e) {
+          /* keep the dark default already on <html> */
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

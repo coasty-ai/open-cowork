@@ -31,12 +31,9 @@ export function LoginPage() {
   };
 
   return (
-    <main style={{ display: 'grid', placeItems: 'center', minHeight: '100vh', padding: 16 }}>
+    <main className="login-screen">
       <Card>
-        <form
-          onSubmit={(e) => void submit(e)}
-          style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 300 }}
-        >
+        <form className="login-form" onSubmit={(e) => void submit(e)}>
           <Logo size={34} />
           <Heading level={1}>Sign in</Heading>
           <Text variant="muted" as="p">

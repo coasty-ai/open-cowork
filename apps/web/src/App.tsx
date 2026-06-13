@@ -22,7 +22,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
   override render() {
     if (this.state.error) {
       return (
-        <div role="main" style={{ padding: 24 }}>
+        <div role="main" className="app-main">
           <ErrorState
             message={`Something went wrong: ${this.state.error.message}`}
             onRetry={() => this.setState({ error: null })}

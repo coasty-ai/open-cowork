@@ -17,6 +17,7 @@ import {
   Spinner,
   type RunStatus,
   Heading,
+  LiveIndicator,
   Text,
 } from '@open-cowork/ui';
 import { getClient } from '../store';
@@ -182,9 +183,9 @@ export function RunDetailPage() {
           ) : null}
         </Card>
         <Card>
-          <Heading level={4}>
-            Timeline{' '}
-            {connected ? <span style={{ color: 'var(--color-success)' }}>· live</span> : null}
+          <Heading level={4} className="card-title-row">
+            Timeline
+            {connected ? <LiveIndicator /> : null}
           </Heading>
           {streamError && events.length === 0 ? (
             <ErrorState message={`Event stream: ${streamError}`} />

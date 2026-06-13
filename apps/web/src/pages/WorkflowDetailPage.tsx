@@ -159,7 +159,7 @@ export function WorkflowDetailPage() {
               ))}
             </ul>
           ) : null}
-          <div className="row" style={{ marginTop: 12 }}>
+          <div className="form-actions">
             <Button onClick={() => void save()} loading={savePending}>
               Validate + save (bumps version)
             </Button>
@@ -177,8 +177,7 @@ export function WorkflowDetailPage() {
             {({ id: fieldId }) => (
               <textarea
                 id={fieldId}
-                className="json-editor"
-                style={{ minHeight: 100 }}
+                className="json-editor json-editor--compact"
                 value={inputsText}
                 onChange={(e) => setInputsText(e.target.value)}
                 spellCheck={false}

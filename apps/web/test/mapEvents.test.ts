@@ -8,9 +8,9 @@ describe('eventToTimeline', () => {
     [{ seq: 3, type: 'billing', data: { cost_cents: 25 } }, 'Spend so far: $0.25'],
     [
       { seq: 4, type: 'awaiting_human', data: { reason: 'captcha' } },
-      '⏸ Waiting for a human — captcha',
+      'Waiting for a human — captcha',
     ],
-    [{ seq: 5, type: 'resumed', data: {} }, '▶ Resumed by a human'],
+    [{ seq: 5, type: 'resumed', data: {} }, 'Resumed by a human'],
     [{ seq: 6, type: 'done', data: { status: 'succeeded' } }, 'Finished: succeeded'],
     [{ seq: 7, type: 'text', data: { text: 'Opening the menu' } }, 'Opening the menu'],
     [{ seq: 8, type: 'error', data: { message: 'boom' } }, 'Error: boom'],

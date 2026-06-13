@@ -41,10 +41,10 @@ export function eventToTimeline(event: SseEventItem): TimelineEvent {
       label = `Spend so far: $${(Number(d.cost_cents ?? d.spent_cents ?? 0) / 100).toFixed(2)}`;
       break;
     case 'awaiting_human':
-      label = `⏸ Waiting for a human${asString(d.reason) ? ` — ${asString(d.reason)}` : ''}`;
+      label = `Waiting for a human${asString(d.reason) ? ` — ${asString(d.reason)}` : ''}`;
       break;
     case 'resumed':
-      label = '▶ Resumed by a human';
+      label = 'Resumed by a human';
       detail = asString(d.note);
       break;
     case 'error':

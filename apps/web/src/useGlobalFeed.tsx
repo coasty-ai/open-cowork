@@ -6,6 +6,7 @@
  */
 import { useMemo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
+import { Button, Icon } from '@open-cowork/ui';
 import { useSse } from './api/useSse';
 import { getClient } from './store';
 import { useAuth } from './store';
@@ -34,19 +35,24 @@ export function useGlobalFeed(): GlobalFeedResult {
     const runId = (pending.data.runId ?? pending.data.workflowRunId) as string | undefined;
     const isWorkflow = pending.data.workflowRunId !== undefined;
     return (
-      <div className="notice" role="status">
-        ⏸ A {isWorkflow ? 'workflow' : 'run'} is waiting for your approval.{' '}
-        {runId ? (
-          <Link to={isWorkflow ? `/workflows/runs/${runId}` : `/runs/${runId}`}>Review it now</Link>
-        ) : null}{' '}
-        <button
-          type="button"
-          style={{ marginLeft: 8 }}
+      <div className="notice notice--banner" role="status">
+        <Icon name="pause" size={16} className="notice__icon" />
+        <span className="notice__body">
+          A {isWorkflow ? 'workflow' : 'run'} is waiting for your approval.{' '}
+          {runId ? (
+            <Link to={isWorkflow ? `/workflows/runs/${runId}` : `/runs/${runId}`}>
+              Review it now
+            </Link>
+          ) : null}
+        </span>
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={() => setDismissed(pending.seq)}
           aria-label="Dismiss notification"
         >
           Dismiss
-        </button>
+        </Button>
       </div>
     );
   }, [events, dismissed]);

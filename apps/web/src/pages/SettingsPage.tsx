@@ -1,6 +1,13 @@
 import { useEffect, useState } from 'react';
-import { Button, Card, ErrorState, Field, Spinner, Heading, Text } from '@open-cowork/ui';
+import { Button, Card, ErrorState, Field, Icon, Spinner, Heading, Text } from '@open-cowork/ui';
 import { getClient, useAuth } from '../store';
+import { getThemePref, setThemePref, type ThemePref } from '../theme';
+
+const THEME_OPTIONS: ReadonlyArray<{ value: ThemePref; label: string }> = [
+  { value: 'system', label: 'System' },
+  { value: 'light', label: 'Light' },
+  { value: 'dark', label: 'Dark' },
+];
 
 export function SettingsPage() {
   const client = getClient();
@@ -12,6 +19,12 @@ export function SettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [theme, setTheme] = useState<ThemePref>(() => getThemePref());
+
+  const chooseTheme = (pref: ThemePref) => {
+    setTheme(pref);
+    setThemePref(pref);
+  };
 
   useEffect(() => {
     void (async () => {
@@ -73,24 +86,35 @@ export function SettingsPage() {
             />
           )}
         </Field>
-        <div className="row" style={{ marginTop: 12 }}>
+        <div className="form-actions">
           <Button onClick={() => void save()} loading={pending}>
             Save
           </Button>
-          {saved ? <span role="status">Saved ✓</span> : null}
+          {saved ? (
+            <span className="saved-note" role="status">
+              <Icon name="check" size={16} /> Saved
+            </span>
+          ) : null}
         </div>
       </Card>
       <Card>
         <Heading level={4}>Appearance</Heading>
-        <Button
-          variant="secondary"
-          onClick={() => {
-            const el = document.documentElement;
-            el.dataset.theme = el.dataset.theme === 'light' ? 'dark' : 'light';
-          }}
-        >
-          Toggle light/dark theme
-        </Button>
+        <Text variant="muted" as="p">
+          Theme follows your operating system when set to System.
+        </Text>
+        <div className="segmented" role="group" aria-label="Theme">
+          {THEME_OPTIONS.map((opt) => (
+            <Button
+              key={opt.value}
+              variant={theme === opt.value ? 'primary' : 'secondary'}
+              size="sm"
+              aria-pressed={theme === opt.value}
+              onClick={() => chooseTheme(opt.value)}
+            >
+              {opt.label}
+            </Button>
+          ))}
+        </div>
       </Card>
     </>
   );

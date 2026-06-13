@@ -1,4 +1,7 @@
 /* App-level layout (component styles live in @open-cowork/ui). */
+:root {
+  --layout-max-width: 1100px;
+}
 .app-shell {
   display: grid;
   grid-template-columns: auto 1fr;
@@ -6,7 +9,7 @@
 }
 .app-main {
   padding: var(--space-5);
-  max-width: 1100px;
+  max-width: var(--layout-max-width);
   width: 100%;
   margin: 0 auto;
   display: flex;
@@ -72,14 +75,47 @@
   background: var(--color-surface);
   color: var(--color-text);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   padding: var(--space-3);
+}
+.json-editor--compact {
+  min-height: 6rem;
 }
 .notice {
   padding: var(--space-3);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   border: 1px solid var(--color-border);
   background: var(--color-surface-raised);
+}
+/* Icon-bearing notices: icon + body laid out as a row. Plain `.notice`
+   paragraphs stay block so rich inline text still wraps normally. */
+.notice--warning,
+.notice--banner {
+  display: flex;
+  gap: var(--space-2);
+}
+.notice--warning {
+  align-items: flex-start;
+  border-color: color-mix(in srgb, var(--color-warning) 35%, var(--color-border));
+}
+.notice--banner {
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+.notice__icon {
+  flex-shrink: 0;
+}
+.notice--warning .notice__icon {
+  margin-top: 2px;
+  color: var(--color-warning);
+}
+.notice--banner .notice__icon {
+  color: var(--color-text-muted);
+}
+.notice__body {
+  flex: 1;
+  min-width: 0;
 }
 .issues-list {
   color: var(--color-danger);
@@ -87,11 +123,79 @@
   margin: 0;
   padding-left: var(--space-4);
 }
-@media (max-width: 800px) {
-  .app-shell {
-    grid-template-columns: 1fr;
-  }
+
+/* ---- Small shared app-level patterns (tokenised; no one-off px) ---- */
+.login-screen {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  padding: var(--space-4);
+}
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: 320px;
+  max-width: 90vw;
+}
+.form-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+  flex-wrap: wrap;
+}
+.card-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.segmented {
+  display: inline-flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.metric {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+.run-row__kind {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+}
+.saved-note {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--color-success);
+  font-size: var(--font-size-sm);
+}
+
+/* Responsive tiers: laptop (default 2-col), tablet (single column for the
+   side-by-side run grid), phone (sidebar collapses), small phone (tighter
+   gutters). Breakpoints can't be CSS variables, so they live here. */
+@media (max-width: 980px) {
   .run-detail-grid {
     grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 800px) {
+  .app-shell {
+    /* Compact top bar + main fills the rest. Explicit rows stop the 100vh
+       free space from inflating the auto sidebar row (which would otherwise
+       centre the bar and leave a gap above it). */
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+  }
+}
+@media (max-width: 560px) {
+  .app-main {
+    padding: var(--space-4);
   }
 }

@@ -11,6 +11,7 @@ import {
   CodeBlock,
   ErrorState,
   EventTimeline,
+  LiveIndicator,
   RunStatusBadge,
   Spinner,
   type RunStatus,
@@ -88,7 +89,7 @@ export function WorkflowRunDetailPage() {
           <Heading level={1}>Workflow run {run.id}</Heading>
         </div>
         <div className="row">
-          <span className="notice" style={{ padding: '4px 10px' }}>
+          <span className="metric">
             spent ${(run.spentCents / 100).toFixed(2)} / cap ${(run.budgetCents / 100).toFixed(2)}
           </span>
           {active ? (
@@ -114,9 +115,9 @@ export function WorkflowRunDetailPage() {
       ) : null}
 
       <Card>
-        <Heading level={4}>
-          Timeline{' '}
-          {connected ? <span style={{ color: 'var(--color-success)' }}>· live</span> : null}
+        <Heading level={4} className="card-title-row">
+          Timeline
+          {connected ? <LiveIndicator /> : null}
         </Heading>
         <EventTimeline
           events={timeline}

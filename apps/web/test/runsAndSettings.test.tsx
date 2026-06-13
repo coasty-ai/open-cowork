@@ -23,6 +23,7 @@ afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
   document.documentElement.removeAttribute('data-theme');
+  localStorage.removeItem('oc-theme');
 });
 
 function renderRuns() {
@@ -60,11 +61,11 @@ describe('RunsPage', () => {
       }),
     );
     renderRuns();
-    const cloud = await screen.findByText(/Cloud task/);
-    const local = screen.getByText(/Local task/);
-    // Cloud marker ☁, local marker 💻 live in the same element as the task text.
-    expect(cloud.textContent).toContain('☁');
-    expect(local.textContent).toContain('💻');
+    await screen.findByText(/Cloud task/);
+    screen.getByText(/Local task/);
+    // Cloud / local runs carry a monochrome line icon with an accessible label.
+    expect(screen.getByLabelText('Cloud run')).toBeInTheDocument();
+    expect(screen.getByLabelText('Local run')).toBeInTheDocument();
     expect(screen.getByText('4 steps')).toBeInTheDocument();
     expect(screen.getByLabelText('actual cost $1.20')).toBeInTheDocument();
   });
@@ -182,21 +183,18 @@ describe('SettingsPage', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('me failed');
   });
 
-  it('toggle flips the document data-theme between dark and light', async () => {
+  it('theme control sets and persists the document data-theme', async () => {
     setClientForTests(stubClient());
     render(
       <MemoryRouter>
         <SettingsPage />
       </MemoryRouter>,
     );
-    const toggle = await screen.findByRole('button', { name: /toggle light\/dark theme/i });
-    expect(document.documentElement.dataset.theme).toBeUndefined();
-    // Logic: theme === 'light' ? 'dark' : 'light'. So non-'light' -> 'light'.
-    await userEvent.click(toggle); // undefined -> 'light'
+    await userEvent.click(await screen.findByRole('button', { name: /^light$/i }));
     expect(document.documentElement.dataset.theme).toBe('light');
-    await userEvent.click(toggle); // 'light' -> 'dark'
+    expect(localStorage.getItem('oc-theme')).toBe('light');
+    await userEvent.click(screen.getByRole('button', { name: /^dark$/i }));
     expect(document.documentElement.dataset.theme).toBe('dark');
-    await userEvent.click(toggle); // 'dark' -> 'light'
-    expect(document.documentElement.dataset.theme).toBe('light');
+    expect(localStorage.getItem('oc-theme')).toBe('dark');
   });
 });
