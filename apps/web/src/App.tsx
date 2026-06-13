@@ -1,6 +1,15 @@
 import { Component, useState, type ReactNode } from 'react';
 import { Navigate, NavLink, Route, Routes, useLocation } from 'react-router-dom';
-import { Button, ErrorState, Icon, Logo, OfflineBanner, Sidebar, Text } from '@open-cowork/ui';
+import {
+  Button,
+  ErrorState,
+  Icon,
+  Logo,
+  OfflineBanner,
+  Sidebar,
+  SidebarSection,
+  Text,
+} from '@open-cowork/ui';
 import type { IconName } from '@open-cowork/ui';
 import { useAuth } from './store';
 import { useGlobalFeed } from './useGlobalFeed';
@@ -34,12 +43,29 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
   }
 }
 
-const NAV_ITEMS: ReadonlyArray<{ to: string; end?: boolean; icon: IconName; label: string }> = [
-  { to: '/', end: true, icon: 'delegate', label: 'Delegate' },
-  { to: '/runs', icon: 'runs', label: 'Runs' },
-  { to: '/workflows', icon: 'workflows', label: 'Workflows' },
-  { to: '/machines', icon: 'machines', label: 'Machines' },
-  { to: '/settings', icon: 'settings', label: 'Settings' },
+interface NavItem {
+  to: string;
+  end?: boolean;
+  icon: IconName;
+  label: string;
+}
+
+const NAV_SECTIONS: ReadonlyArray<{ label: string; items: ReadonlyArray<NavItem> }> = [
+  {
+    label: 'Workspace',
+    items: [
+      { to: '/', end: true, icon: 'delegate', label: 'Delegate' },
+      { to: '/runs', icon: 'runs', label: 'Runs' },
+      { to: '/workflows', icon: 'workflows', label: 'Workflows' },
+    ],
+  },
+  {
+    label: 'System',
+    items: [
+      { to: '/machines', icon: 'machines', label: 'Machines' },
+      { to: '/settings', icon: 'settings', label: 'Settings' },
+    ],
+  },
 ];
 
 const SIDEBAR_KEY = 'oc-sidebar-collapsed';
@@ -95,18 +121,22 @@ function Shell({ children }: { children: ReactNode }) {
           )
         }
       >
-        {NAV_ITEMS.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            end={item.end}
-            className="oc-sidebar__item"
-            aria-label={item.label}
-            title={collapsed ? item.label : undefined}
-          >
-            <Icon name={item.icon} className="oc-sidebar__item-icon" />
-            <span className="oc-sidebar__label">{item.label}</span>
-          </NavLink>
+        {NAV_SECTIONS.map((section) => (
+          <SidebarSection key={section.label} label={section.label}>
+            {section.items.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.end}
+                className="oc-sidebar__item"
+                aria-label={item.label}
+                title={collapsed ? item.label : undefined}
+              >
+                <Icon name={item.icon} className="oc-sidebar__item-icon" />
+                <span className="oc-sidebar__label">{item.label}</span>
+              </NavLink>
+            ))}
+          </SidebarSection>
         ))}
       </Sidebar>
       <main className="app-main">

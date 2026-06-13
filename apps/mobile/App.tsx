@@ -15,7 +15,7 @@ import { RunDetailScreen } from './src/screens/RunDetailScreen';
 import { WorkflowRunsScreen } from './src/screens/WorkflowRunsScreen';
 import { MachinesScreen } from './src/screens/MachinesScreen';
 import { WalletScreen } from './src/screens/WalletScreen';
-import { colors, spacing, typography } from './src/theme';
+import { colors, radius, spacing, typography } from './src/theme';
 
 const TABS = [
   { key: 'runs', label: 'Runs' },
@@ -82,22 +82,31 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
     borderTopWidth: 1,
     flexDirection: 'row',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.lg,
   },
   tabItem: {
     alignItems: 'center',
+    justifyContent: 'center',
     flex: 1,
-    paddingBottom: spacing.lg,
-    paddingTop: spacing.md,
-    // Reserve the indicator height on every tab so the active one doesn't shift.
-    borderTopColor: 'transparent',
-    borderTopWidth: 2,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+    // Transparent border on every tab so the active pill's ring doesn't shift it.
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
-  // Active indicator: a top accent bar, mirroring the web sidebar's accent rail.
-  tabItemActive: { borderTopColor: colors.accent },
+  // Active indicator: a sleek filled pill with a hairline ring (mirrors the web
+  // sidebar's active item — no accent bar).
+  tabItemActive: {
+    backgroundColor: colors.surfaceRaised,
+    borderColor: colors.border,
+  },
   tabLabel: {
     color: colors.textMuted,
     fontSize: typography.fontSize.sm,
     fontWeight: '600',
   },
-  tabLabelActive: { color: colors.accent, fontWeight: '700' },
+  tabLabelActive: { color: colors.text, fontWeight: '700' },
 });

@@ -25,8 +25,8 @@ export { Icon } from './components/Icon';
 export type { IconProps, IconName } from './components/Icon';
 export { LiveIndicator } from './components/LiveIndicator';
 export type { LiveIndicatorProps } from './components/LiveIndicator';
-export { Sidebar } from './components/Sidebar';
-export type { SidebarProps } from './components/Sidebar';
+export { Sidebar, SidebarSection } from './components/Sidebar';
+export type { SidebarProps, SidebarSectionProps } from './components/Sidebar';
 
 // Primitives
 export { Button } from './components/Button';

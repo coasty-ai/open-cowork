@@ -60,3 +60,26 @@ export function Sidebar({
     </nav>
   );
 }
+
+/** Props for {@link SidebarSection}. */
+export interface SidebarSectionProps {
+  /** Small uppercase group heading. Hidden automatically in the collapsed rail
+   * (where a thin divider separates groups instead) and on the phone top bar. */
+  label?: string;
+  children: ReactNode;
+  className?: string;
+}
+
+/**
+ * A labelled group of nav items inside a {@link Sidebar}. Groups give the rail
+ * clear sections; the label collapses to a divider in icon-only mode and the
+ * whole group flattens into the row on the phone top bar.
+ */
+export function SidebarSection({ label, children, className }: SidebarSectionProps) {
+  return (
+    <div className={cx('oc-sidebar__section', className)}>
+      {label ? <p className="oc-sidebar__section-label">{label}</p> : null}
+      <div className="oc-sidebar__section-items">{children}</div>
+    </div>
+  );
+}
