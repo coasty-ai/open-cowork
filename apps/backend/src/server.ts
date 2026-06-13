@@ -167,14 +167,35 @@ export function buildServer(deps: ServerDeps): BuiltServer {
   });
 
   app.get('/api/wallet', async (request) => {
-    const usage = await coasty.usage();
-    return {
-      balanceCents: usage.wallet_balance_cents ?? usage.balance,
-      periodCostCents: usage.total_cost_cents,
-      period: usage.period,
-      monthSpendCents: db.monthSpendCents(request.user.id),
-      breakdown: usage.breakdown,
-    };
+    // The Coasty wallet (usage()) needs the `usage` scope, which is NOT on a
+    // default key. Degrade gracefully so the wallet card shows "unavailable"
+    // (with the reason) instead of failing — local month-spend is always shown.
+    const monthSpendCents = db.monthSpendCents(request.user.id);
+    try {
+      const usage = await coasty.usage();
+      return {
+        balanceCents: usage.wallet_balance_cents ?? usage.balance,
+        periodCostCents: usage.total_cost_cents,
+        period: usage.period,
+        monthSpendCents,
+        breakdown: usage.breakdown,
+        walletAvailable: true,
+      };
+    } catch (err) {
+      const reason =
+        err instanceof CoastyApiError && err.code === 'INSUFFICIENT_SCOPE'
+          ? "the key is missing the 'usage' scope"
+          : 'the Coasty usage endpoint is unavailable';
+      return {
+        balanceCents: null,
+        periodCostCents: null,
+        period: null,
+        monthSpendCents,
+        breakdown: {},
+        walletAvailable: false,
+        walletUnavailableReason: reason,
+      };
+    }
   });
 
   const estimateSchema = z.discriminatedUnion('kind', [

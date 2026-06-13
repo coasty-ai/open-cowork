@@ -70,19 +70,26 @@ export function registerMachineRoutes(app: FastifyInstance, deps: MachineRouteDe
         note: `${body.osType} machines bill ${firstHourCents}¢/hour while running, 1¢/hour stopped`,
       });
     }
-    // Provisioning gate pre-flight ($0.20 documented minimum).
-    const usage = await coasty.usage();
-    const balance = usage.wallet_balance_cents ?? usage.balance;
-    if (balance < PRICING.provisioningGateCents) {
-      throw new AppError(
-        402,
-        'INSUFFICIENT_CREDITS',
-        'Provisioning requires a $0.20 wallet minimum',
-        {
-          balanceCents: balance,
-          requiredCents: PRICING.provisioningGateCents,
-        },
-      );
+    // Provisioning gate pre-flight ($0.20 documented minimum) — BEST-EFFORT.
+    // The `usage` scope is not on a default key, so usage() may 403; never let
+    // that block provisioning. Coasty enforces the $0.20 gate itself.
+    try {
+      const usage = await coasty.usage();
+      const balance = usage.wallet_balance_cents ?? usage.balance;
+      if (typeof balance === 'number' && balance < PRICING.provisioningGateCents) {
+        throw new AppError(
+          402,
+          'INSUFFICIENT_CREDITS',
+          'Provisioning requires a $0.20 wallet minimum',
+          {
+            balanceCents: balance,
+            requiredCents: PRICING.provisioningGateCents,
+          },
+        );
+      }
+    } catch (err) {
+      if (err instanceof AppError) throw err;
+      // usage() failed (e.g. missing `usage` scope) — skip the preflight.
     }
     const res = await coasty.createMachine(
       {

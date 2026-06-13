@@ -94,10 +94,15 @@ export function MachinesPage() {
       </div>
 
       <WalletCard
-        balanceCents={wallet?.balanceCents}
+        balanceCents={wallet?.balanceCents ?? undefined}
         spentThisMonthCents={wallet?.monthSpendCents}
         loading={wallet === null && walletError === null}
-        error={walletError ?? undefined}
+        error={
+          walletError ??
+          (wallet && wallet.walletAvailable === false
+            ? `Wallet balance unavailable — ${wallet.walletUnavailableReason ?? 'usage endpoint unreachable'}. Spend caps still apply.`
+            : undefined)
+        }
         onRetry={() => void load()}
       />
       {error ? <ErrorState message={error} onRetry={() => void load()} /> : null}

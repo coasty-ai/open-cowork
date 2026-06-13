@@ -150,14 +150,28 @@ export function registerRunRoutes(app: FastifyInstance, deps: RunRouteDeps): voi
         { expectedCents: estimate.maxCents },
       );
     }
-    // Wallet pre-flight (Coasty enforces too; failing early gives a better UX).
-    const usage = await coasty.usage();
-    const balance = usage.wallet_balance_cents ?? usage.balance;
-    if (balance < estimate.perStepCents) {
-      throw new AppError(402, 'INSUFFICIENT_CREDITS', 'Coasty wallet cannot cover a single step', {
-        balanceCents: balance,
-        requiredCents: estimate.perStepCents,
-      });
+    // Wallet pre-flight is BEST-EFFORT only. The `usage` scope is not granted
+    // on a default Coasty key, so coasty.usage() may 403; it can also fail
+    // transiently. Never let the preflight abort an otherwise-valid run —
+    // Coasty enforces credits authoritatively at creation (402 INSUFFICIENT_
+    // CREDITS), which we surface faithfully.
+    try {
+      const usage = await coasty.usage();
+      const balance = usage.wallet_balance_cents ?? usage.balance;
+      if (typeof balance === 'number' && balance < estimate.perStepCents) {
+        throw new AppError(
+          402,
+          'INSUFFICIENT_CREDITS',
+          'Coasty wallet cannot cover a single step',
+          {
+            balanceCents: balance,
+            requiredCents: estimate.perStepCents,
+          },
+        );
+      }
+    } catch (err) {
+      if (err instanceof AppError) throw err; // the 402 we just raised
+      // usage() failed (e.g. missing `usage` scope) — skip the preflight.
     }
 
     const run = await coasty.createRun(

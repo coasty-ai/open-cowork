@@ -63,10 +63,13 @@ export interface WorkflowRunDto {
 }
 
 export interface WalletDto {
-  balanceCents: number;
-  periodCostCents: number;
-  period: string;
+  /** Null when the Coasty `usage` scope is missing or the endpoint is down. */
+  balanceCents: number | null;
+  periodCostCents: number | null;
+  period: string | null;
   monthSpendCents: number;
+  walletAvailable?: boolean;
+  walletUnavailableReason?: string;
 }
 
 export interface EstimateDto {
@@ -82,9 +85,37 @@ export class ApiError extends Error {
     readonly code: string,
     message: string,
     readonly details?: unknown,
+    /** Coasty request id, when the failure originated upstream (for support). */
+    readonly requestId?: string,
   ) {
     super(message);
   }
+}
+
+/**
+ * A human-readable, debuggable rendering of an error for the UI: the message,
+ * the stable code, any offending fields, and the upstream request id. Turns a
+ * terse "Could not create run." into something actionable.
+ */
+export function formatApiError(err: unknown): string {
+  if (!(err instanceof ApiError)) {
+    return err instanceof Error ? err.message : 'Unexpected error';
+  }
+  const parts = [err.message];
+  if (err.code && err.code !== 'UNKNOWN' && !err.message.includes(err.code)) {
+    parts.push(`[${err.code}]`);
+  }
+  // Surface offending field paths from a validation error's details.
+  if (Array.isArray(err.details)) {
+    const fields = err.details
+      .map((d) =>
+        d && typeof d === 'object' && 'path' in d ? String((d as { path: unknown }).path) : null,
+      )
+      .filter((p): p is string => Boolean(p));
+    if (fields.length > 0) parts.push(`(fields: ${[...new Set(fields)].join(', ')})`);
+  }
+  if (err.requestId) parts.push(`(request ${err.requestId})`);
+  return parts.join(' ');
 }
 
 export interface BackendClientOptions {
@@ -154,7 +185,9 @@ export class BackendClient {
       throw new ApiError(0, 'NETWORK_ERROR', 'Cannot reach the open-cowork backend', err);
     }
     if (!res.ok) {
-      let body: { error?: { code?: string; message?: string; details?: unknown } } = {};
+      let body: {
+        error?: { code?: string; message?: string; details?: unknown; requestId?: string };
+      } = {};
       try {
         body = (await res.json()) as typeof body;
       } catch {
@@ -170,6 +203,7 @@ export class BackendClient {
         body.error?.code ?? 'UNKNOWN',
         body.error?.message ?? `Request failed (${res.status})`,
         body.error?.details,
+        body.error?.requestId,
       );
     }
     return (await res.json()) as T;

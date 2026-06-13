@@ -4,7 +4,7 @@
  * all via an injected fetchImpl (no real network).
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ApiError, BackendClient, defaultBaseUrl } from '../src/api/client';
+import { ApiError, BackendClient, defaultBaseUrl, formatApiError } from '../src/api/client';
 
 function jsonResponse(body: unknown, init: { ok?: boolean; status?: number } = {}): Response {
   return {
@@ -19,6 +19,33 @@ afterEach(() => {
   vi.unstubAllGlobals();
   // Reset any injected desktop shell.
   delete (window as { cowork?: unknown }).cowork;
+});
+
+describe('formatApiError', () => {
+  it('appends the code, offending fields, and upstream request id', () => {
+    const err = new ApiError(
+      400,
+      'VALIDATION_ERROR',
+      'Request validation failed',
+      [{ path: 'webhook_url', message: 'must be https' }],
+      'req_abc123',
+    );
+    const text = formatApiError(err);
+    expect(text).toContain('Request validation failed');
+    expect(text).toContain('[VALIDATION_ERROR]');
+    expect(text).toContain('webhook_url');
+    expect(text).toContain('req_abc123');
+  });
+
+  it('does not duplicate a code already present in the message', () => {
+    const err = new ApiError(402, 'INSUFFICIENT_CREDITS', 'INSUFFICIENT_CREDITS: top up');
+    expect(formatApiError(err)).toBe('INSUFFICIENT_CREDITS: top up');
+  });
+
+  it('passes plain Errors through and handles non-errors', () => {
+    expect(formatApiError(new Error('boom'))).toBe('boom');
+    expect(formatApiError('weird')).toBe('Unexpected error');
+  });
 });
 
 describe('BackendClient 401 auto-logout (onUnauthorized)', () => {

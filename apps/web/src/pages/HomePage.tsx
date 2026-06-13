@@ -18,7 +18,7 @@ import {
   type RunStatus,
 } from '@open-cowork/ui';
 import { getClient } from '../store';
-import type { MachineDto, RunDto } from '../api/client';
+import { formatApiError, type MachineDto, type RunDto } from '../api/client';
 
 const LOCAL_TARGET_ID = '__local__';
 
@@ -85,7 +85,7 @@ export function HomePage() {
       });
       navigate(`/runs/${run.id}`);
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : 'Failed to start the run');
+      setSubmitError(formatApiError(err));
     } finally {
       setSubmitting(false);
     }
