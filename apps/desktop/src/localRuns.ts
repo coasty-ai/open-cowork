@@ -49,6 +49,11 @@ export interface LocalRunManagerDeps {
   flushBatchSize?: number;
   /** Shown as the run's machine label in every client (default 'local'). */
   machineLabel?: string;
+  /**
+   * Minimum gap between live-frame uploads (default 1000ms). The first frame
+   * of a run always uploads immediately so the screen view fills fast.
+   */
+  frameMs?: number;
 }
 
 export interface StartLocalRunInput {
@@ -76,6 +81,8 @@ export class LocalRunManager {
   private queue: BackendRunEvent[] = [];
   private flushTimer: ReturnType<typeof setTimeout> | null = null;
   private flushChain: Promise<void> = Promise.resolve();
+  /** Time-throttle for live-frame uploads (0 = upload the next one now). */
+  private lastFrameAt = 0;
 
   constructor(deps: LocalRunManagerDeps) {
     this.deps = deps;
@@ -116,6 +123,7 @@ export class LocalRunManager {
     const maxSteps = input.maxSteps ?? 25;
 
     this.queue = [];
+    this.lastFrameAt = 0;
     if (this.flushTimer) {
       clearTimeout(this.flushTimer);
       this.flushTimer = null;
@@ -194,14 +202,21 @@ export class LocalRunManager {
       switch (event.type) {
         case 'step-start':
           break; // timeline noise
-        case 'screenshot':
-          // Never upload frames — a one-line marker per step keeps the
-          // timeline alive without shipping megabytes of base64.
+        case 'screenshot': {
+          // A one-line marker keeps the durable timeline small...
           this.enqueue(runId, {
             type: 'text',
             data: { text: `step ${event.step + 1} screenshot captured` },
           });
+          // ...and the actual frame is forwarded (throttled, best-effort) to the
+          // ephemeral live-frame channel so every client's screen view updates.
+          const now = Date.now();
+          if (now - this.lastFrameAt >= (this.deps.frameMs ?? 1000)) {
+            this.lastFrameAt = now;
+            void this.uploadFrame(runId, event.base64, event.width, event.height);
+          }
           break;
+        }
         case 'prediction':
           accumulatedCostCents += event.costCents;
           this.enqueue(runId, {
@@ -273,6 +288,20 @@ export class LocalRunManager {
     await this.api(`/api/proxy/sessions/${sessionId}`, 'DELETE').catch(noop);
     await executor.dispose().catch(noop);
     this.active = null;
+  }
+
+  /** Best-effort upload of the latest screen frame for the live screen view. */
+  private async uploadFrame(
+    runId: string,
+    base64: string,
+    width: number,
+    height: number,
+  ): Promise<void> {
+    try {
+      await this.api(`/api/local-runs/${runId}/frame`, 'POST', { base64, width, height });
+    } catch {
+      // Live preview is best-effort; a dropped frame must never affect the run.
+    }
   }
 
   private async predict(sessionId: string, input: PredictStepInput): Promise<PredictStepResult> {

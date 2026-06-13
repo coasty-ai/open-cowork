@@ -249,6 +249,15 @@ export class BackendClient {
       body: JSON.stringify({ note }),
     });
   }
+  /** Latest live screen frame for a LOCAL run (base64 PNG), or nulls if none yet. */
+  localRunFrame(id: string): Promise<{
+    base64: string | null;
+    width: number | null;
+    height: number | null;
+    capturedAt: string | null;
+  }> {
+    return this.request(`/api/local-runs/${id}/frame`);
+  }
 
   // machines
   listMachines(): Promise<{ machines: MachineDto[] }> {

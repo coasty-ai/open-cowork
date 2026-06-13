@@ -66,7 +66,14 @@ export function buildServer(deps: ServerDeps): BuiltServer {
   const ingestor = new Ingestor(coasty, db, bus);
 
   // forceCloseConnections: long-lived SSE responses must not block shutdown.
-  const app = Fastify({ logger: deps.logger ?? false, forceCloseConnections: true });
+  // bodyLimit 16MB: local-run screenshots (proxied predict + live frames) are
+  // full-screen PNGs that routinely exceed Fastify's 1MB default — without this
+  // the desktop's predict/frame POSTs would 413 and local runs would stall.
+  const app = Fastify({
+    logger: deps.logger ?? false,
+    forceCloseConnections: true,
+    bodyLimit: 16 * 1024 * 1024,
+  });
 
   // Capture the raw body (webhook HMAC verification needs the exact bytes).
   app.addContentTypeParser('application/json', { parseAs: 'string' }, (req, body, done) => {

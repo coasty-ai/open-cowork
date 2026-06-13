@@ -17,6 +17,7 @@
     "node": ">=22.5"
   },
   "scripts": {
+    "desktop": "node scripts/dev.mjs --desktop",
     "dev": "node scripts/dev.mjs",
     "doctor": "node scripts/doctor.mjs",
     "build": "turbo run build",

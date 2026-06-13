@@ -387,6 +387,59 @@ export function registerRunRoutes(app: FastifyInstance, deps: RunRouteDeps): voi
     return { appended: events.length };
   });
 
+  // ── local-run live frames ───────────────────────────────────────────────────
+  // The desktop captures the screen each step; we keep only the LATEST frame
+  // per local run in memory (bounded), so every client's screen view shows the
+  // live local screen without bloating the durable event log. Frames are
+  // ephemeral by design — lost on restart, which is fine (the timeline is the
+  // durable record).
+  interface LocalFrame {
+    base64: string;
+    width: number;
+    height: number;
+    capturedAt: string;
+  }
+  const MAX_TRACKED_FRAMES = 50;
+  const localFrames = new Map<string, LocalFrame>();
+  const rememberFrame = (runId: string, frame: LocalFrame): void => {
+    localFrames.delete(runId); // re-insert to keep Map insertion order = recency
+    localFrames.set(runId, frame);
+    while (localFrames.size > MAX_TRACKED_FRAMES) {
+      const oldest = localFrames.keys().next().value;
+      if (oldest === undefined) break;
+      localFrames.delete(oldest);
+    }
+  };
+
+  const frameSchema = z.object({
+    base64: z.string().min(1).max(16_000_000),
+    width: z.number().int().min(1).max(10000),
+    height: z.number().int().min(1).max(10000),
+  });
+  app.post('/api/local-runs/:id/frame', async (request) => {
+    const { id } = request.params as { id: string };
+    const row = db.getRun(request.user.id, id);
+    if (!row || row.kind !== 'local') throw notFound('Local run');
+    const body = frameSchema.parse(request.body);
+    rememberFrame(id, { ...body, capturedAt: new Date().toISOString() });
+    return { ok: true };
+  });
+
+  app.get('/api/local-runs/:id/frame', async (request) => {
+    const { id } = request.params as { id: string };
+    const row = db.getRun(request.user.id, id);
+    if (!row || row.kind !== 'local') throw notFound('Local run');
+    const frame = localFrames.get(id);
+    return frame
+      ? {
+          base64: frame.base64,
+          width: frame.width,
+          height: frame.height,
+          capturedAt: frame.capturedAt,
+        }
+      : { base64: null, width: null, height: null, capturedAt: null };
+  });
+
   const localPatchSchema = z.object({
     status: z.enum(['running', 'awaiting_human', 'succeeded', 'failed', 'cancelled', 'timed_out']),
     reason: z.string().max(2000).optional(),

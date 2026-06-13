@@ -98,6 +98,9 @@ function fakeBackend(opts: FakeBackendOpts = {}) {
     if (method === 'POST' && path === '/api/local-runs/r_local1/events') {
       return json({ appended: body.events.length });
     }
+    if (method === 'POST' && path === '/api/local-runs/r_local1/frame') {
+      return json({ ok: true });
+    }
     if (method === 'PATCH' && path === '/api/local-runs/r_local1')
       return json({ id: 'r_local1', status: body.status });
     if (method === 'DELETE' && path === '/api/proxy/sessions/sess_1')
@@ -110,7 +113,12 @@ function fakeBackend(opts: FakeBackendOpts = {}) {
       .filter((r) => r.method === 'POST' && r.path === '/api/local-runs/r_local1/events')
       .flatMap((r) => r.body.events as BackendRunEvent[]);
 
-  return { requests, fetchImpl, mirrored, predictCalls: () => predictCalls };
+  const frames = (): { base64: string; width: number; height: number }[] =>
+    requests
+      .filter((r) => r.method === 'POST' && r.path === '/api/local-runs/r_local1/frame')
+      .map((r) => r.body as { base64: string; width: number; height: number });
+
+  return { requests, fetchImpl, mirrored, frames, predictCalls: () => predictCalls };
 }
 
 function makeManager(
@@ -301,6 +309,65 @@ describe('LocalRunManager — failure paths', () => {
     // session is still deleted and the executor disposed
     expect(backend.requests.some((r) => r.method === 'DELETE')).toBe(true);
     expect(state.disposed).toBe(true);
+  });
+});
+
+describe('LocalRunManager — live screen frames', () => {
+  it('forwards the captured frame (real base64 + dims) to the frame channel', async () => {
+    const { executor } = fakeExecutor();
+    const backend = fakeBackend({
+      predictScript: [
+        predictResponse({ actions: [CLICK], reasoning: 'click' }),
+        predictResponse({ status: 'done', reasoning: 'done' }),
+      ],
+    });
+    const manager = makeManager(backend, executor, { frameMs: 0 });
+    await manager.start({ task: 'show my screen', maxSteps: 5 });
+    await manager.whenIdle();
+
+    const frames = backend.frames();
+    expect(frames.length).toBeGreaterThanOrEqual(1);
+    // the actual screenshot bytes go to the frame channel, NOT the event log
+    expect(frames[0]!.base64).toBe('A'.repeat(200));
+    expect(frames[0]).toMatchObject({ width: 1280, height: 720 });
+    expect(JSON.stringify(backend.mirrored())).not.toContain('A'.repeat(200));
+  });
+
+  it('throttles frame uploads: with a large frameMs only the first frame is sent', async () => {
+    const { executor } = fakeExecutor();
+    const backend = fakeBackend({
+      predictScript: [
+        predictResponse({ actions: [CLICK], reasoning: '1' }),
+        predictResponse({ actions: [CLICK], reasoning: '2' }),
+        predictResponse({ actions: [CLICK], reasoning: '3' }),
+        predictResponse({ status: 'done', reasoning: 'done' }),
+      ],
+    });
+    // settleMs 0 → steps fire back-to-back well within the 60s frame throttle.
+    const manager = makeManager(backend, executor, { frameMs: 60_000 });
+    await manager.start({ task: 'many steps', maxSteps: 10 });
+    await manager.whenIdle();
+    // 4 screenshots captured, but only the first frame uploaded (throttled).
+    expect(backend.frames()).toHaveLength(1);
+  });
+
+  it('a frame upload failure never affects the run', async () => {
+    const { executor } = fakeExecutor();
+    const backend = fakeBackend({
+      predictScript: [predictResponse({ status: 'done', reasoning: 'instant' })],
+    });
+    // Wrap fetch so every frame POST rejects; the run must still succeed.
+    const base = backend.fetchImpl;
+    const fetchImpl = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith('/frame')) throw new Error('frame upload exploded');
+      return base(input, init);
+    }) as typeof fetch;
+    const manager = makeManager(backend, executor, { frameMs: 0, fetchImpl });
+    await manager.start({ task: 'resilient', maxSteps: 3 });
+    await manager.whenIdle();
+    const last = backend.mirrored().at(-1)!;
+    expect(last.type).toBe('done');
+    expect(last.data).toMatchObject({ status: 'succeeded' });
   });
 });
 

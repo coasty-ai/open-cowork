@@ -33,13 +33,27 @@ export function streamSse(
 ): void {
   const { db, bus, streamKind, streamId, closeOnType = 'done', heartbeatMs = 15_000 } = opts;
 
-  reply.hijack();
-  reply.raw.writeHead(200, {
+  // SSE responses are hijacked, so @fastify/cors's onSend hook never runs —
+  // we must set CORS headers here ourselves. Without this, the desktop shell
+  // (renderer on :5173 talking to the backend on :4000, cross-origin) gets
+  // "Failed to fetch" on every event stream. We authenticate with a bearer
+  // token (not cookies), so reflecting the origin without credentials is safe.
+  const origin = request.headers.origin;
+  const corsHeaders: Record<string, string> = {
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache, no-transform',
     Connection: 'keep-alive',
     'X-Accel-Buffering': 'no',
-  });
+    Vary: 'Origin',
+  };
+  if (typeof origin === 'string' && origin.length > 0) {
+    corsHeaders['Access-Control-Allow-Origin'] = origin;
+  } else {
+    corsHeaders['Access-Control-Allow-Origin'] = '*';
+  }
+
+  reply.hijack();
+  reply.raw.writeHead(200, corsHeaders);
 
   let lastSent = lastEventIdOf(request);
   let closed = false;

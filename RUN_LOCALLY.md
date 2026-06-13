@@ -50,19 +50,26 @@ COASTY_API_KEY=sk-coasty-test-xxxxxxxx   # sandbox: real predictions, $0
 > automation, set a key. A **live** key (`sk-coasty-live-…`) also works and
 > bills per step ($0.05); the app shows a cost estimate and enforces caps first.
 
-## 3. Run it (two terminals)
+## 3. Run it — one command
 
 ```bash
-# Terminal A — backend + web (the desktop loads the web UI from :5173,
-# and talks to the backend on :4000; the Coasty key lives only here)
-pnpm dev
-
-# Terminal B — the desktop app (builds the Electron bundles, then launches)
-pnpm dev:desktop
+pnpm desktop
 ```
 
-`pnpm dev` skips the mock automatically when a real key is set and points the
-backend at the real Coasty API.
+That's the whole thing: it starts the backend (+ the mock only if you have no
+key), the web UI, waits until they're ready, then **launches the desktop
+window**. Closing the window stops everything. With a key in `.env` it skips the
+mock and talks to the real Coasty API.
+
+<details>
+<summary>Prefer two terminals?</summary>
+
+```bash
+pnpm dev          # backend + web (the desktop loads the UI from :5173, API on :4000)
+pnpm dev:desktop  # builds the Electron bundles, then launches the window
+```
+
+</details>
 
 ## 4. Delegate a task to your own screen
 

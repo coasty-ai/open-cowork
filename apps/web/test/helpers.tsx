@@ -49,6 +49,12 @@ export function stubClient(overrides: Stub = {}): BackendClient {
     createRun: vi.fn(async () => makeRun({ id: 'r_new', status: 'queued' })),
     cancelRun: vi.fn(async () => makeRun({ status: 'cancelled' })),
     resumeRun: vi.fn(async () => makeRun({ status: 'running' })),
+    localRunFrame: vi.fn(async () => ({
+      base64: null as string | null,
+      width: null as number | null,
+      height: null as number | null,
+      capturedAt: null as string | null,
+    })),
     createMachine: vi.fn(async () => ({ machine: { id: 'm2' } })),
     startMachine: vi.fn(async () => ({})),
     stopMachine: vi.fn(async () => ({})),

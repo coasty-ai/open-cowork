@@ -149,6 +149,56 @@ describe('RunDetailPage', () => {
     await waitFor(() => expect(cancelRun).toHaveBeenCalledWith('r1'));
   });
 
+  it('local run: polls the frame channel and shows the live screen (not "waiting")', async () => {
+    stubSse([{ id: 1, event: 'status', data: { status: 'running' } }]);
+    const localRunFrame = vi.fn(async () => ({
+      base64: 'TESTFRAMEDATA',
+      width: 1920,
+      height: 1080,
+      capturedAt: '2026-06-13T00:00:00Z',
+    }));
+    setClientForTests(
+      stubClient({
+        getRun: vi.fn(async () =>
+          makeRun({ kind: 'local', machineId: 'my-pc', status: 'running' }),
+        ),
+        localRunFrame,
+      }),
+    );
+    renderRun();
+
+    // It polls the local frame endpoint (never the cloud machineScreenshot one).
+    await waitFor(() => expect(localRunFrame).toHaveBeenCalledWith('r1'));
+    // The live screen renders the forwarded frame as a data URI.
+    const img = await screen.findByAltText('Local screen');
+    await waitFor(() =>
+      expect(img.getAttribute('src')).toBe('data:image/png;base64,TESTFRAMEDATA'),
+    );
+    // The old misleading "frames appear in the desktop window" copy is gone.
+    expect(screen.queryByText(/frames appear in the desktop window/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/live view of your own screen/i)).toBeInTheDocument();
+  });
+
+  it('local run does not call the cloud machine-screenshot endpoint', async () => {
+    stubSse([{ id: 1, event: 'status', data: { status: 'running' } }]);
+    const machineScreenshot = vi.fn(async () => ({
+      image_b64: 'X',
+      width: 1,
+      height: 1,
+      captured_at: '',
+    }));
+    setClientForTests(
+      stubClient({
+        getRun: vi.fn(async () => makeRun({ kind: 'local', status: 'running' })),
+        machineScreenshot,
+      }),
+    );
+    renderRun();
+    await screen.findByRole('log');
+    await new Promise((r) => setTimeout(r, 50));
+    expect(machineScreenshot).not.toHaveBeenCalled();
+  });
+
   it('shows an error state with retry when getRun fails', async () => {
     stubSse([]);
     const getRun = vi

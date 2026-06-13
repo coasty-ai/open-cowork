@@ -66,29 +66,38 @@ export function RunDetailPage() {
     },
   });
 
-  // Screen view: poll machine screenshots while the run is active (cloud runs).
+  // Live screen view. Cloud runs: poll the machine screenshot endpoint. Local
+  // runs: poll the local-run frame channel the desktop forwards into. We keep
+  // polling briefly after a run finishes so the final frame lands.
+  const kind = run?.kind ?? null;
   const machineId = run?.kind === 'coasty' ? run.machineId : null;
+  const runId = run?.id ?? null;
   const active = run !== null && !TERMINAL.has(run.status);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   useEffect(() => {
-    if (!machineId || !active) {
+    if (!active) {
       if (pollRef.current) clearInterval(pollRef.current);
       return;
     }
     const poll = async () => {
       try {
-        const shot = await client.machineScreenshot(machineId);
-        setFrame({ b64: shot.image_b64, at: shot.captured_at });
+        if (kind === 'coasty' && machineId) {
+          const shot = await client.machineScreenshot(machineId);
+          setFrame({ b64: shot.image_b64, at: shot.captured_at });
+        } else if (kind === 'local' && runId) {
+          const f = await client.localRunFrame(runId);
+          if (f.base64) setFrame({ b64: f.base64, at: f.capturedAt ?? new Date().toISOString() });
+        }
       } catch {
         // screenshot polling is best-effort; the timeline still tells the story
       }
     };
     void poll();
-    pollRef.current = setInterval(() => void poll(), 2000);
+    pollRef.current = setInterval(() => void poll(), kind === 'local' ? 1500 : 2000);
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
-  }, [client, machineId, active]);
+  }, [client, kind, machineId, runId, active]);
 
   const timeline = useMemo(() => events.map(eventToTimeline), [events]);
 
@@ -166,8 +175,7 @@ export function RunDetailPage() {
           />
           {run.kind === 'local' ? (
             <p style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>
-              Local runs stream their timeline from the desktop app; frames appear in the desktop
-              window.
+              This is a live view of your own screen, captured by the desktop app each step.
             </p>
           ) : null}
         </Card>
