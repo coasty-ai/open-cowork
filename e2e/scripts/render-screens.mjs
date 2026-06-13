@@ -156,6 +156,9 @@ const GET = {
   '/api/machines/m1/screenshot': { image_b64: '', width: 1280, height: 800, captured_at: ISO },
   '/api/workflows': { workflows: WORKFLOWS },
   '/api/workflows/runs': { runs: [] },
+  // Default Coasty-key status: demo mode (no real key). Per-screen `coastyKey`
+  // overrides this to show the configured/connected states.
+  '/api/config/coasty-key': { configured: false, mode: null, demoMode: true, source: 'demo' },
 };
 
 async function fulfillApi(route) {
@@ -221,6 +224,26 @@ const SCREENS = [
     h: 700,
     manyRuns: true,
     scroll: true,
+  },
+  // Coasty API key setup states (login + settings).
+  { name: 'login-light', path: '/login', auth: false, theme: 'light', w: 1280, h: 900 },
+  {
+    name: 'login-connected',
+    path: '/login',
+    auth: false,
+    theme: 'dark',
+    w: 1280,
+    h: 900,
+    coastyKey: { configured: true, mode: 'live', demoMode: false, source: 'env' },
+  },
+  { name: 'settings-key-demo', path: '/settings', theme: 'dark', w: 1280, h: 980 },
+  {
+    name: 'settings-key-connected',
+    path: '/settings',
+    theme: 'dark',
+    w: 1280,
+    h: 980,
+    coastyKey: { configured: true, mode: 'test', demoMode: false, source: 'runtime' },
   },
 ];
 
@@ -304,6 +327,15 @@ try {
           status: 200,
           contentType: 'application/json',
           body: JSON.stringify({ runs: many }),
+        }),
+      );
+    }
+    if (s.coastyKey) {
+      await context.route('**/api/config/coasty-key', (route) =>
+        route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(s.coastyKey),
         }),
       );
     }
