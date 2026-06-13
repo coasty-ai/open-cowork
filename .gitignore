@@ -21,6 +21,7 @@ coverage/
 .eslintcache
 playwright-report/
 test-results/
+.screens/
 .DS_Store
 Thumbs.db
 
