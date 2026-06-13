@@ -38,43 +38,48 @@ steps from any device, and keep every cent of spend visible and capped.
 | Approvals / human takeover | ✅ | ✅ | ✅ |
 | Cost / wallet view | ✅ | ✅ | ✅ |
 
-## Quickstart (under 10 minutes, zero spend)
-
-Everything runs against the bundled **mock Coasty server** — no account, no
-key, no network calls, no billing.
+## Quickstart — one command, zero spend
 
 Prereqs: **Node ≥ 22.5** (we use 24) and **pnpm 10** (`corepack enable`).
 
 ```bash
 git clone <this repo> && cd open-cowork
-pnpm install                  # one install for the whole monorepo
-cp .env.example .env          # defaults already point at the mock server
-
-# Terminal 1 — mock Coasty API  (http://127.0.0.1:4010/v1)
-pnpm dev:mock
-# Terminal 2 — open-cowork backend  (http://127.0.0.1:4000)
-pnpm dev:backend
-# Terminal 3 — web app  (http://127.0.0.1:5173)
-pnpm dev:web
+pnpm install      # one install for the whole monorepo
+pnpm doctor       # optional: confirms you're ready
+pnpm dev          # starts the mock Coasty server + backend + web, all wired
 ```
+
+That's it. `pnpm dev` with **no configuration at all** runs in **demo mode**:
+it boots the bundled mock Coasty server and the backend uses an ephemeral
+sandbox key against it — no account, no key, no network calls, no billing.
 
 Open http://127.0.0.1:5173 → sign in with any email → **Machines → Provision
 machine** (instant sandbox VM) → **Delegate** → type a task → confirm the cost
 → watch it run. Add ` NEEDS_HUMAN ` anywhere in the task text to see the
 approval flow pause and resume.
 
-Desktop (Electron, local screen control): `pnpm dev:desktop` (with terminals
-1–3 running). Mobile (Expo): `pnpm dev:mobile`, or `pnpm --filter
+Desktop (Electron, local screen control): `pnpm dev:desktop` (with `pnpm dev`
+running). Mobile (Expo): `pnpm dev:mobile`, or `pnpm --filter
 @open-cowork/mobile web` for the browser-hosted build. See each app's README.
 
-### Going live (real Coasty account)
+### Use your own Coasty account (still just one key)
 
-1. Create a key at https://coasty.ai/developers/keys — start with a **sandbox
-   key (`sk-coasty-test-…`), which never bills**.
-2. In `.env`: set `COASTY_API_KEY` and `COASTY_BASE_URL=https://coasty.ai/v1`.
-3. For webhooks (instant status updates without polling), the backend must be
-   reachable over **https** — set `COWORK_PUBLIC_URL` accordingly (see
-   `DEPLOYMENT.md`). Without it, run state still converges via SSE + reconcile.
+The **only** thing you ever need to configure is the Coasty key:
+
+```bash
+echo "COASTY_API_KEY=sk-coasty-test-…" > .env   # sandbox key — never bills
+pnpm dev                                         # now talks to the real Coasty API
+```
+
+Everything else (session secret, ports, base URL, DB path) has a working
+default — the session secret is auto-generated. With a key set, `pnpm dev`
+talks to the real Coasty API and does **not** start the mock. Start with a
+**sandbox key (`sk-coasty-test-…`)** — it exercises the full real API and never
+bills. Switch to a live key only when you're ready to spend.
+
+For webhooks (instant status without polling), the backend must be reachable
+over **https** — set `COWORK_PUBLIC_URL` (see `DEPLOYMENT.md`). Without it, run
+state still converges via SSE + read-time reconcile.
 
 > ⚠ **Cost warning.** With a live key (`sk-coasty-live-…`): runs bill
 > **$0.05/step** (v3/v4), machines bill **$0.05–0.09/hour** while running and

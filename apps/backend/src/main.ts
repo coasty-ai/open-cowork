@@ -30,9 +30,16 @@ async function main(): Promise<void> {
   const { app } = buildServer({ config, logger: true });
   await app.listen({ port: config.port, host: config.host });
   console.log(`open-cowork backend listening at http://${config.host}:${config.port}`);
-  console.log(
-    `Coasty upstream: ${config.coastyBaseUrl} (key kind: ${config.coastyApiKey.startsWith('sk-coasty-test-') ? 'test/sandbox — never bills' : 'LIVE — real spend possible'})`,
-  );
+  if (config.demoMode) {
+    console.log(
+      `DEMO MODE: no COASTY_API_KEY set — using a sandbox key against the bundled mock at ${config.coastyBaseUrl}.`,
+    );
+    console.log('  Make sure the mock is running (`pnpm dev:mock`), or just use `pnpm dev`.');
+  } else {
+    console.log(
+      `Coasty upstream: ${config.coastyBaseUrl} (key: ${config.sandbox ? 'sandbox — never bills' : 'LIVE — real spend possible'})`,
+    );
+  }
 
   const shutdown = async (): Promise<void> => {
     await app.close();

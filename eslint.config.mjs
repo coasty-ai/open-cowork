@@ -47,6 +47,12 @@ export default tseslint.config(
         __dirname: 'readonly',
         require: 'readonly',
         module: 'writable',
+        setTimeout: 'readonly',
+        clearTimeout: 'readonly',
+        setInterval: 'readonly',
+        clearInterval: 'readonly',
+        URL: 'readonly',
+        fetch: 'readonly',
       },
     },
     rules: {

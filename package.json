@@ -9,6 +9,8 @@
     "node": ">=22.5"
   },
   "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "doctor": "node scripts/doctor.mjs",
     "build": "turbo run build",
     "test": "turbo run test",
     "test:coverage": "turbo run test:coverage",
