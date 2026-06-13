@@ -96,7 +96,7 @@ function Shell({ children }: { children: ReactNode }) {
         collapsed={collapsed}
         onToggleCollapsed={toggleCollapsed}
         brand={
-          <NavLink to="/" end className="oc-sidebar__brand-link" aria-label="open-cowork home">
+          <NavLink to="/" end className="oc-sidebar__brand-link" aria-label="Open Co-Work home">
             <Logo size={24} withWordmark={!collapsed} />
           </NavLink>
         }

@@ -5,26 +5,27 @@ import { cx } from '../cx';
 export interface LogoProps {
   /** Mark size in px; the wordmark scales to match. Default 28. */
   size?: number;
-  /** Render the "open-cowork" wordmark next to the mark. Default true. */
+  /** Render the "Open Co-Work" wordmark next to the mark. Default true. */
   withWordmark?: boolean;
   className?: string;
-  /** Accessible label for the mark. Default "open-cowork". */
+  /** Accessible label for the mark. Default "Open Co-Work". */
   title?: string;
 }
 
 /**
- * The open-cowork brand mark + wordmark — the single source for the brand mark.
+ * The Open Co-Work brand mark + wordmark — the single source for the brand mark.
  *
  * The mark is the "horizon" gradient circle as a theme-aware SVG: it fades from
  * transparent to `currentColor`, so on a dark surface it renders as the white
  * mark and on a light surface as the black one — no asset swap, always crisp.
+ * The wordmark is a sleek two-tone lockup: a muted "Open" + a bold "Co-Work".
  * Place it on any element that sets a text color (the nav, login, headers).
  */
 export function Logo({
   size = 28,
   withWordmark = true,
   className,
-  title = 'open-cowork',
+  title = 'Open Co-Work',
 }: LogoProps) {
   const gradId = useId();
   return (
@@ -50,7 +51,11 @@ export function Logo({
         </defs>
         <circle cx="100" cy="100" r="100" fill={`url(#${gradId})`} />
       </svg>
-      {withWordmark ? <span className="oc-logo__word">open-cowork</span> : null}
+      {withWordmark ? (
+        <span className="oc-logo__word" aria-hidden="true">
+          <span className="oc-logo__word-soft">Open</span> Co-Work
+        </span>
+      ) : null}
     </span>
   );
 }

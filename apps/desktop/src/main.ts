@@ -49,7 +49,7 @@ function createWindow(): BrowserWindow {
     // Hide until the renderer is ready; revealed in the 'ready-to-show' handler
     // below.  Eliminates the flash-of-unstyled-content on startup.
     show: false,
-    title: 'open-cowork',
+    title: 'Open Co-Work',
     ...(existsSync(ICON_PATH) ? { icon: ICON_PATH } : {}),
     webPreferences: {
       contextIsolation: true,

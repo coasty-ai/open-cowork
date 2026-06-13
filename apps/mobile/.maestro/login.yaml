@@ -11,7 +11,7 @@
 appId: host.exp.exponent
 ---
 - launchApp
-- assertVisible: 'open-cowork'
+- assertVisible: 'Open Co-Work'
 - tapOn: 'Email'
 - inputText: 'demo@open-cowork.dev'
 - tapOn: 'Sign in'

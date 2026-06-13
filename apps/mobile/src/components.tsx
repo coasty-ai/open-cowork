@@ -302,7 +302,7 @@ export function ApprovalBar({
 // ── BrandLogo ────────────────────────────────────────────────────────────────
 
 /**
- * The open-cowork "horizon" mark + wordmark, dependency-free.
+ * The Open Co-Work "horizon" mark + wordmark, dependency-free.
  *
  * React Native core has no gradient primitive, so the same six brand stops
  * (see packages/ui `<Logo>` / public/logo_*.svg) are reproduced as a stack of
@@ -336,7 +336,7 @@ export interface BrandLogoProps {
 
 export function BrandLogo({ size = 28, withWordmark = true }: BrandLogoProps) {
   return (
-    <View accessibilityRole="image" accessibilityLabel="open-cowork" style={styles.brandRow}>
+    <View accessibilityRole="image" accessibilityLabel="Open Co-Work" style={styles.brandRow}>
       <View style={[styles.brandMark, { width: size, height: size, borderRadius: size / 2 }]}>
         {Array.from({ length: BRAND_BANDS }, (_, i) => {
           const t = (i + 0.5) / BRAND_BANDS;
@@ -352,7 +352,9 @@ export function BrandLogo({ size = 28, withWordmark = true }: BrandLogoProps) {
         })}
       </View>
       {withWordmark ? (
-        <Text style={[styles.brandWord, { fontSize: size * 0.64 }]}>open-cowork</Text>
+        <Text style={[styles.brandWord, { fontSize: size * 0.64 }]}>
+          <Text style={styles.brandWordSoft}>Open</Text> Co-Work
+        </Text>
       ) : null}
     </View>
   );
@@ -483,4 +485,6 @@ const styles = StyleSheet.create({
   brandRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm },
   brandMark: { flexDirection: 'column', overflow: 'hidden' },
   brandWord: { color: colors.text, fontWeight: '800', letterSpacing: -0.3 },
+  // Two-tone lockup: "Open" recedes (muted, medium), "Co-Work" carries the weight.
+  brandWordSoft: { color: colors.textMuted, fontWeight: WEIGHT.medium },
 });

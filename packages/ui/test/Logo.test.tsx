@@ -4,29 +4,31 @@ import { Logo } from '../src/index';
 
 describe('Logo', () => {
   it('renders an accessible mark and the wordmark by default', () => {
-    render(<Logo />);
-    const mark = screen.getByRole('img', { name: 'open-cowork' });
+    const { container } = render(<Logo />);
+    const mark = screen.getByRole('img', { name: 'Open Co-Work' });
     expect(mark.tagName.toLowerCase()).toBe('svg');
-    // The wordmark text is present alongside the mark.
-    expect(screen.getByText('open-cowork')).toBeInTheDocument();
+    // The wordmark lockup reads "Open Co-Work" (two-tone spans, aria-hidden as
+    // the mark carries the accessible name).
+    const word = container.querySelector('.oc-logo__word');
+    expect(word?.textContent).toBe('Open Co-Work');
   });
 
   it('omits the wordmark when withWordmark is false but keeps the mark', () => {
-    render(<Logo withWordmark={false} />);
-    expect(screen.getByRole('img', { name: 'open-cowork' })).toBeInTheDocument();
-    expect(screen.queryByText('open-cowork')).not.toBeInTheDocument();
+    const { container } = render(<Logo withWordmark={false} />);
+    expect(screen.getByRole('img', { name: 'Open Co-Work' })).toBeInTheDocument();
+    expect(container.querySelector('.oc-logo__word')).toBeNull();
   });
 
   it('sizes the mark from the size prop', () => {
     render(<Logo size={40} withWordmark={false} />);
-    const mark = screen.getByRole('img', { name: 'open-cowork' });
+    const mark = screen.getByRole('img', { name: 'Open Co-Work' });
     expect(mark).toHaveAttribute('width', '40');
     expect(mark).toHaveAttribute('height', '40');
   });
 
   it('honors a custom accessible title', () => {
-    render(<Logo title="open-cowork home" withWordmark={false} />);
-    expect(screen.getByRole('img', { name: 'open-cowork home' })).toBeInTheDocument();
+    render(<Logo title="Open Co-Work home" withWordmark={false} />);
+    expect(screen.getByRole('img', { name: 'Open Co-Work home' })).toBeInTheDocument();
   });
 
   it('uses a unique gradient id per instance so multiple logos never collide', () => {
