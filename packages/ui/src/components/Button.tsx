@@ -55,7 +55,7 @@ export function Button({
       {...rest}
     >
       {loading ? <Spinner size="sm" /> : null}
-      <span className="oc-button__label">{children}</span>
+      <span>{children}</span>
     </button>
   );
 }

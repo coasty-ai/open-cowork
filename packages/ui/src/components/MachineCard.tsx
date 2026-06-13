@@ -113,10 +113,8 @@ export function MachineCard({
     <Card title={machine.displayName} className={cx('oc-machine-card', className)}>
       <div className="oc-machine-card__meta">
         <Badge tone={STATUS_TONE[machine.status]}>{STATUS_LABEL[machine.status]}</Badge>
-        <span className="oc-machine-card__os">
-          {machine.osType === 'windows' ? 'Windows' : 'Linux'}
-        </span>
-        <span className="oc-machine-card__rate">{formatCents(machine.centsPerHour)}/hr</span>
+        <span>{machine.osType === 'windows' ? 'Windows' : 'Linux'}</span>
+        <span>{formatCents(machine.centsPerHour)}/hr</span>
       </div>
       <div className="oc-machine-card__actions">
         <Button

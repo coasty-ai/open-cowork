@@ -81,7 +81,7 @@ export function EventTimeline({
           <span className="oc-timeline__glyph" aria-hidden="true">
             {GLYPHS[event.type] ?? DEFAULT_GLYPH}
           </span>
-          <div className="oc-timeline__body">
+          <div>
             <p className="oc-timeline__label">
               {event.label}
               {event.at ? (

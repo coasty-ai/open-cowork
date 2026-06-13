@@ -43,11 +43,7 @@ function StepNode({ step, collapsed, onToggle }: StepNodeProps) {
   const status = step.status ?? 'pending';
 
   return (
-    <li
-      role="treeitem"
-      aria-expanded={hasChildren ? expanded : undefined}
-      className="oc-step-tree__item"
-    >
+    <li role="treeitem" aria-expanded={hasChildren ? expanded : undefined}>
       <div className="oc-step-tree__row">
         {hasChildren ? (
           <button
@@ -65,7 +61,7 @@ function StepNode({ step, collapsed, onToggle }: StepNodeProps) {
           data-testid={`step-dot-${step.id}`}
           aria-hidden="true"
         />
-        <span className="oc-step-tree__label">{label}</span>
+        <span>{label}</span>
         <span className="oc-step-tree__type">{step.type}</span>
       </div>
       {expanded ? (
