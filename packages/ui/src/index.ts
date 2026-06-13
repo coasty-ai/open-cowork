@@ -20,6 +20,12 @@ export type { HeadingProps, HeadingLevel } from './components/Heading';
 export { Text } from './components/Text';
 export type { TextProps, TextVariant } from './components/Text';
 
+// Chrome
+export { Icon } from './components/Icon';
+export type { IconProps, IconName } from './components/Icon';
+export { Sidebar } from './components/Sidebar';
+export type { SidebarProps } from './components/Sidebar';
+
 // Primitives
 export { Button } from './components/Button';
 export type { ButtonProps, ButtonSize, ButtonVariant } from './components/Button';

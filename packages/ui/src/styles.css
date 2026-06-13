@@ -120,6 +120,191 @@ textarea {
   white-space: nowrap;
 }
 
+/* ---------- Icon ---------- */
+
+.oc-icon {
+  display: block;
+  flex: none;
+}
+
+/* ---------- Sidebar ---------- */
+
+.oc-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 240px;
+  height: 100%;
+  padding: var(--space-3);
+  background: var(--color-bg);
+  border-right: 1px solid var(--color-border);
+  transition: width 160ms ease;
+}
+
+.oc-sidebar[data-collapsed='true'] {
+  width: 64px;
+}
+
+.oc-sidebar__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-height: 36px;
+  padding: var(--space-1) var(--space-2);
+}
+
+.oc-sidebar[data-collapsed='true'] .oc-sidebar__header {
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-1) 0;
+}
+
+.oc-sidebar__brand {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.oc-sidebar__brand-link {
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.oc-sidebar__toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+}
+
+.oc-sidebar__toggle:hover {
+  background: var(--accent);
+  color: var(--color-text);
+}
+
+.oc-sidebar__nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.oc-sidebar__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
+  text-decoration: none;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  line-height: 1;
+  white-space: nowrap;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+}
+
+.oc-sidebar__item:hover {
+  background: var(--accent);
+  color: var(--color-text);
+}
+
+.oc-sidebar__item[aria-current='page'] {
+  background: var(--muted);
+  color: var(--color-text);
+  font-weight: var(--font-weight-semibold);
+  /* Crisp accent rail so "active" reads clearly on either theme, even where the
+     muted pill barely separates from the sidebar surface (light mode). */
+  box-shadow: inset 2px 0 0 0 var(--primary);
+}
+
+.oc-sidebar[data-collapsed='true'] .oc-sidebar__item {
+  justify-content: center;
+  padding: var(--space-2);
+}
+
+.oc-sidebar[data-collapsed='true'] .oc-sidebar__label {
+  display: none;
+}
+
+.oc-sidebar__footer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-border);
+}
+
+.oc-sidebar[data-collapsed='true'] .oc-sidebar__footer {
+  align-items: center;
+}
+
+.oc-sidebar__email {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Phone: the rail becomes a horizontal top bar (a side rail wastes width). */
+@media (max-width: 800px) {
+  .oc-sidebar,
+  .oc-sidebar[data-collapsed='true'] {
+    width: 100%;
+    height: auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    border-right: none;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .oc-sidebar__header,
+  .oc-sidebar[data-collapsed='true'] .oc-sidebar__header {
+    flex-direction: row;
+    padding: var(--space-1);
+  }
+  .oc-sidebar__toggle {
+    display: none;
+  }
+  .oc-sidebar__nav,
+  .oc-sidebar[data-collapsed='true'] .oc-sidebar__nav {
+    flex-direction: row;
+    flex: 1;
+    overflow-x: auto;
+  }
+  .oc-sidebar[data-collapsed='true'] .oc-sidebar__label {
+    display: inline;
+  }
+  .oc-sidebar__footer,
+  .oc-sidebar[data-collapsed='true'] .oc-sidebar__footer {
+    flex-direction: row;
+    align-items: center;
+    margin-left: auto;
+    padding-top: 0;
+    border-top: none;
+  }
+}
+
 /* ---------- Button ---------- */
 
 .oc-button {

@@ -1,6 +1,7 @@
-import { Component, type ReactNode } from 'react';
+import { Component, useState, type ReactNode } from 'react';
 import { Navigate, NavLink, Route, Routes, useLocation } from 'react-router-dom';
-import { Button, ErrorState, Logo, OfflineBanner, Text } from '@open-cowork/ui';
+import { Button, ErrorState, Icon, Logo, OfflineBanner, Sidebar, Text } from '@open-cowork/ui';
+import type { IconName } from '@open-cowork/ui';
 import { useAuth } from './store';
 import { useGlobalFeed } from './useGlobalFeed';
 import { LoginPage } from './pages/LoginPage';
@@ -33,30 +34,81 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
   }
 }
 
+const NAV_ITEMS: ReadonlyArray<{ to: string; end?: boolean; icon: IconName; label: string }> = [
+  { to: '/', end: true, icon: 'delegate', label: 'Delegate' },
+  { to: '/runs', icon: 'runs', label: 'Runs' },
+  { to: '/workflows', icon: 'workflows', label: 'Workflows' },
+  { to: '/machines', icon: 'machines', label: 'Machines' },
+  { to: '/settings', icon: 'settings', label: 'Settings' },
+];
+
+const SIDEBAR_KEY = 'oc-sidebar-collapsed';
+
 function Shell({ children }: { children: ReactNode }) {
   const logout = useAuth((s) => s.logout);
   const user = useAuth((s) => s.user);
   const { offline, banner } = useGlobalFeed();
+  const [collapsed, setCollapsed] = useState<boolean>(
+    () => typeof localStorage !== 'undefined' && localStorage.getItem(SIDEBAR_KEY) === '1',
+  );
+  const toggleCollapsed = () =>
+    setCollapsed((c) => {
+      const next = !c;
+      try {
+        localStorage.setItem(SIDEBAR_KEY, next ? '1' : '0');
+      } catch {
+        /* storage unavailable — collapse still works for this session */
+      }
+      return next;
+    });
+
   return (
     <div className="app-shell">
-      <nav className="app-nav" aria-label="Primary">
-        <NavLink to="/" end className="app-nav__brand" aria-label="open-cowork home">
-          <Logo size={24} />
-        </NavLink>
-        <NavLink to="/" end>
-          Delegate
-        </NavLink>
-        <NavLink to="/runs">Runs</NavLink>
-        <NavLink to="/workflows">Workflows</NavLink>
-        <NavLink to="/machines">Machines</NavLink>
-        <NavLink to="/settings">Settings</NavLink>
-        <div className="app-nav__footer">
-          <Text variant="caption">{user?.email}</Text>
-          <Button variant="ghost" size="sm" onClick={logout}>
-            Sign out
-          </Button>
-        </div>
-      </nav>
+      <Sidebar
+        collapsed={collapsed}
+        onToggleCollapsed={toggleCollapsed}
+        brand={
+          <NavLink to="/" end className="oc-sidebar__brand-link" aria-label="open-cowork home">
+            <Logo size={24} withWordmark={!collapsed} />
+          </NavLink>
+        }
+        footer={
+          collapsed ? (
+            <button
+              type="button"
+              className="oc-sidebar__toggle"
+              onClick={logout}
+              aria-label="Sign out"
+              title="Sign out"
+            >
+              <Icon name="logout" />
+            </button>
+          ) : (
+            <>
+              <Text variant="caption" className="oc-sidebar__email">
+                {user?.email}
+              </Text>
+              <Button variant="ghost" size="sm" onClick={logout}>
+                Sign out
+              </Button>
+            </>
+          )
+        }
+      >
+        {NAV_ITEMS.map((item) => (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            end={item.end}
+            className="oc-sidebar__item"
+            aria-label={item.label}
+            title={collapsed ? item.label : undefined}
+          >
+            <Icon name={item.icon} className="oc-sidebar__item-icon" />
+            <span className="oc-sidebar__label">{item.label}</span>
+          </NavLink>
+        ))}
+      </Sidebar>
       <main className="app-main">
         <OfflineBanner offline={offline} />
         {banner}

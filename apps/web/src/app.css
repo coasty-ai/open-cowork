@@ -1,42 +1,8 @@
 /* App-level layout (component styles live in @open-cowork/ui). */
 .app-shell {
   display: grid;
-  grid-template-columns: 220px 1fr;
+  grid-template-columns: auto 1fr;
   min-height: 100vh;
-}
-.app-nav {
-  border-right: 1px solid var(--color-border);
-  padding: var(--space-4);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-.app-nav__brand {
-  margin-bottom: var(--space-4);
-  padding: 0;
-  border-radius: var(--radius-md);
-}
-/* The brand links home but must not look like an active nav item. */
-.app-nav__brand,
-.app-nav__brand[aria-current='page'] {
-  background: transparent;
-}
-.app-nav__brand:hover {
-  opacity: 0.85;
-}
-.app-nav a {
-  color: var(--color-text-muted);
-  text-decoration: none;
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-md);
-}
-.app-nav a[aria-current='page'] {
-  background: var(--color-surface-raised);
-  color: var(--color-text);
-}
-.app-nav a:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
 }
 .app-main {
   padding: var(--space-5);
@@ -46,12 +12,6 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-}
-.app-nav__footer {
-  margin-top: auto;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
 }
 .run-title {
   word-break: break-word;
@@ -108,7 +68,7 @@
   width: 100%;
   min-height: 280px;
   font-family: var(--font-mono);
-  font-size: 0.85rem;
+  font-size: var(--font-size-sm);
   background: var(--color-surface);
   color: var(--color-text);
   border: 1px solid var(--color-border);
@@ -123,29 +83,13 @@
 }
 .issues-list {
   color: var(--color-danger);
-  font-size: 0.85rem;
+  font-size: var(--font-size-sm);
   margin: 0;
   padding-left: var(--space-4);
 }
 @media (max-width: 800px) {
   .app-shell {
     grid-template-columns: 1fr;
-  }
-  .app-nav {
-    flex-direction: row;
-    flex-wrap: wrap;
-    border-right: none;
-    border-bottom: 1px solid var(--color-border);
-    align-items: center;
-  }
-  .app-nav__brand {
-    margin-bottom: 0;
-    margin-right: var(--space-3);
-  }
-  .app-nav__footer {
-    margin-top: 0;
-    margin-left: auto;
-    flex-direction: row;
   }
   .run-detail-grid {
     grid-template-columns: 1fr;
