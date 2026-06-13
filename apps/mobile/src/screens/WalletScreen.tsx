@@ -2,7 +2,7 @@
  * Wallet: Coasty balance + this month's open-cowork spend, plus sign-out.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { api, ApiError, type WalletDto } from '../api';
 import { AppButton, ErrorNote, Loading, ScreenTitle } from '../components';
 import { useAuth } from '../auth';
@@ -33,7 +33,7 @@ export function WalletScreen() {
       <ScreenTitle title="Wallet" />
       {error !== null ? <ErrorNote message={error} onRetry={() => void load()} /> : null}
       {wallet ? (
-        <View style={styles.body}>
+        <ScrollView style={styles.scroll} contentContainerStyle={styles.body}>
           <View style={styles.card}>
             <Text style={styles.cardLabel}>Coasty balance</Text>
             <Text style={styles.balance}>{formatCents(wallet.balanceCents)}</Text>
@@ -50,7 +50,7 @@ export function WalletScreen() {
             label="Sign out"
             onPress={signOut}
           />
-        </View>
+        </ScrollView>
       ) : null}
     </View>
   );
@@ -60,7 +60,10 @@ const { fontSize, fontWeight } = typography;
 
 const styles = StyleSheet.create({
   root: { backgroundColor: colors.bg, flex: 1 },
-  body: { gap: spacing.md, paddingHorizontal: spacing.lg },
+  scroll: { flex: 1 },
+  // Scroll content: keep the gutters/gap, with room at the bottom so the last
+  // control clears the fixed tab bar on short or landscape viewports.
+  body: { gap: spacing.md, paddingHorizontal: spacing.lg, paddingBottom: spacing.xl },
   card: {
     backgroundColor: colors.surface,
     borderColor: colors.border,

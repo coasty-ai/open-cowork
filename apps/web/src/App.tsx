@@ -1,7 +1,6 @@
 import { Component, useState, type ReactNode } from 'react';
 import { Navigate, NavLink, Route, Routes, useLocation } from 'react-router-dom';
 import {
-  Button,
   ErrorState,
   Icon,
   Logo,
@@ -12,6 +11,7 @@ import {
 } from '@open-cowork/ui';
 import type { IconName } from '@open-cowork/ui';
 import { useAuth } from './store';
+import { ThemeSwitch } from './components/ThemeSwitch';
 import { useGlobalFeed } from './useGlobalFeed';
 import { LoginPage } from './pages/LoginPage';
 import { HomePage } from './pages/HomePage';
@@ -32,10 +32,12 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
     if (this.state.error) {
       return (
         <div role="main" className="app-main">
-          <ErrorState
-            message={`Something went wrong: ${this.state.error.message}`}
-            onRetry={() => this.setState({ error: null })}
-          />
+          <div className="app-main__inner">
+            <ErrorState
+              message={`Something went wrong: ${this.state.error.message}`}
+              onRetry={() => this.setState({ error: null })}
+            />
+          </div>
         </div>
       );
     }
@@ -100,23 +102,35 @@ function Shell({ children }: { children: ReactNode }) {
         }
         footer={
           collapsed ? (
-            <button
-              type="button"
-              className="oc-sidebar__toggle"
-              onClick={logout}
-              aria-label="Sign out"
-              title="Sign out"
-            >
-              <Icon name="logout" />
-            </button>
+            <>
+              <ThemeSwitch collapsed />
+              <button
+                type="button"
+                className="oc-sidebar__icon-btn"
+                onClick={logout}
+                aria-label="Sign out"
+                title="Sign out"
+              >
+                <Icon name="logout" size={18} />
+              </button>
+            </>
           ) : (
             <>
-              <Text variant="caption" className="oc-sidebar__email">
-                {user?.email}
-              </Text>
-              <Button variant="ghost" size="sm" onClick={logout}>
-                Sign out
-              </Button>
+              <ThemeSwitch />
+              <div className="oc-sidebar__account">
+                <Text variant="caption" className="oc-sidebar__email">
+                  {user?.email}
+                </Text>
+                <button
+                  type="button"
+                  className="oc-sidebar__icon-btn"
+                  onClick={logout}
+                  aria-label="Sign out"
+                  title="Sign out"
+                >
+                  <Icon name="logout" size={18} />
+                </button>
+              </div>
             </>
           )
         }
@@ -140,9 +154,11 @@ function Shell({ children }: { children: ReactNode }) {
         ))}
       </Sidebar>
       <main className="app-main">
-        <OfflineBanner offline={offline} />
-        {banner}
-        {children}
+        <div className="app-main__inner">
+          <OfflineBanner offline={offline} />
+          {banner}
+          {children}
+        </div>
       </main>
     </div>
   );

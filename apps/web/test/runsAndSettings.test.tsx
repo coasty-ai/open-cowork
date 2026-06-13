@@ -1,7 +1,6 @@
 /**
  * RunsPage (list with local/cloud markers, empty state, error+retry) and
- * SettingsPage (loads me, saves the budget via the /api/me/budget PATCH fetch,
- * theme toggle flips data-theme).
+ * SettingsPage (loads me, saves the budget via the /api/me/budget PATCH fetch).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
@@ -181,20 +180,5 @@ describe('SettingsPage', () => {
       </MemoryRouter>,
     );
     expect(await screen.findByRole('alert')).toHaveTextContent('me failed');
-  });
-
-  it('theme control sets and persists the document data-theme', async () => {
-    setClientForTests(stubClient());
-    render(
-      <MemoryRouter>
-        <SettingsPage />
-      </MemoryRouter>,
-    );
-    await userEvent.click(await screen.findByRole('button', { name: /^light$/i }));
-    expect(document.documentElement.dataset.theme).toBe('light');
-    expect(localStorage.getItem('oc-theme')).toBe('light');
-    await userEvent.click(screen.getByRole('button', { name: /^dark$/i }));
-    expect(document.documentElement.dataset.theme).toBe('dark');
-    expect(localStorage.getItem('oc-theme')).toBe('dark');
   });
 });
