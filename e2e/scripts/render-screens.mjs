@@ -212,6 +212,16 @@ const SCREENS = [
   { name: 'runs-mobile', path: '/runs', theme: 'dark', w: 390, h: 900 },
   { name: 'home-collapsed', path: '/', theme: 'dark', w: 1280, h: 900, collapsed: true },
   { name: 'home-collapsed-light', path: '/', theme: 'light', w: 1280, h: 900, collapsed: true },
+  // Tall content scrolled to the bottom — the sidebar must stay fixed in place.
+  {
+    name: 'runs-scroll',
+    path: '/runs',
+    theme: 'dark',
+    w: 1280,
+    h: 700,
+    manyRuns: true,
+    scroll: true,
+  },
 ];
 
 await mkdir(OUT, { recursive: true });
@@ -269,14 +279,49 @@ try {
         }
       });
     }
+    // Seed the theme preference so the footer switcher's active state matches.
+    await context.addInitScript((theme) => {
+      try {
+        // eslint-disable-next-line no-undef
+        localStorage.setItem('oc-theme', theme);
+      } catch {
+        /* storage unavailable */
+      }
+    }, s.theme);
+    if (s.manyRuns) {
+      const many = Array.from({ length: 30 }, (_, i) =>
+        run({
+          id: `rm${i}`,
+          status: ['running', 'succeeded', 'awaiting_human', 'failed'][i % 4],
+          task: `Task ${i + 1} — reconcile, validate, and file the result`,
+          costCents: (i * 37) % 600,
+          stepsCompleted: (i % 12) + 1,
+        }),
+      );
+      // Registered after the general route, so it wins for this exact path.
+      await context.route('**/api/runs', (route) =>
+        route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ runs: many }),
+        }),
+      );
+    }
     const page = await context.newPage();
     await page.goto(`${BASE_URL}${s.path}`, { waitUntil: 'networkidle' }).catch(() => {});
     await page.evaluate((t) => {
       // eslint-disable-next-line no-undef
       document.documentElement.dataset.theme = t;
     }, s.theme);
+    if (s.scroll) {
+      await page.evaluate(() => {
+        // eslint-disable-next-line no-undef
+        const m = document.querySelector('.app-main');
+        if (m) m.scrollTop = m.scrollHeight;
+      });
+    }
     await page.waitForTimeout(350);
-    await page.screenshot({ path: path.join(OUT, `${s.name}.png`), fullPage: true });
+    await page.screenshot({ path: path.join(OUT, `${s.name}.png`), fullPage: !s.scroll });
     console.log(`shot ${s.name} (${s.w}×${s.h}, ${s.theme})`);
     await context.close();
   }
