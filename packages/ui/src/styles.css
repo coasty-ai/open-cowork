@@ -303,22 +303,28 @@ textarea {
   white-space: nowrap;
 }
 
-/* Phone: the rail becomes a horizontal top bar (a side rail wastes width). */
+/* Phone: the rail becomes a compact, single-row top bar (a side rail wastes
+   width). Nav is icon-only so every destination fits without wrapping; the
+   email is dropped (too long for the bar) and the collapse toggle is hidden. */
 @media (max-width: 800px) {
   .oc-sidebar,
   .oc-sidebar[data-collapsed='true'] {
     width: 100%;
     height: auto;
     flex-direction: row;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2);
     border-right: none;
     border-bottom: 1px solid var(--color-border);
   }
   .oc-sidebar__header,
   .oc-sidebar[data-collapsed='true'] .oc-sidebar__header {
+    flex: none;
     flex-direction: row;
-    padding: var(--space-1);
+    min-height: 0;
+    padding: 0;
   }
   .oc-sidebar__toggle {
     display: none;
@@ -327,18 +333,34 @@ textarea {
   .oc-sidebar[data-collapsed='true'] .oc-sidebar__nav {
     flex-direction: row;
     flex: 1;
+    min-width: 0;
+    gap: var(--space-1);
     overflow-x: auto;
   }
+  .oc-sidebar__item,
+  .oc-sidebar[data-collapsed='true'] .oc-sidebar__item {
+    justify-content: center;
+    padding: var(--space-2);
+  }
+  /* Active marker reads as an underline on a horizontal bar, not a side rail. */
+  .oc-sidebar__item[aria-current='page'] {
+    box-shadow: inset 0 -2px 0 0 var(--primary);
+  }
+  .oc-sidebar__label,
   .oc-sidebar[data-collapsed='true'] .oc-sidebar__label {
-    display: inline;
+    display: none;
   }
   .oc-sidebar__footer,
   .oc-sidebar[data-collapsed='true'] .oc-sidebar__footer {
+    flex: none;
     flex-direction: row;
     align-items: center;
     margin-left: auto;
     padding-top: 0;
     border-top: none;
+  }
+  .oc-sidebar__email {
+    display: none;
   }
 }
 
@@ -771,6 +793,27 @@ textarea {
   50% {
     opacity: 0.3;
   }
+}
+
+/* ---------- LiveIndicator ---------- */
+
+.oc-live {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.oc-live__dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: var(--radius-full);
+  background: var(--color-success);
+  animation: oc-pulse 1.2s ease-in-out infinite;
 }
 
 /* ---------- CostPill ---------- */

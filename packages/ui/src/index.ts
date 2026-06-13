@@ -23,6 +23,8 @@ export type { TextProps, TextVariant } from './components/Text';
 // Chrome
 export { Icon } from './components/Icon';
 export type { IconProps, IconName } from './components/Icon';
+export { LiveIndicator } from './components/LiveIndicator';
+export type { LiveIndicatorProps } from './components/LiveIndicator';
 export { Sidebar } from './components/Sidebar';
 export type { SidebarProps } from './components/Sidebar';
 

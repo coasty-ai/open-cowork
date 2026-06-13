@@ -9,7 +9,12 @@ export type IconName =
   | 'machines'
   | 'settings'
   | 'panelLeft'
-  | 'logout';
+  | 'logout'
+  | 'cloud'
+  | 'laptop'
+  | 'alertTriangle'
+  | 'pause'
+  | 'check';
 
 /** Props for {@link Icon}. */
 export interface IconProps {
@@ -80,6 +85,26 @@ const PATHS: Record<IconName, ReactNode> = {
       <line x1="21" y1="12" x2="9" y2="12" />
     </>
   ),
+  // A cloud (Coasty/remote run target).
+  cloud: <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" />,
+  // A laptop (local "this computer" run target) — distinct from `machines`.
+  laptop: (
+    <path d="M20 16V7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v9m16 0H4m16 0 1.28 2.55a1 1 0 0 1-.9 1.45H3.62a1 1 0 0 1-.9-1.45L4 16" />
+  ),
+  alertTriangle: (
+    <>
+      <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+      <line x1="12" y1="9" x2="12" y2="13" />
+      <line x1="12" y1="17" x2="12.01" y2="17" />
+    </>
+  ),
+  pause: (
+    <>
+      <rect x="14" y="4" width="4" height="16" rx="1" />
+      <rect x="6" y="4" width="4" height="16" rx="1" />
+    </>
+  ),
+  check: <path d="M20 6 9 17l-5-5" />,
 };
 
 /**
