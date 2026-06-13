@@ -171,8 +171,9 @@ await coasty.deleteSession(session.session_id);
 | Symptom | Fix |
 | --- | --- |
 | It clicks but doesn't "understand" the task | You're in demo mode (mock). Set a real/sandbox `COASTY_API_KEY` in `.env` and restart. |
-| "This computer (local screen)" isn't offered | You're in the web app, not the desktop shell. Use `pnpm dev:desktop`. |
-| Desktop window is blank | Make sure `pnpm dev` (web on :5173, backend on :4000) is running first. |
+| "This computer (local screen)" isn't offered | You're in the web app, not the desktop shell. Launch with `pnpm desktop`. |
+| Desktop window is blank | Wait a moment on first launch (it builds + starts web/backend). `pnpm desktop` waits for them before opening the window; if you used `pnpm dev:desktop`, make sure `pnpm dev` is running first. |
+| The window opens but immediately closes / runs as Node | An `ELECTRON_RUN_AS_NODE` env var from an IDE/extension host — `pnpm desktop` strips it automatically; if launching Electron yourself, unset it first. |
 | macOS: nothing happens / black screenshot | Grant Screen Recording + Accessibility to your terminal/app; install `cliclick`. |
 | Linux: capture/click fails | Install `xdotool` + ImageMagick; X11 session (not Wayland). |
 | Want to confirm capture works | `COWORK_NATIVE_SMOKE=1 pnpm --filter @open-cowork/executor exec vitest run windowsBridge` (capture only, never moves the mouse). |

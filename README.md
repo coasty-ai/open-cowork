@@ -42,30 +42,37 @@
 ```bash
 git clone https://github.com/coasty-ai/open-cowork.git && cd open-cowork
 pnpm install      # one install for the whole monorepo
-pnpm dev          # mock Coasty + backend + web, all wired — zero config
+pnpm desktop      # ← runs the desktop app: starts backend + web, opens the window
 ```
 
-`pnpm dev` with **no configuration at all** runs in **demo mode**: it boots the
-bundled mock Coasty server and the backend uses an ephemeral sandbox key — no
-account, no key, no network calls, no billing.
+**`pnpm desktop` is the whole thing in one command.** It starts the backend and
+web UI, waits until they're ready, then opens the **desktop app** (Electron) —
+the build that can drive **your own screen**. Closing the window stops
+everything. With **no configuration at all** it runs in **demo mode**: it boots
+the bundled mock Coasty server and uses an ephemeral sandbox key — no account,
+no key, no network calls, no billing. (`pnpm doctor` confirms your setup first.)
 
-Then open **<http://127.0.0.1:5173>** → sign in with any email → **Machines →
-Provision machine** (instant sandbox VM) → **Delegate** → type a task → confirm
-the cost → watch it run. Add `NEEDS_HUMAN` anywhere in the task to see the
-approval flow pause and resume. (`pnpm doctor` confirms your setup first.)
+In the window: sign in with any email → on the Delegate screen pick **“This
+computer (local screen)”** → type a task → confirm the cost → watch the agent
+work. Add `NEEDS_HUMAN` anywhere in the task to see the approval flow pause and
+resume.
 
-### Three ways to run
+> ⚠️ Local control moves your **real** mouse and keyboard. Stop a run with the
+> **Cancel** button (or close the window). Start with small, low-stakes tasks —
+> full safety notes in **[RUN_LOCALLY.md](RUN_LOCALLY.md)**.
 
-| | Command | Coasty key | Cost |
-| --- | --- | --- | --- |
-| **Try it (demo)** | `pnpm dev` | none — bundled mock | **$0** |
-| **Your account** | set `COASTY_API_KEY` in `.env`, then `pnpm dev` | sandbox `sk-coasty-test-…` | **$0** (real model, never bills) |
-| **Automate your own PC** | `pnpm dev` + `pnpm dev:desktop` | sandbox key | **$0** |
+### Ways to run
+
+| | Command | Opens | Coasty key | Cost |
+| --- | --- | --- | --- | --- |
+| **Automate your own PC** | `pnpm desktop` | the desktop app + full stack | none, or sandbox | **$0** |
+| **Web app only** | `pnpm dev` then <http://127.0.0.1:5173> | mock + backend + web | none, or sandbox | **$0** |
+| **Your Coasty account** | put `COASTY_API_KEY` in `.env`, then either above | real Coasty API | sandbox `sk-coasty-test-…` | **$0** (real model, never bills) |
 
 The **only** thing you ever configure is `COASTY_API_KEY` — everything else
-(session secret, ports, base URL, DB) has a working default. Want the agent to
-drive **your real mouse and keyboard**? That's the desktop app —
-**[RUN_LOCALLY.md](RUN_LOCALLY.md)** walks you through it step by step.
+(session secret, ports, base URL, DB) has a working default. Step-by-step local
+automation, OS notes, cross-device approval, and troubleshooting live in
+**[RUN_LOCALLY.md](RUN_LOCALLY.md)**.
 
 <details>
 <summary><b>Using your own Coasty account, webhooks &amp; the cost warning</b></summary>
@@ -96,12 +103,28 @@ Set an https `COWORK_PUBLIC_URL` (a tunnel or your deployment — see
 
 </details>
 
-### Other apps
+### More commands
 
 ```bash
-pnpm dev:desktop   # Electron — local screen control (run `pnpm dev` first)
+pnpm desktop       # full stack + the desktop app (local screen control) — one command
+pnpm dev           # full stack, open the web app yourself at :5173
+pnpm dev --no-web  # API only (mock + backend)
 pnpm dev:mobile    # Expo / React Native  (or: pnpm --filter @open-cowork/mobile web)
 ```
+
+<details>
+<summary>Run the Electron app against an already-running stack (advanced)</summary>
+
+With `pnpm dev` already running in another terminal:
+
+```bash
+pnpm dev:desktop   # builds the Electron bundles and opens the window only
+```
+
+`pnpm desktop` does both for you — start the stack and open the window — and
+shuts it all down when you close the window.
+
+</details>
 
 ---
 
