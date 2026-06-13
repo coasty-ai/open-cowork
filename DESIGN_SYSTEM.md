@@ -181,8 +181,8 @@ Defined as composite presets so "one hierarchy everywhere" is enforceable; in RN
 |---|---|---|---|---|---|
 | **h1** (page hero) | `3xl` (26) | bold (700) | tight | `-0.02em` | overloaded `.page-title` h1 use |
 | **h2** (page section) | `2xl` (21) | bold (700) | tight | `-0.015em` | `.page-title` h2 use, inline `1.3rem` |
-| **h3** (card title) | `lg` (16) | semibold (600) | snug | `-0.01em` | the ~9 hand-set `<h2 style={{fontSize:'1rem'}}>`; = existing `.oc-card__title` |
-| **h4** (modal / minor heading) | `xl` (18) | semibold (600) | snug | `-0.005em` | `.oc-modal__title` (1.125rem) |
+| **h3** (subsection / modal title) | `xl` (18) | semibold (600) | snug | `-0.01em` | `.oc-modal__title` (1.125rem) |
+| **h4** (card title) | `lg` (16) | semibold (600) | snug | `-0.005em` | the ~9 hand-set `<h2 style={{fontSize:'1rem'}}>`; = existing `.oc-card__title` |
 | **body** | `base` (14) | normal (400) | normal | `0` | default text |
 | **body-strong / label** | `base` (14) | semibold (600) | normal | `0` | field labels, composer label |
 | **caption** | `sm` (13) | normal (400) | normal, color `--muted-foreground` | `0` | the copy-pasted `color:var(--color-text-muted)` caption pattern → one `.oc-caption` |
@@ -322,6 +322,6 @@ A vitest test imports the source, the parsed `tokens.css`, and `theme.ts`, and a
 ## 8. Logo rule
 
 - **Canonical mark:** `packages/ui/src/components/Logo.tsx` — the theme-aware `currentColor` "horizon" SVG. It fades transparent→`currentColor`, so on dark it renders white and on light it renders black with no asset swap. This is the single source for the brand mark.
-- **Mark-only (no wordmark).** The mark stands alone. `Logo`'s `withWordmark` prop should default to `false` (and call sites/tests updated in Phase 3); the `.oc-logo__word` styles are retained only as long as any caller passes `withWordmark`.
+- **Wordmark kept in chrome (decided).** The nav and login keep the mark **plus** the `open-cowork` wordmark (`Logo`'s `withWordmark` stays `true` by default). "Mark-only" means there is no separate wordmark *lockup asset*, and the bare circular mark is used where text doesn't fit (favicon, app icon, splash). The `.oc-logo__word` styles stay.
 - **Orphans deleted:** `public/logo_light.svg` and `public/logo_dark.svg` (root `public/`, runtime-unreferenced, ambiguously named by target-background) are removed. The doc-comment reference in `Logo.tsx` ("the project's `logo_light.svg` / `logo_dark.svg`") is updated to stop pointing at deleted files.
 - The inset logo ring is tokenized as `--shadow-ring` (§5.2) but remains a brand-mark detail, not a general elevation token.

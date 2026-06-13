@@ -40,6 +40,59 @@ textarea {
   border-radius: var(--radius-sm);
 }
 
+/* ---------- Typography ---------- */
+
+.oc-h1,
+.oc-h2,
+.oc-h3,
+.oc-h4 {
+  margin: 0;
+  font-family: var(--font-sans);
+  color: var(--color-text);
+}
+
+.oc-h1 {
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--lh-tight);
+  letter-spacing: -0.02em;
+}
+
+.oc-h2 {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--lh-tight);
+  letter-spacing: -0.015em;
+}
+
+.oc-h3 {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--lh-snug);
+  letter-spacing: -0.01em;
+}
+
+.oc-h4 {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--lh-snug);
+  letter-spacing: -0.005em;
+}
+
+.oc-caption {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.oc-text--muted {
+  color: var(--color-text-muted);
+}
+
+.oc-text--strong {
+  font-weight: var(--font-weight-semibold);
+}
+
 /* ---------- Logo ---------- */
 
 .oc-logo {

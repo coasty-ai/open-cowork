@@ -14,6 +14,12 @@
 export { Logo } from './components/Logo';
 export type { LogoProps } from './components/Logo';
 
+// Typography
+export { Heading } from './components/Heading';
+export type { HeadingProps, HeadingLevel } from './components/Heading';
+export { Text } from './components/Text';
+export type { TextProps, TextVariant } from './components/Text';
+
 // Primitives
 export { Button } from './components/Button';
 export type { ButtonProps, ButtonSize, ButtonVariant } from './components/Button';

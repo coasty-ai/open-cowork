@@ -55,8 +55,8 @@ export interface HeadingPreset {
 export const headings = {
   h1: { size: '3xl', lineHeight: 'tight', weight: 'bold', letterSpacing: -0.02 },
   h2: { size: '2xl', lineHeight: 'tight', weight: 'bold', letterSpacing: -0.015 },
-  h3: { size: 'lg', lineHeight: 'snug', weight: 'semibold', letterSpacing: -0.01 },
-  h4: { size: 'xl', lineHeight: 'snug', weight: 'semibold', letterSpacing: -0.005 },
+  h3: { size: 'xl', lineHeight: 'snug', weight: 'semibold', letterSpacing: -0.01 },
+  h4: { size: 'lg', lineHeight: 'snug', weight: 'semibold', letterSpacing: -0.005 },
   body: { size: 'base', lineHeight: 'normal', weight: 'normal', letterSpacing: 0 },
   bodyStrong: { size: 'base', lineHeight: 'normal', weight: 'semibold', letterSpacing: 0 },
   caption: { size: 'sm', lineHeight: 'normal', weight: 'normal', letterSpacing: 0 },
