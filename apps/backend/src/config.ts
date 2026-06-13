@@ -18,7 +18,27 @@ import { z } from 'zod';
 export const MOCK_BASE_URL = 'http://127.0.0.1:4010/v1';
 export const LIVE_BASE_URL = 'https://coasty.ai/v1';
 
-const COASTY_KEY_RE = /^(sk-coasty-(live|test)-[0-9a-fA-F]{8,}|cua_sk_[0-9a-fA-F]{8,})$/;
+/**
+ * The one canonical Coasty key shape. Exported so the runtime-config route can
+ * validate a user-supplied key with the EXACT same rule the boot path uses.
+ */
+export const COASTY_KEY_RE = /^(sk-coasty-(live|test)-[0-9a-fA-F]{8,}|cua_sk_[0-9a-fA-F]{8,})$/;
+
+/** The "mode" of a key, derived solely from its prefix. */
+export type CoastyKeyMode = 'live' | 'test' | 'legacy';
+
+/**
+ * Derive the key mode from its prefix, or null for anything that doesn't match a
+ * known prefix. Returns ONLY an enum — never the key value — so it is safe to
+ * surface in API responses/logs.
+ */
+export function keyMode(key: string | null | undefined): CoastyKeyMode | null {
+  if (!key) return null;
+  if (key.startsWith('sk-coasty-live-')) return 'live';
+  if (key.startsWith('sk-coasty-test-')) return 'test';
+  if (key.startsWith('cua_sk_')) return 'legacy';
+  return null;
+}
 
 const configSchema = z.object({
   /** Coasty API key — never logged, never returned by any route. */
@@ -64,6 +84,14 @@ export interface BackendConfig extends z.infer<typeof configSchema> {
    * the SSE ingestor + read-time reconcile — webhooks are an optimization.
    */
   webhookUrl: string | null;
+  /**
+   * The base URL the operator explicitly pinned via `COASTY_BASE_URL`, or null
+   * if none. Runtime key changes default to the LIVE base URL, but honor this
+   * override when present (e.g. pointing a runtime key at the local mock). Kept
+   * separate from `coastyBaseUrl` (which is the *resolved* boot URL) so the
+   * runtime-config path doesn't have to re-read `process.env`.
+   */
+  explicitBaseUrl: string | null;
 }
 
 const LOCAL_UPSTREAM_RE = /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d+)?(\/|$)/i;
@@ -80,7 +108,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): BackendConfig 
   // Demo mode: mint a sandbox key and point at the local mock unless the user
   // explicitly set a base URL.
   const coastyApiKey = rawKey ?? ephemeralSandboxKey();
-  const coastyBaseUrl = env.COASTY_BASE_URL?.trim() || (demoMode ? MOCK_BASE_URL : LIVE_BASE_URL);
+  const explicitBaseUrl = env.COASTY_BASE_URL?.trim() || null;
+  const coastyBaseUrl = explicitBaseUrl ?? (demoMode ? MOCK_BASE_URL : LIVE_BASE_URL);
 
   // Session secret is optional — auto-generate when absent so the one-key
   // setup needs nothing else.
@@ -124,5 +153,5 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): BackendConfig 
     );
   }
 
-  return { ...parsed.data, demoMode, sandbox, webhookUrl };
+  return { ...parsed.data, demoMode, sandbox, webhookUrl, explicitBaseUrl };
 }

@@ -151,6 +151,27 @@
   width: 320px;
   max-width: 90vw;
 }
+/* Optional Coasty-key setup block on the login screen (shown in demo mode). */
+.login-coasty {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border);
+}
+.login-coasty__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.login-coasty__title {
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-sm);
+}
+.login-coasty__ok {
+  color: var(--color-text-muted);
+}
 .form-actions {
   display: flex;
   align-items: center;

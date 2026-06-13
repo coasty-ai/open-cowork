@@ -1,6 +1,17 @@
 import { useEffect, useState } from 'react';
-import { Button, Card, ErrorState, Field, Icon, Spinner, Heading, Text } from '@open-cowork/ui';
+import {
+  Badge,
+  Button,
+  Card,
+  ErrorState,
+  Field,
+  Icon,
+  Spinner,
+  Heading,
+  Text,
+} from '@open-cowork/ui';
 import { getClient, useAuth } from '../store';
+import { formatApiError, type CoastyKeyStatus } from '../api/client';
 
 export function SettingsPage() {
   const client = getClient();
@@ -12,6 +23,12 @@ export function SettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [saved, setSaved] = useState(false);
+  // Coasty API key
+  const [keyStatus, setKeyStatus] = useState<CoastyKeyStatus | null>(null);
+  const [apiKey, setApiKey] = useState('');
+  const [keyPending, setKeyPending] = useState(false);
+  const [keySaved, setKeySaved] = useState(false);
+  const [keyError, setKeyError] = useState<string | null>(null);
 
   useEffect(() => {
     void (async () => {
@@ -23,7 +40,41 @@ export function SettingsPage() {
         setError(err instanceof Error ? err.message : 'Failed to load settings');
       }
     })();
+    void client
+      .coastyKeyStatus()
+      .then(setKeyStatus)
+      .catch(() => setKeyStatus(null));
   }, []);
+
+  const saveKey = async () => {
+    const key = apiKey.trim();
+    if (!key) return;
+    setKeyPending(true);
+    setKeySaved(false);
+    setKeyError(null);
+    try {
+      setKeyStatus(await client.setCoastyKey(key));
+      setApiKey('');
+      setKeySaved(true);
+    } catch (err) {
+      setKeyError(formatApiError(err));
+    } finally {
+      setKeyPending(false);
+    }
+  };
+
+  const removeKey = async () => {
+    setKeyPending(true);
+    setKeySaved(false);
+    setKeyError(null);
+    try {
+      setKeyStatus(await client.clearCoastyKey());
+    } catch (err) {
+      setKeyError(formatApiError(err));
+    } finally {
+      setKeyPending(false);
+    }
+  };
 
   const save = async () => {
     if (budget === null || !user || !token) return;
@@ -45,39 +96,101 @@ export function SettingsPage() {
     }
   };
 
-  if (error) return <ErrorState message={error} />;
-  if (budget === null) return <Spinner aria-label="Loading settings" />;
-
   return (
     <>
       <Heading level={1}>Settings</Heading>
       <Card>
         <Heading level={4}>Spending</Heading>
+        {/* Spending load is independent of the Coasty-key card below — a failure
+            here must not hide key management. */}
+        {error ? (
+          <ErrorState message={error} />
+        ) : budget === null ? (
+          <Spinner aria-label="Loading settings" />
+        ) : (
+          <>
+            <Text variant="muted" as="p">
+              This month: ${((spend ?? 0) / 100).toFixed(2)}. Every billable action is checked
+              against your per-run budget cap server-side.
+            </Text>
+            <Field
+              label="Per-run budget cap (cents)"
+              hint="Hard ceiling for any single run or workflow"
+              required
+            >
+              {({ id }) => (
+                <input
+                  id={id}
+                  type="number"
+                  min={5}
+                  max={1000000}
+                  value={budget}
+                  onChange={(e) => setBudget(Number(e.target.value))}
+                />
+              )}
+            </Field>
+            <div className="form-actions">
+              <Button onClick={() => void save()} loading={pending}>
+                Save
+              </Button>
+              {saved ? (
+                <span className="saved-note" role="status">
+                  <Icon name="check" size={16} /> Saved
+                </span>
+              ) : null}
+            </div>
+          </>
+        )}
+      </Card>
+      <Card>
+        <div className="card-title-row">
+          <Heading level={4}>Coasty API key</Heading>
+          {keyStatus ? (
+            <Badge tone={keyStatus.demoMode ? 'neutral' : 'success'}>
+              {keyStatus.demoMode ? 'Demo mode' : `Connected · ${keyStatus.mode}`}
+            </Badge>
+          ) : null}
+        </div>
         <Text variant="muted" as="p">
-          This month: ${((spend ?? 0) / 100).toFixed(2)}. Every billable action is checked against
-          your per-run budget cap server-side.
+          {keyStatus?.demoMode
+            ? 'Running on a local sandbox with no real key — zero spend. Add your Coasty key to control real machines.'
+            : keyStatus
+              ? `Active key supplied via ${keyStatus.source === 'env' ? 'the environment' : 'this app'}. Your key is stored on the backend and never returned to the browser.`
+              : 'Your key is stored on the backend and never returned to the browser.'}
         </Text>
         <Field
-          label="Per-run budget cap (cents)"
-          hint="Hard ceiling for any single run or workflow"
-          required
+          label={keyStatus && !keyStatus.demoMode ? 'Replace API key' : 'Coasty API key'}
+          hint="Starts with sk-coasty-… — it stays on the backend"
+          error={keyError ?? undefined}
         >
-          {({ id }) => (
+          {({ id, describedBy, invalid }) => (
             <input
               id={id}
-              type="number"
-              min={5}
-              max={1000000}
-              value={budget}
-              onChange={(e) => setBudget(Number(e.target.value))}
+              aria-describedby={describedBy}
+              aria-invalid={invalid}
+              type="password"
+              autoComplete="off"
+              spellCheck={false}
+              value={apiKey}
+              onChange={(e) => {
+                setApiKey(e.target.value);
+                if (keyError) setKeyError(null);
+                if (keySaved) setKeySaved(false);
+              }}
+              placeholder="sk-coasty-…"
             />
           )}
         </Field>
         <div className="form-actions">
-          <Button onClick={() => void save()} loading={pending}>
-            Save
+          <Button onClick={() => void saveKey()} loading={keyPending} disabled={!apiKey.trim()}>
+            Save key
           </Button>
-          {saved ? (
+          {keyStatus?.source === 'runtime' ? (
+            <Button variant="secondary" onClick={() => void removeKey()} disabled={keyPending}>
+              Remove key
+            </Button>
+          ) : null}
+          {keySaved ? (
             <span className="saved-note" role="status">
               <Icon name="check" size={16} /> Saved
             </span>

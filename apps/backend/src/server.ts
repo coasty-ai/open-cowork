@@ -23,6 +23,11 @@ import { registerRunRoutes } from './routes/runs';
 import { registerWorkflowRoutes } from './routes/workflows';
 import { registerMachineRoutes } from './routes/machines';
 import { registerWebhookRoutes } from './routes/webhooks';
+import {
+  registerConfigRoutes,
+  resolveBootCredentials,
+  type CoastyCredentials,
+} from './routes/config';
 import { streamSse } from './sse';
 import { z } from 'zod';
 import {
@@ -51,15 +56,27 @@ export interface BuiltServer {
   bus: EventBus;
   coasty: CoastyClient;
   ingestor: Ingestor;
+  /**
+   * The live, mutable Coasty credentials the shared client resolves on every
+   * call. Runtime key changes mutate this in place. Exposed for tests/inspection
+   * — its `key` is a secret and must never be serialized to a client.
+   */
+  credentials: CoastyCredentials;
 }
 
 export function buildServer(deps: ServerDeps): BuiltServer {
   const { config } = deps;
   const db = new Db(config.dbPath);
   const bus = new EventBus();
+  // The one source of truth for the active Coasty credentials. Boot precedence:
+  // persisted runtime key > env key (when not demo) > demo (ephemeral + mock).
+  const credentials = resolveBootCredentials(config, db);
+  // Construct the single CoastyClient with GETTERS reading the cell, so the
+  // Ingestor and every route (which share this client) pick up a runtime key
+  // change on their next call — no restart, no reconstruction.
   const coasty = new CoastyClient({
-    baseUrl: config.coastyBaseUrl,
-    apiKey: config.coastyApiKey,
+    baseUrl: () => credentials.baseUrl,
+    apiKey: () => credentials.key,
     fetchImpl: deps.fetchImpl,
     timeoutMs: 60_000,
   });
@@ -92,10 +109,17 @@ export function buildServer(deps: ServerDeps): BuiltServer {
   void app.register(cors, { origin: true, exposedHeaders: ['Content-Type'] });
 
   // ── auth hook ───────────────────────────────────────────────────────────────
-  const PUBLIC_PATHS = new Set(['/api/auth/login', '/health']);
+  // GET /api/config/coasty-key is public so the login screen can show demo /
+  // configured state pre-auth. POST/DELETE on that path still require auth (the
+  // hook only exempts the path for non-mutating reads — see below).
+  const PUBLIC_PATHS = new Set(['/api/auth/login', '/health', '/api/config/coasty-key']);
   app.addHook('onRequest', async (request) => {
     const path = request.url.split('?')[0] ?? request.url;
-    if (PUBLIC_PATHS.has(path) || path.startsWith('/webhooks/')) return;
+    // The coasty-key status is public for GET only; POST/DELETE (mutations) must
+    // be authenticated even though the path is in PUBLIC_PATHS for reads.
+    const isPublic =
+      PUBLIC_PATHS.has(path) && !(path === '/api/config/coasty-key' && request.method !== 'GET');
+    if (isPublic || path.startsWith('/webhooks/')) return;
     if (!path.startsWith('/api/')) return;
     const header = request.headers.authorization;
     const token = header?.startsWith('Bearer ') ? header.slice(7) : undefined;
@@ -263,6 +287,7 @@ export function buildServer(deps: ServerDeps): BuiltServer {
   registerWorkflowRoutes(app, { config, db, bus, coasty, ingestor });
   registerMachineRoutes(app, { config, db, coasty });
   registerWebhookRoutes(app, { db, bus });
+  registerConfigRoutes(app, { config, db, credentials });
 
   // Resume ingestion for runs that were live when the server last stopped.
   app.addHook('onReady', async () => {
@@ -299,5 +324,5 @@ export function buildServer(deps: ServerDeps): BuiltServer {
     db.close();
   });
 
-  return { app, db, bus, coasty, ingestor };
+  return { app, db, bus, coasty, ingestor, credentials };
 }

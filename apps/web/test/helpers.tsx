@@ -32,6 +32,25 @@ export function stubClient(overrides: Stub = {}): BackendClient {
       monthSpendCents: 12,
     })),
     estimate: vi.fn(async () => ({ kind: 'run', cents: 125, breakdown: {} })),
+    coastyKeyStatus: vi.fn(async () => ({
+      configured: false,
+      mode: null as 'live' | 'test' | 'legacy' | null,
+      demoMode: true,
+      source: 'demo' as 'runtime' | 'env' | 'demo',
+    })),
+    setCoastyKey: vi.fn(async () => ({
+      ok: true as const,
+      configured: true,
+      mode: 'test' as 'live' | 'test' | 'legacy' | null,
+      demoMode: false,
+      source: 'runtime' as 'runtime' | 'env' | 'demo',
+    })),
+    clearCoastyKey: vi.fn(async () => ({
+      configured: false,
+      mode: null as 'live' | 'test' | 'legacy' | null,
+      demoMode: true,
+      source: 'demo' as 'runtime' | 'env' | 'demo',
+    })),
     listMachines: vi.fn(async () => ({
       machines: [
         {

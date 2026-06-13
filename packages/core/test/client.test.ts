@@ -189,6 +189,33 @@ describe('CoastyClient transport', () => {
   });
 });
 
+describe('CoastyClient dynamic credentials', () => {
+  it('resolves a function apiKey/baseUrl on every call (runtime rotation)', async () => {
+    const { fetchImpl, calls } = scriptedFetch([json({}), json({})]);
+    let key = 'sk-coasty-test-aaaaaaaa';
+    let base = 'https://first.test/v1';
+    const c = new CoastyClient({ baseUrl: () => base, apiKey: () => key, fetchImpl });
+
+    await c.models();
+    expect(calls[0]!.headers['X-API-Key']).toBe('sk-coasty-test-aaaaaaaa');
+    expect(calls[0]!.url).toBe('https://first.test/v1/models');
+
+    // Rotate without reconstructing — the next call must pick up both changes.
+    key = 'sk-coasty-live-bbbbbbbb';
+    base = 'https://second.test/v1';
+    await c.models();
+    expect(calls[1]!.headers['X-API-Key']).toBe('sk-coasty-live-bbbbbbbb');
+    expect(calls[1]!.url).toBe('https://second.test/v1/models');
+  });
+
+  it('strips trailing slashes from a function baseUrl too', async () => {
+    const { fetchImpl, calls } = scriptedFetch([json({})]);
+    const c = new CoastyClient({ baseUrl: () => `${BASE}///`, apiKey: () => KEY, fetchImpl });
+    await c.models();
+    expect(calls[0]!.url).toBe(`${BASE}/models`);
+  });
+});
+
 describe('CoastyClient retry policy', () => {
   const error503 = () =>
     json(

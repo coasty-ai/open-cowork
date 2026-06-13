@@ -139,7 +139,41 @@ export class Db {
         created_at TEXT NOT NULL,
         PRIMARY KEY (stream_kind, stream_id, seq)
       );
+      -- Generic single-row-per-key store for runtime configuration.
+      -- NOTE: the runtime Coasty API key is stored here in plaintext. This is
+      -- acceptable for the local single-user SQLite file (the same trust level
+      -- as the .env that already holds the key); it is write-only — no route
+      -- ever reads the value back out to a client (see routes/config.ts).
+      CREATE TABLE IF NOT EXISTS settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      );
     `);
+  }
+
+  // ── settings (generic key/value runtime config) ───────────────────────────────
+
+  /** Read a setting value, or undefined if unset. */
+  getSetting(key: string): string | undefined {
+    const row = this.sql.prepare('SELECT value FROM settings WHERE key = ?').get(key) as
+      | { value: string }
+      | undefined;
+    return row?.value;
+  }
+
+  /** Upsert a setting value. */
+  setSetting(key: string, value: string): void {
+    this.sql
+      .prepare(
+        `INSERT INTO settings (key, value) VALUES (?, ?)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+      )
+      .run(key, value);
+  }
+
+  /** Delete a setting (no-op if absent). */
+  deleteSetting(key: string): void {
+    this.sql.prepare('DELETE FROM settings WHERE key = ?').run(key);
   }
 
   close(): void {

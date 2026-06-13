@@ -56,10 +56,18 @@ import { parseSseStream } from './sse';
 export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
 export interface CoastyClientOptions {
-  /** e.g. `https://coasty.ai/v1` or the mock `http://127.0.0.1:4010/v1`. */
-  baseUrl: string;
-  /** API key. Backend-only — never construct a keyed client in browser code. */
-  apiKey: string;
+  /**
+   * Base URL, e.g. `https://coasty.ai/v1` or the mock `http://127.0.0.1:4010/v1`.
+   * May be a function resolved at call time so the backend can switch upstreams
+   * (e.g. demo → live) at runtime without reconstructing the client.
+   */
+  baseUrl: string | (() => string);
+  /**
+   * API key. Backend-only — never construct a keyed client in browser code.
+   * May be a function resolved per request so the backend can rotate the key at
+   * runtime (the next call picks up the new value, no restart).
+   */
+  apiKey: string | (() => string);
   /** Injectable fetch (tests, polyfills). Defaults to `globalThis.fetch`. */
   fetchImpl?: FetchLike;
   /** Per-request timeout. Default 60s. */
@@ -94,16 +102,21 @@ interface InternalRequestOptions extends RequestExtras {
 }
 
 export class CoastyClient {
-  private readonly baseUrl: string;
-  private readonly apiKey: string;
+  /** Static strings resolve once; functions resolve per call (runtime rotation). */
+  private readonly baseUrlFn: () => string;
+  private readonly apiKeyFn: () => string;
   private readonly fetchImpl: FetchLike;
   private readonly timeoutMs: number;
   private readonly retryOpts: CoastyClientOptions['retry'];
   private readonly defaultHeaders: Record<string, string>;
 
   constructor(opts: CoastyClientOptions) {
-    this.baseUrl = opts.baseUrl.replace(/\/+$/, '');
-    this.apiKey = opts.apiKey;
+    // Normalize both credential inputs to getters. Static strings stay fully
+    // backward compatible; functions are resolved fresh on every request so a
+    // runtime key/baseUrl change is picked up by the next call (no restart).
+    this.baseUrlFn =
+      typeof opts.baseUrl === 'function' ? opts.baseUrl : () => opts.baseUrl as string;
+    this.apiKeyFn = typeof opts.apiKey === 'function' ? opts.apiKey : () => opts.apiKey as string;
     this.fetchImpl = opts.fetchImpl ?? ((input, init) => globalThis.fetch(input, init));
     this.timeoutMs = opts.timeoutMs ?? 60_000;
     this.retryOpts = opts.retry;
@@ -112,8 +125,13 @@ export class CoastyClient {
 
   // ── transport ───────────────────────────────────────────────────────────────
 
+  /** Resolve the base URL at call time and strip any trailing slashes. */
+  private resolveBaseUrl(): string {
+    return this.baseUrlFn().replace(/\/+$/, '');
+  }
+
   private buildUrl(path: string, query?: Record<string, string | number | undefined>): string {
-    let url = `${this.baseUrl}${path}`;
+    let url = `${this.resolveBaseUrl()}${path}`;
     if (query) {
       const params = Object.entries(query)
         .filter((entry): entry is [string, string | number] => entry[1] !== undefined)
@@ -125,7 +143,8 @@ export class CoastyClient {
 
   private headers(extra?: Record<string, string>, hasBody = false): Record<string, string> {
     return {
-      'X-API-Key': this.apiKey,
+      // Resolved per request — a runtime key rotation takes effect on the next call.
+      'X-API-Key': this.apiKeyFn(),
       // Only declare a JSON body when one is sent — some servers (and
       // fastify's default parser) reject an empty application/json body.
       ...(hasBody ? { 'Content-Type': 'application/json' } : {}),

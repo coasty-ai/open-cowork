@@ -78,6 +78,18 @@ export interface EstimateDto {
   breakdown: Record<string, unknown>;
 }
 
+/**
+ * Whether a Coasty API key is configured on the backend, and in what mode.
+ * Carries NO secret — only the derived mode and where the active key came from.
+ * `demoMode` means the app is running on the bundled local sandbox (no real key).
+ */
+export interface CoastyKeyStatus {
+  configured: boolean;
+  mode: 'live' | 'test' | 'legacy' | null;
+  demoMode: boolean;
+  source: 'runtime' | 'env' | 'demo';
+}
+
 export class ApiError extends Error {
   override readonly name = 'ApiError';
   constructor(
@@ -214,9 +226,16 @@ export class BackendClient {
       } catch {
         // non-JSON error body
       }
-      // A stale/invalid session token: clear it and bounce to login. (Skip the
-      // login route itself, where a 401 is a normal credential rejection.)
-      if (res.status === 401 && !path.startsWith('/api/auth/')) {
+      // A stale/invalid SESSION token: clear it and bounce to login. (Skip the
+      // login route, where a 401 is a normal credential rejection — and skip a
+      // rejected COASTY key, which surfaces as 401 INVALID_API_KEY: that means
+      // "fix your Coasty key", not "your session expired", so we keep the
+      // session and let the UI prompt re-setup.)
+      if (
+        res.status === 401 &&
+        !path.startsWith('/api/auth/') &&
+        body.error?.code !== 'INVALID_API_KEY'
+      ) {
         this.onUnauthorized?.();
       }
       throw new ApiError(
@@ -242,6 +261,21 @@ export class BackendClient {
   }
   estimate(body: Record<string, unknown>): Promise<EstimateDto> {
     return this.request('/api/estimate', { method: 'POST', body: JSON.stringify(body) });
+  }
+
+  // Coasty API key configuration. The key is write-only — the backend never
+  // returns it; the status carries only the derived mode (see CoastyKeyStatus).
+  coastyKeyStatus(): Promise<CoastyKeyStatus> {
+    return this.request('/api/config/coasty-key');
+  }
+  setCoastyKey(apiKey: string): Promise<CoastyKeyStatus & { ok: true }> {
+    return this.request('/api/config/coasty-key', {
+      method: 'POST',
+      body: JSON.stringify({ apiKey }),
+    });
+  }
+  clearCoastyKey(): Promise<CoastyKeyStatus> {
+    return this.request('/api/config/coasty-key', { method: 'DELETE' });
   }
 
   // runs
