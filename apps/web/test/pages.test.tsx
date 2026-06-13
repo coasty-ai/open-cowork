@@ -163,7 +163,7 @@ describe('HomePage (delegate flow)', () => {
     const taskBox = await screen.findByLabelText(/task/i);
     await userEvent.type(taskBox, 'Download the invoices');
     await userEvent.selectOptions(screen.getByRole('combobox'), 'm1');
-    await userEvent.click(screen.getByRole('button', { name: /delegate|run|start|submit/i }));
+    await userEvent.click(screen.getByRole('button', { name: /delegate|run|start|submit|send/i }));
 
     // Confirm modal: nothing started yet.
     expect(client.createRun).not.toHaveBeenCalled();
@@ -193,7 +193,7 @@ describe('HomePage (delegate flow)', () => {
     renderHome();
     await userEvent.type(await screen.findByLabelText(/task/i), 'big job');
     await userEvent.selectOptions(screen.getByRole('combobox'), 'm1');
-    await userEvent.click(screen.getByRole('button', { name: /delegate|run|start|submit/i }));
+    await userEvent.click(screen.getByRole('button', { name: /delegate|run|start|submit|send/i }));
     await userEvent.click(await screen.findByRole('button', { name: /start run/i }));
     expect(await screen.findByText(/exceeds the budget cap/)).toBeInTheDocument();
   });

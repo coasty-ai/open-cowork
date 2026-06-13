@@ -464,6 +464,13 @@ textarea {
   font-size: var(--font-size-sm);
 }
 
+/* Square icon-only button (shadcn `icon` size) — e.g. a composer send affordance. */
+.oc-button--icon {
+  width: var(--control-height);
+  height: var(--control-height);
+  padding: 0;
+}
+
 .oc-button--primary {
   background: var(--primary);
   color: var(--primary-foreground);
@@ -1192,59 +1199,104 @@ textarea {
 
 /* ---------- TaskComposer ---------- */
 
-.oc-task-composer {
+/* Chat-style composer: one rounded, softly-elevated box. The textarea is the
+   focal input (auto-grows via JS); the machine selector sits inside bottom-left
+   and the send affordance bottom-right. */
+.oc-composer {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-}
-
-.oc-task-composer__label {
-  font-size: var(--font-size-base);
-  font-weight: var(--font-weight-semibold);
-}
-
-.oc-task-composer textarea,
-.oc-task-composer select {
+  width: 100%;
+  text-align: left;
   background: var(--color-surface-raised);
   border: 1px solid var(--input);
-  border-radius: var(--radius-md);
-  padding: var(--space-2) var(--space-3);
-  color: var(--color-text);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3);
+  box-shadow: var(--shadow-sm);
   transition:
     border-color var(--oc-duration) var(--oc-ease),
     box-shadow var(--oc-duration) var(--oc-ease);
 }
 
-.oc-task-composer textarea {
-  min-height: 5rem;
-  resize: vertical;
-}
-
-.oc-task-composer select {
-  height: var(--control-height);
-}
-
-.oc-task-composer textarea:hover:not(:disabled),
-.oc-task-composer select:hover:not(:disabled) {
-  border-color: var(--color-text-muted);
-}
-
-.oc-task-composer textarea:focus-visible,
-.oc-task-composer select:focus-visible {
-  outline: none;
+/* Focus rings the whole box (the textarea itself is borderless). It is the
+   single focus indicator for the box's controls — so the inner select and send
+   button suppress their own rings (below) to avoid a double ring. */
+.oc-composer:focus-within {
   border-color: var(--ring);
   box-shadow: 0 0 0 var(--focus-ring-width) var(--ring);
 }
 
-.oc-task-composer textarea:disabled,
-.oc-task-composer select:disabled {
+/* The send button relies on the box ring, like the select — no double ring. */
+.oc-composer .oc-button:focus-visible {
+  outline: none;
+}
+
+.oc-composer__input {
+  width: 100%;
+  border: none;
+  background: transparent;
+  resize: none;
+  outline: none;
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--font-size-md);
+  line-height: 1.5;
+  /* ~44px resting height — a comfortable, touch-friendly focal input. */
+  min-height: calc(var(--control-height) + var(--space-2));
+  /* The single source of the grow cap: JS sets height to scrollHeight and this
+     clamps the rendered height (then it scrolls). */
+  max-height: 240px;
+  overflow-y: auto;
+  padding: var(--space-1) var(--space-1) 0;
+}
+
+.oc-composer__input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.oc-composer__input:disabled {
   cursor: not-allowed;
   opacity: var(--disabled-opacity);
 }
 
-.oc-task-composer__footer {
+.oc-composer__toolbar {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  gap: var(--space-3);
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+/* Inline machine selector (bottom-left). The box's focus-within ring covers it,
+   so it doesn't carry its own ring. */
+.oc-composer__select {
+  height: var(--control-height-sm);
+  max-width: 16rem;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  padding: 0 var(--space-2);
+  cursor: pointer;
+  transition: border-color var(--oc-duration) var(--oc-ease);
+}
+
+.oc-composer__select:hover:not(:disabled) {
+  border-color: var(--color-text-muted);
+}
+
+.oc-composer__select:focus-visible {
+  outline: none;
+  border-color: var(--ring);
+}
+
+.oc-composer__select:disabled {
+  cursor: not-allowed;
+  opacity: var(--disabled-opacity);
+}
+
+.oc-composer__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
 }

@@ -14,19 +14,59 @@
 }
 .app-main {
   /* The single scroll container. Centres content but scrolls full-width so the
-     scrollbar sits at the viewport edge, not against the 1100px column. */
+     scrollbar sits at the viewport edge, not against the 1100px column. Flex
+     column so the inner can fill the height (lets pages centre vertically). */
   min-width: 0;
   height: 100%;
   overflow-y: auto;
   padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
 }
 .app-main__inner {
   max-width: var(--layout-max-width);
   width: 100%;
   margin: 0 auto;
+  /* Fill the main height when content is short (centring), grow past it when
+     content is tall (then .app-main scrolls). */
+  flex: 1 0 auto;
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+}
+
+/* Delegate: a centered, single-focus landing — brand + caption + composer. */
+.delegate {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-5);
+  padding: var(--space-6) 0;
+}
+.delegate__stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-6);
+  width: 100%;
+  /* Cap the composer width on large screens so it doesn't stretch full-width. */
+  max-width: 40rem;
+  text-align: center;
+}
+.delegate__header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+}
+.delegate__caption {
+  margin: 0;
+  max-width: 34rem;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-md);
+  line-height: 1.5;
 }
 .run-title {
   word-break: break-word;

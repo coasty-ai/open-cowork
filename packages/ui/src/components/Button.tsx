@@ -16,8 +16,8 @@ export type ButtonVariant =
   /** @deprecated use `destructive` */
   | 'danger';
 
-/** Size of a {@link Button}. */
-export type ButtonSize = 'sm' | 'md';
+/** Size of a {@link Button}. `icon` is a square, padding-free icon-only button. */
+export type ButtonSize = 'sm' | 'md' | 'icon';
 
 /** Props for {@link Button}. Extends native button attributes. */
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {

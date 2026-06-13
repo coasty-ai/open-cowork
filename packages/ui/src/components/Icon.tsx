@@ -17,7 +17,8 @@ export type IconName =
   | 'check'
   | 'sun'
   | 'moon'
-  | 'monitor';
+  | 'monitor'
+  | 'send';
 
 /** Props for {@link Icon}. */
 export interface IconProps {
@@ -126,6 +127,13 @@ const PATHS: Record<IconName, ReactNode> = {
     </>
   ),
   moon: <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />,
+  // Chat "send" — an up-arrow, the conventional submit affordance for a composer.
+  send: (
+    <>
+      <path d="m5 12 7-7 7 7" />
+      <path d="M12 19V5" />
+    </>
+  ),
   monitor: (
     <>
       <rect x="2" y="3" width="20" height="14" rx="2" />

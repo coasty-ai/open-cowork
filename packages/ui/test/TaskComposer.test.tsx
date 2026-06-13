@@ -13,13 +13,13 @@ describe('TaskComposer', () => {
     render(<TaskComposer options={options} onSubmit={() => undefined} />);
     expect(screen.getByLabelText('Task')).toBeInTheDocument();
     expect(screen.getByLabelText('Machine')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Submit' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
   });
 
   it('keeps Submit disabled until both task text and a machine are set', async () => {
     const user = userEvent.setup();
     render(<TaskComposer options={options} onSubmit={() => undefined} />);
-    const submit = screen.getByRole('button', { name: 'Submit' });
+    const submit = screen.getByRole('button', { name: 'Send' });
 
     await user.type(screen.getByLabelText('Task'), 'Download the latest invoice');
     expect(submit).toBeDisabled();
@@ -33,7 +33,7 @@ describe('TaskComposer', () => {
     render(<TaskComposer options={options} onSubmit={() => undefined} />);
     await user.selectOptions(screen.getByLabelText('Machine'), 'mch_test_1');
     await user.type(screen.getByLabelText('Task'), '   ');
-    expect(screen.getByRole('button', { name: 'Submit' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
   });
 
   it('submits the trimmed task and machine id', async () => {
@@ -43,7 +43,7 @@ describe('TaskComposer', () => {
 
     await user.type(screen.getByLabelText('Task'), '  Open the billing page  ');
     await user.selectOptions(screen.getByLabelText('Machine'), 'mch_test_2');
-    await user.click(screen.getByRole('button', { name: 'Submit' }));
+    await user.click(screen.getByRole('button', { name: 'Send' }));
 
     expect(onSubmit).toHaveBeenCalledTimes(1);
     expect(onSubmit).toHaveBeenCalledWith({
@@ -87,7 +87,7 @@ describe('TaskComposer', () => {
     render(<TaskComposer options={options} pending onSubmit={() => undefined} />);
     expect(screen.getByLabelText('Task')).toBeDisabled();
     expect(screen.getByLabelText('Machine')).toBeDisabled();
-    const submit = screen.getByRole('button', { name: /submit/i });
+    const submit = screen.getByRole('button', { name: /send/i });
     expect(submit).toBeDisabled();
     expect(submit).toHaveAttribute('aria-busy', 'true');
   });

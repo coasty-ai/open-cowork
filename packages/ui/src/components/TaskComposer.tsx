@@ -1,8 +1,9 @@
-import { useId, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { cx } from '../cx';
 import { Button } from './Button';
 import { CostPill } from './CostPill';
+import { Icon } from './Icon';
 
 /** One selectable machine target. */
 export interface MachineOption {
@@ -34,10 +35,11 @@ export interface TaskComposerProps {
 }
 
 /**
- * Delegate-a-task form: task textarea, machine selector, optional cost
- * estimate pill, and a Submit button that stays disabled until both a
- * non-empty task and a machine are present. Ctrl+Enter submits from the
- * textarea.
+ * Delegate-a-task composer styled as a single chat input: an auto-growing task
+ * textarea is the focal element, with the machine selector inline at the bottom
+ * left and a send button at the bottom right. Submit stays disabled until both a
+ * non-empty task and a machine are present. Ctrl/Cmd+Enter submits from the
+ * textarea (Enter inserts a newline).
  */
 export function TaskComposer({
   options,
@@ -49,10 +51,19 @@ export function TaskComposer({
 }: TaskComposerProps) {
   const [task, setTask] = useState('');
   const [machineId, setMachineId] = useState(defaultMachineId ?? '');
-  const taskId = useId();
-  const machineSelectId = useId();
+  const taskRef = useRef<HTMLTextAreaElement>(null);
 
   const canSubmit = task.trim().length > 0 && machineId !== '' && !pending;
+
+  // Auto-grow the textarea with its content. The CSS `max-height` on
+  // `.oc-composer__input` is the single source of the grow cap — it clamps the
+  // rendered height (then the textarea scrolls), so no px constant is needed here.
+  useEffect(() => {
+    const el = taskRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }, [task]);
 
   const submit = () => {
     if (!canSubmit) return;
@@ -60,7 +71,8 @@ export function TaskComposer({
   };
 
   const onTaskKeyDown = (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
-    if (event.key === 'Enter' && event.ctrlKey) {
+    // Ctrl/Cmd+Enter submits; a plain Enter inserts a newline (multi-line task).
+    if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
       event.preventDefault();
       submit();
     }
@@ -68,44 +80,53 @@ export function TaskComposer({
 
   return (
     <form
-      className={cx('oc-task-composer', className)}
+      className={cx('oc-composer', className)}
       onSubmit={(event) => {
         event.preventDefault();
         submit();
       }}
     >
-      <label className="oc-task-composer__label" htmlFor={taskId}>
-        Task
-      </label>
       <textarea
-        id={taskId}
+        ref={taskRef}
+        className="oc-composer__input"
+        aria-label="Task"
+        rows={1}
         value={task}
         disabled={pending}
-        placeholder="Describe what the agent should do"
+        placeholder="Describe a task to delegate…"
         onChange={(event) => setTask(event.target.value)}
         onKeyDown={onTaskKeyDown}
       />
-      <label className="oc-task-composer__label" htmlFor={machineSelectId}>
-        Machine
-      </label>
-      <select
-        id={machineSelectId}
-        value={machineId}
-        disabled={pending}
-        onChange={(event) => setMachineId(event.target.value)}
-      >
-        <option value="">Select a machine</option>
-        {options.map((option) => (
-          <option key={option.id} value={option.id}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-      <div className="oc-task-composer__footer">
-        {estimateCents !== undefined ? <CostPill cents={estimateCents} variant="estimate" /> : null}
-        <Button type="submit" variant="primary" loading={pending} disabled={!canSubmit}>
-          Submit
-        </Button>
+      <div className="oc-composer__toolbar">
+        <select
+          className="oc-composer__select"
+          aria-label="Machine"
+          value={machineId}
+          disabled={pending}
+          onChange={(event) => setMachineId(event.target.value)}
+        >
+          <option value="">Select a machine</option>
+          {options.map((option) => (
+            <option key={option.id} value={option.id}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        <div className="oc-composer__actions">
+          {estimateCents !== undefined ? (
+            <CostPill cents={estimateCents} variant="estimate" />
+          ) : null}
+          <Button
+            type="submit"
+            variant="primary"
+            size="icon"
+            loading={pending}
+            disabled={!canSubmit}
+            aria-label="Send"
+          >
+            {pending ? null : <Icon name="send" />}
+          </Button>
+        </div>
       </div>
     </form>
   );

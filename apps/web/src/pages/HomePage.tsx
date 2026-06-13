@@ -1,26 +1,24 @@
 /**
- * Delegate a task: compose → see the server-computed worst-case estimate →
- * explicitly confirm the cost → run starts → jump to the live run view.
- * On desktop, a "This computer" target runs the LocalExecutor loop instead.
+ * Delegate a task: a clean, centered single-focus composer. Compose → see the
+ * server-computed worst-case estimate → explicitly confirm the cost → run starts
+ * → jump to the live run view. On desktop, a "This computer" target runs the
+ * LocalExecutor loop instead.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import {
   Button,
-  Card,
   CostPill,
   EmptyState,
   ErrorState,
   Icon,
+  Logo,
   Modal,
-  RunStatusBadge,
   Spinner,
   TaskComposer,
-  type RunStatus,
-  Heading,
 } from '@open-cowork/ui';
 import { getClient } from '../store';
-import { formatApiError, type MachineDto, type RunDto } from '../api/client';
+import { formatApiError, type MachineDto } from '../api/client';
 
 const LOCAL_TARGET_ID = '__local__';
 
@@ -28,7 +26,6 @@ export function HomePage() {
   const client = getClient();
   const navigate = useNavigate();
   const [machines, setMachines] = useState<MachineDto[] | null>(null);
-  const [runs, setRuns] = useState<RunDto[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [pendingTask, setPendingTask] = useState<{ task: string; machineId: string } | null>(null);
   const [estimateCents, setEstimateCents] = useState<number | undefined>(undefined);
@@ -40,13 +37,11 @@ export function HomePage() {
   const load = async () => {
     setLoadError(null);
     try {
-      const [machineRes, runRes, estimate] = await Promise.all([
+      const [machineRes, estimate] = await Promise.all([
         client.listMachines(),
-        client.listRuns(),
         client.estimate({ kind: 'run', maxSteps: 25 }),
       ]);
       setMachines(machineRes.machines);
-      setRuns(runRes.runs.slice(0, 8));
       setEstimateCents(estimate.cents);
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : 'Failed to load');
@@ -93,56 +88,54 @@ export function HomePage() {
     }
   };
 
-  if (loadError) return <ErrorState message={loadError} onRetry={() => void load()} />;
-  if (machines === null || runs === null) return <Spinner aria-label="Loading dashboard" />;
+  // Pre-content states center in the same frame as the loaded composer, so the
+  // page's centered language holds while loading / on error.
+  if (loadError)
+    return (
+      <div className="delegate">
+        <ErrorState message={loadError} onRetry={() => void load()} />
+      </div>
+    );
+  if (machines === null)
+    return (
+      <div className="delegate">
+        <Spinner aria-label="Loading" />
+      </div>
+    );
 
   return (
     <>
-      <div className="page-header">
-        <Heading level={1}>Delegate a task</Heading>
-        {estimateCents !== undefined ? <CostPill cents={estimateCents} variant="estimate" /> : null}
-      </div>
+      <div className="delegate">
+        <div className="delegate__stack">
+          <div className="delegate__header">
+            <Logo size={44} />
+            <p className="delegate__caption">
+              Describe a task in plain language and delegate it to your agent.
+            </p>
+          </div>
 
-      {options.length === 0 ? (
-        <EmptyState
-          title="No machine to run on"
-          description="Provision a cloud machine first — the agent needs a screen to work on."
-          action={
-            <Button onClick={() => navigate('/machines')} variant="primary">
-              Go to Machines
-            </Button>
-          }
-        />
-      ) : (
-        <Card>
-          <TaskComposer
-            options={options}
-            estimateCents={estimateCents}
-            pending={submitting}
-            onSubmit={(payload) =>
-              setPendingTask({ task: payload.task, machineId: payload.machineId })
-            }
-          />
-        </Card>
-      )}
-
-      <Heading level={2}>Recent runs</Heading>
-      {runs.length === 0 ? (
-        <EmptyState
-          title="No runs yet"
-          description="Delegate your first task above to see it here."
-        />
-      ) : (
-        <div className="stack" data-testid="recent-runs">
-          {runs.map((run) => (
-            <Link className="run-row" to={`/runs/${run.id}`} key={run.id}>
-              <RunStatusBadge status={run.status as RunStatus} />
-              <span className="run-row__task">{run.task}</span>
-              <CostPill cents={run.costCents} variant="actual" />
-            </Link>
-          ))}
+          {options.length === 0 ? (
+            <EmptyState
+              title="No machine to run on"
+              description="Provision a cloud machine first — the agent needs a screen to work on."
+              action={
+                <Button onClick={() => navigate('/machines')} variant="primary">
+                  Go to Machines
+                </Button>
+              }
+            />
+          ) : (
+            <TaskComposer
+              options={options}
+              estimateCents={estimateCents}
+              pending={submitting}
+              onSubmit={(payload) =>
+                setPendingTask({ task: payload.task, machineId: payload.machineId })
+              }
+            />
+          )}
         </div>
-      )}
+      </div>
 
       <Modal
         open={pendingTask !== null}
