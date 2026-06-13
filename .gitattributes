@@ -1,0 +1,19 @@
+# Normalize line endings to LF everywhere — keeps the Windows CI runner's
+# checkout consistent with Linux so `prettier --check` (endOfLine: lf) passes on
+# both. Without this, Windows' autocrlf rewrites every file to CRLF and prettier
+# flags the entire tree.
+* text=auto eol=lf
+
+# Binary assets — never touch line endings.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.svg text eol=lf
+*.woff binary
+*.woff2 binary
+
+# Lockfile stays LF.
+pnpm-lock.yaml text eol=lf

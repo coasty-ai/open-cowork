@@ -124,7 +124,10 @@ console.log(
 );
 console.log(`  backend     : ${BACKEND_URL}`);
 console.log(`  web         : ${wantWeb ? WEB_URL : 'skipped (--no-web)'}`);
-if (wantDesktop) console.log('  desktop     : Electron (local screen control) — launches when web + backend are up');
+if (wantDesktop)
+  console.log(
+    '  desktop     : Electron (local screen control) — launches when web + backend are up',
+  );
 console.log('  (Ctrl+C stops everything)\n');
 
 if (usesMock) run('mock', next(), ['--filter', '@open-cowork/mock-coasty', 'dev']);
@@ -137,11 +140,15 @@ if (wantDesktop) {
     const ok = (await waitForHttp(`${BACKEND_URL}/health`)) && (await waitForHttp(WEB_URL));
     if (shuttingDown) return;
     if (!ok) {
-      process.stderr.write('[desktop] backend/web did not come up — not launching the desktop app.\n');
+      process.stderr.write(
+        '[desktop] backend/web did not come up — not launching the desktop app.\n',
+      );
       shutdown(1);
       return;
     }
-    process.stdout.write('[desktop] launching the Electron window… (close it to stop everything)\n');
+    process.stdout.write(
+      '[desktop] launching the Electron window… (close it to stop everything)\n',
+    );
     run('desktop', next(), ['--filter', '@open-cowork/desktop', 'dev'], {
       COWORK_WEB_URL: WEB_URL,
       COWORK_BACKEND_URL: BACKEND_URL,
