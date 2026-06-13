@@ -62,6 +62,25 @@ test('desktop shell boots, exposes window.cowork, and offers the local target', 
     expect(bridge.hasCancel).toBe(true);
     expect(bridge.nodeLeak).toBe('undefined'); // no Node in the renderer
 
+    // Always-on-top is pinned on launch (queried in the real main process).
+    const onTopAtLaunch = await app.evaluate(({ BrowserWindow }) => {
+      const win = BrowserWindow.getAllWindows()[0];
+      return win ? win.isAlwaysOnTop() : null;
+    });
+    expect(onTopAtLaunch).toBe(true);
+
+    // …and re-asserted when the OS drops it: force it off, fire the real 'focus'
+    // handler, and confirm the guard pinned it back. (Exercises the actual
+    // main-process wiring; content protection has no getter, so it's manual.)
+    const reasserted = await app.evaluate(({ BrowserWindow }) => {
+      const win = BrowserWindow.getAllWindows()[0];
+      if (!win) return null;
+      win.setAlwaysOnTop(false);
+      (win as unknown as { emit(event: string): void }).emit('focus');
+      return win.isAlwaysOnTop();
+    });
+    expect(reasserted).toBe(true);
+
     // Sign in inside the desktop shell.
     await page.getByLabel(/email/i).fill(`desktop-${Date.now()}@example.com`);
     await page.getByRole('button', { name: /sign in/i }).click();

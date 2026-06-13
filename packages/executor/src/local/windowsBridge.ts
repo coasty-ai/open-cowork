@@ -6,7 +6,13 @@
  */
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { once } from 'node:events';
-import type { CaptureResult, MouseButton, NativeBridge, ScrollDirection } from './bridge';
+import type {
+  CaptureResult,
+  MouseButton,
+  NativeBridge,
+  ScreenRegion,
+  ScrollDirection,
+} from './bridge';
 
 /** The PowerShell daemon. Reads {id,op,args} JSON lines; writes {id,ok,data,error}. */
 const DAEMON_SCRIPT = String.raw`
@@ -81,14 +87,22 @@ while ($true) {
   try {
     switch ($req.op) {
       'capture' {
-        $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
-        $bmp = New-Object System.Drawing.Bitmap($bounds.Width, $bounds.Height)
+        # Capture the requested region (a specific monitor) when given, else the
+        # primary screen. Region coordinates are virtual-desktop physical pixels.
+        if ($null -ne $req.args.width -and $null -ne $req.args.height) {
+          $rx = [int]$req.args.x; $ry = [int]$req.args.y
+          $rw = [int]$req.args.width; $rh = [int]$req.args.height
+        } else {
+          $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+          $rx = $b.X; $ry = $b.Y; $rw = $b.Width; $rh = $b.Height
+        }
+        $bmp = New-Object System.Drawing.Bitmap($rw, $rh)
         $g = [System.Drawing.Graphics]::FromImage($bmp)
-        $g.CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size)
+        $g.CopyFromScreen($rx, $ry, 0, 0, (New-Object System.Drawing.Size($rw, $rh)))
         $ms = New-Object System.IO.MemoryStream
         $bmp.Save($ms, [System.Drawing.Imaging.ImageFormat]::Png)
         $g.Dispose(); $bmp.Dispose()
-        $resp.data = @{ base64 = [Convert]::ToBase64String($ms.ToArray()); width = $bounds.Width; height = $bounds.Height }
+        $resp.data = @{ base64 = [Convert]::ToBase64String($ms.ToArray()); width = $rw; height = $rh }
         $ms.Dispose()
       }
       'screenSize' {
@@ -178,6 +192,8 @@ export interface WindowsBridgeOptions {
   /** Injectable for tests: alternate spawn (e.g. a fake daemon). */
   spawnImpl?: typeof spawn;
   powershellPath?: string;
+  /** Target monitor (physical px). When set, capture + input target it; else primary. */
+  region?: ScreenRegion;
 }
 
 export class WindowsBridge implements NativeBridge {
@@ -191,11 +207,21 @@ export class WindowsBridge implements NativeBridge {
   private readonly callTimeoutMs: number;
   private readonly spawnImpl: typeof spawn;
   private readonly powershellPath: string;
+  private readonly region?: ScreenRegion;
 
   constructor(opts: WindowsBridgeOptions = {}) {
     this.callTimeoutMs = opts.callTimeoutMs ?? 30_000;
     this.spawnImpl = opts.spawnImpl ?? spawn;
     this.powershellPath = opts.powershellPath ?? 'powershell.exe';
+    this.region = opts.region;
+  }
+
+  /** Virtual-desktop origin of the target region (0,0 for the primary screen). */
+  private get ox(): number {
+    return this.region?.x ?? 0;
+  }
+  private get oy(): number {
+    return this.region?.y ?? 0;
   }
 
   private async ensureStarted(): Promise<ChildProcessWithoutNullStreams> {
@@ -271,19 +297,21 @@ export class WindowsBridge implements NativeBridge {
   }
 
   async capture(): Promise<CaptureResult> {
-    return this.call<CaptureResult>('capture');
+    return this.call<CaptureResult>('capture', this.region ? { ...this.region } : {});
   }
 
   async screenSize(): Promise<{ width: number; height: number }> {
+    // The model's coordinates live in the captured region's space.
+    if (this.region) return { width: this.region.width, height: this.region.height };
     return this.call<{ width: number; height: number }>('screenSize');
   }
 
   async click(x: number, y: number, button: MouseButton, clicks: number): Promise<void> {
-    await this.call('click', { x, y, button, clicks });
+    await this.call('click', { x: x + this.ox, y: y + this.oy, button, clicks });
   }
 
   async moveMouse(x: number, y: number): Promise<void> {
-    await this.call('move', { x, y });
+    await this.call('move', { x: x + this.ox, y: y + this.oy });
   }
 
   async drag(
@@ -293,7 +321,13 @@ export class WindowsBridge implements NativeBridge {
     toY: number,
     button: MouseButton,
   ): Promise<void> {
-    await this.call('drag', { fromX, fromY, toX, toY, button });
+    await this.call('drag', {
+      fromX: fromX + this.ox,
+      fromY: fromY + this.oy,
+      toX: toX + this.ox,
+      toY: toY + this.oy,
+      button,
+    });
   }
 
   async typeText(text: string): Promise<void> {
@@ -309,7 +343,12 @@ export class WindowsBridge implements NativeBridge {
   }
 
   async scroll(direction: ScrollDirection, amount: number, x?: number, y?: number): Promise<void> {
-    await this.call('scroll', { direction, amount, x, y });
+    await this.call('scroll', {
+      direction,
+      amount,
+      x: x === undefined ? undefined : x + this.ox,
+      y: y === undefined ? undefined : y + this.oy,
+    });
   }
 
   /** Round-trip health check. */

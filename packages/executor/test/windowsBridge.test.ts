@@ -5,6 +5,7 @@
  * Windows AND when COWORK_NATIVE_SMOKE=1, so CI and other platforms skip it.
  */
 import { spawn } from 'node:child_process';
+import { EventEmitter } from 'node:events';
 import { afterEach, describe, expect, it } from 'vitest';
 import { pngDimensions, WindowsBridge } from '../src/index';
 
@@ -78,6 +79,98 @@ describe('WindowsBridge protocol (fake daemon)', () => {
     expect(await bridge.ping()).toBe(true);
     await bridge.dispose();
     expect(await bridge.ping()).toBe(true);
+  });
+});
+
+/**
+ * A fake child process that records every JSON request written to stdin and
+ * auto-replies, echoing the op + args back as the response data. Lets us assert
+ * the EXACT coordinates/region the daemon receives (the multi-monitor offset).
+ */
+function fakeDaemon() {
+  const sent: { op: string; args: Record<string, unknown> }[] = [];
+  const stdout = new EventEmitter() as EventEmitter & { setEncoding(): void };
+  stdout.setEncoding = () => undefined;
+  const proc = {
+    pid: 4321,
+    exitCode: null as number | null,
+    stdout,
+    stdin: {
+      write(payload: string, cb?: (err?: Error | null) => void) {
+        const req = JSON.parse(payload.trim()) as {
+          id: number;
+          op: string;
+          args: Record<string, unknown>;
+        };
+        sent.push({ op: req.op, args: req.args });
+        queueMicrotask(() =>
+          stdout.emit(
+            'data',
+            JSON.stringify({ id: req.id, ok: true, data: { op: req.op, args: req.args } }) + '\n',
+          ),
+        );
+        cb?.();
+        return true;
+      },
+      end() {},
+    },
+    on() {
+      return proc;
+    },
+    kill() {},
+  };
+  return { proc, sent };
+}
+
+describe('WindowsBridge — region targeting (multi-monitor fix)', () => {
+  // A 2560×1440 monitor to the RIGHT of a 1920-wide primary.
+  const REGION = { x: 1920, y: 0, width: 2560, height: 1440 };
+
+  function regionBridge() {
+    const { proc, sent } = fakeDaemon();
+    const bridge = new WindowsBridge({
+      region: REGION,
+      spawnImpl: (() => proc) as unknown as typeof spawn,
+    });
+    return { bridge, sent };
+  }
+
+  it('capture asks the daemon for exactly the target rect', async () => {
+    const { bridge, sent } = regionBridge();
+    await bridge.capture();
+    expect(sent.at(-1)).toEqual({ op: 'capture', args: REGION });
+  });
+
+  it('screenSize returns the region size without a daemon round-trip', async () => {
+    const { bridge, sent } = regionBridge();
+    expect(await bridge.screenSize()).toEqual({ width: 2560, height: 1440 });
+    expect(sent.some((s) => s.op === 'screenSize')).toBe(false);
+  });
+
+  it('click coordinates are offset by the region origin', async () => {
+    const { bridge, sent } = regionBridge();
+    await bridge.click(10, 20, 'left', 1);
+    expect(sent.at(-1)).toEqual({
+      op: 'click',
+      args: { x: 1930, y: 20, button: 'left', clicks: 1 },
+    });
+  });
+
+  it('drag + scroll coordinates are offset too', async () => {
+    const { bridge, sent } = regionBridge();
+    await bridge.drag(0, 0, 100, 50, 'left');
+    expect(sent.at(-1)!.args).toMatchObject({ fromX: 1920, fromY: 0, toX: 2020, toY: 50 });
+    await bridge.scroll('down', 3, 5, 5);
+    expect(sent.at(-1)!.args).toMatchObject({ x: 1925, y: 5 });
+  });
+
+  it('with no region, coordinates are unchanged and capture sends no rect', async () => {
+    const { proc, sent } = fakeDaemon();
+    const bridge = new WindowsBridge({ spawnImpl: (() => proc) as unknown as typeof spawn });
+    await bridge.capture();
+    expect(sent.at(-1)).toEqual({ op: 'capture', args: {} });
+    await bridge.click(10, 20, 'left', 1);
+    expect(sent.at(-1)!.args).toMatchObject({ x: 10, y: 20 });
   });
 });
 

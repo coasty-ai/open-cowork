@@ -27,7 +27,14 @@ export function HomePage() {
   const navigate = useNavigate();
   const [machines, setMachines] = useState<MachineDto[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [pendingTask, setPendingTask] = useState<{ task: string; machineId: string } | null>(null);
+  const [screens, setScreens] = useState<
+    { id: number; label: string; primary: boolean; current: boolean }[]
+  >([]);
+  const [pendingTask, setPendingTask] = useState<{
+    task: string;
+    machineId: string;
+    screenId?: string;
+  } | null>(null);
   const [estimateCents, setEstimateCents] = useState<number | undefined>(undefined);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -53,14 +60,33 @@ export function HomePage() {
     void load();
   }, []);
 
+  // Desktop: enumerate the monitors so the user can pick which screen the local
+  // agent drives (defaults to the screen the app window is on).
+  useEffect(() => {
+    if (!isDesktop || !window.cowork?.listScreens) return;
+    void window.cowork
+      .listScreens()
+      .then(setScreens)
+      .catch(() => setScreens([]));
+  }, [isDesktop]);
+
   const options = useMemo(() => {
     const cloud = (machines ?? [])
       .filter((m) => m.status === 'running')
       .map((m) => ({ id: m.id, label: `${m.display_name} (${m.os_type} cloud VM)` }));
     return isDesktop
-      ? [{ id: LOCAL_TARGET_ID, label: 'This computer (local screen)' }, ...cloud]
+      ? [{ id: LOCAL_TARGET_ID, label: 'This computer (local screen)', local: true }, ...cloud]
       : cloud;
   }, [machines, isDesktop]);
+
+  const screenOptions = useMemo(
+    () => screens.map((s) => ({ id: String(s.id), label: s.label })),
+    [screens],
+  );
+  const defaultScreenId = useMemo(() => {
+    const pick = screens.find((s) => s.current) ?? screens.find((s) => s.primary) ?? screens[0];
+    return pick ? String(pick.id) : undefined;
+  }, [screens]);
 
   const confirmAndStart = async () => {
     if (!pendingTask) return;
@@ -72,6 +98,8 @@ export function HomePage() {
         const { runId } = await window.cowork.startLocalRun({
           task: pendingTask.task,
           maxSteps: 25,
+          // The screen the user picked (undefined → the app window's screen).
+          displayId: pendingTask.screenId ? Number(pendingTask.screenId) : undefined,
         });
         navigate(`/runs/${runId}`);
         return;
@@ -128,8 +156,14 @@ export function HomePage() {
             <TaskComposer
               options={options}
               pending={submitting}
+              screenOptions={screenOptions}
+              defaultScreenId={defaultScreenId}
               onSubmit={(payload) =>
-                setPendingTask({ task: payload.task, machineId: payload.machineId })
+                setPendingTask({
+                  task: payload.task,
+                  machineId: payload.machineId,
+                  screenId: payload.screenId,
+                })
               }
             />
           )}

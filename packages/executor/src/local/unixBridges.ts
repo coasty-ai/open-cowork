@@ -13,7 +13,13 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
-import type { CaptureResult, MouseButton, NativeBridge, ScrollDirection } from './bridge';
+import type {
+  CaptureResult,
+  MouseButton,
+  NativeBridge,
+  ScreenRegion,
+  ScrollDirection,
+} from './bridge';
 import { WindowsBridge } from './windowsBridge';
 
 const exec = promisify(execFile);
@@ -39,6 +45,15 @@ export function pngDimensions(buf: Uint8Array): { width: number; height: number 
 }
 
 abstract class ShellBridge implements NativeBridge {
+  /** Target monitor (physical px). When set, capture + input target it; else the whole desktop. */
+  constructor(protected readonly region?: ScreenRegion) {}
+  /** Virtual-desktop origin of the target region (0,0 when none). */
+  protected get ox(): number {
+    return this.region?.x ?? 0;
+  }
+  protected get oy(): number {
+    return this.region?.y ?? 0;
+  }
   abstract capture(): Promise<CaptureResult>;
   abstract screenSize(): Promise<{ width: number; height: number }>;
   abstract click(x: number, y: number, button: MouseButton, clicks: number): Promise<void>;
@@ -69,7 +84,11 @@ export class DarwinBridge extends ShellBridge {
     const dir = await mkdtemp(join(tmpdir(), 'cowork-cap-'));
     const file = join(dir, 'screen.png');
     try {
-      await exec('screencapture', ['-x', '-t', 'png', file]);
+      // `-R x,y,w,h` captures just the target monitor's rect (global coords).
+      const args = this.region
+        ? [`-R${this.region.x},${this.region.y},${this.region.width},${this.region.height}`]
+        : [];
+      await exec('screencapture', [...args, '-x', '-t', 'png', file]);
       const buf = await readFile(file);
       const dims = pngDimensions(buf);
       return { base64: buf.toString('base64'), ...dims };
@@ -79,6 +98,7 @@ export class DarwinBridge extends ShellBridge {
   }
 
   async screenSize(): Promise<{ width: number; height: number }> {
+    if (this.region) return { width: this.region.width, height: this.region.height };
     const { stdout } = await exec('osascript', [
       '-e',
       'tell application "Finder" to get bounds of window of desktop',
@@ -92,11 +112,11 @@ export class DarwinBridge extends ShellBridge {
 
   async click(x: number, y: number, button: MouseButton, clicks: number): Promise<void> {
     const cmd = button === 'right' ? 'rc' : clicks >= 2 ? 'dc' : 'c';
-    await exec('cliclick', [`${cmd}:${x},${y}`]);
+    await exec('cliclick', [`${cmd}:${x + this.ox},${y + this.oy}`]);
   }
 
   async moveMouse(x: number, y: number): Promise<void> {
-    await exec('cliclick', [`m:${x},${y}`]);
+    await exec('cliclick', [`m:${x + this.ox},${y + this.oy}`]);
   }
 
   async drag(
@@ -106,7 +126,10 @@ export class DarwinBridge extends ShellBridge {
     toY: number,
     _button: MouseButton,
   ): Promise<void> {
-    await exec('cliclick', [`dd:${fromX},${fromY}`, `du:${toX},${toY}`]);
+    await exec('cliclick', [
+      `dd:${fromX + this.ox},${fromY + this.oy}`,
+      `du:${toX + this.ox},${toY + this.oy}`,
+    ]);
   }
 
   async typeText(text: string): Promise<void> {
@@ -182,13 +205,24 @@ export class DarwinBridge extends ShellBridge {
 
 export class LinuxBridge extends ShellBridge {
   async capture(): Promise<CaptureResult> {
-    // ImageMagick `import` writes PNG to stdout with `png:-`.
-    const stdout = await execBuffer('import', ['-window', 'root', 'png:-']);
+    // ImageMagick `import` writes PNG to stdout with `png:-`; `-crop` selects
+    // the target monitor's rect (+repage resets the virtual canvas to it).
+    const args = ['-window', 'root'];
+    if (this.region) {
+      args.push(
+        '-crop',
+        `${this.region.width}x${this.region.height}+${this.region.x}+${this.region.y}`,
+        '+repage',
+      );
+    }
+    args.push('png:-');
+    const stdout = await execBuffer('import', args);
     const dims = pngDimensions(stdout);
     return { base64: stdout.toString('base64'), ...dims };
   }
 
   async screenSize(): Promise<{ width: number; height: number }> {
+    if (this.region) return { width: this.region.width, height: this.region.height };
     const { stdout } = await exec('xdotool', ['getdisplaygeometry']);
     const [w, h] = stdout.trim().split(/\s+/).map(Number);
     return { width: w ?? 1920, height: h ?? 1080 };
@@ -199,8 +233,8 @@ export class LinuxBridge extends ShellBridge {
   async click(x: number, y: number, button: MouseButton, clicks: number): Promise<void> {
     await exec('xdotool', [
       'mousemove',
-      String(x),
-      String(y),
+      String(x + this.ox),
+      String(y + this.oy),
       'click',
       '--repeat',
       String(clicks),
@@ -209,7 +243,7 @@ export class LinuxBridge extends ShellBridge {
   }
 
   async moveMouse(x: number, y: number): Promise<void> {
-    await exec('xdotool', ['mousemove', String(x), String(y)]);
+    await exec('xdotool', ['mousemove', String(x + this.ox), String(y + this.oy)]);
   }
 
   async drag(
@@ -222,13 +256,13 @@ export class LinuxBridge extends ShellBridge {
     const b = LinuxBridge.BUTTONS[button];
     await exec('xdotool', [
       'mousemove',
-      String(fromX),
-      String(fromY),
+      String(fromX + this.ox),
+      String(fromY + this.oy),
       'mousedown',
       b,
       'mousemove',
-      String(toX),
-      String(toY),
+      String(toX + this.ox),
+      String(toY + this.oy),
       'mouseup',
       b,
     ]);
@@ -278,15 +312,26 @@ export class LinuxBridge extends ShellBridge {
   async scroll(direction: ScrollDirection, amount: number, x?: number, y?: number): Promise<void> {
     const BUTTON: Record<ScrollDirection, string> = { up: '4', down: '5', left: '6', right: '7' };
     const args: string[] = [];
-    if (x !== undefined && y !== undefined) args.push('mousemove', String(x), String(y));
+    if (x !== undefined && y !== undefined) {
+      args.push('mousemove', String(x + this.ox), String(y + this.oy));
+    }
     args.push('click', '--repeat', String(amount), BUTTON[direction]);
     await exec('xdotool', args);
   }
 }
 
+/** Options for {@link createNativeBridge}. */
+export interface NativeBridgeOptions {
+  /** Target monitor (physical px). When set, the local run captures + drives it. */
+  region?: ScreenRegion;
+}
+
 /** Pick the bridge for the current platform (Windows is the reference impl). */
-export function createNativeBridge(platform: NodeJS.Platform = process.platform): NativeBridge {
-  if (platform === 'darwin') return new DarwinBridge();
-  if (platform === 'linux') return new LinuxBridge();
-  return new WindowsBridge();
+export function createNativeBridge(
+  platform: NodeJS.Platform = process.platform,
+  opts: NativeBridgeOptions = {},
+): NativeBridge {
+  if (platform === 'darwin') return new DarwinBridge(opts.region);
+  if (platform === 'linux') return new LinuxBridge(opts.region);
+  return new WindowsBridge({ region: opts.region });
 }

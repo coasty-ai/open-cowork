@@ -75,6 +75,42 @@ best-effort). Be aware:
   cannot execute arbitrary code on your machine.
 - Run tasks you'd be comfortable doing yourself while sharing your screen.
 
+## Which screen a local run drives (multi-monitor)
+
+On a multi-monitor machine a local run captures **and** controls exactly one
+display. The composer shows a **Screen** selector beside the target selector
+whenever you pick "This computer" and have more than one monitor; it defaults to
+the screen the app window is currently on (not the primary). The flow:
+
+```text
+composer Screen picker -> startLocalRun({ displayId })  (preload IPC)
+  -> main resolveRegion(displayId): Electron screen.dipToScreenRect(display.bounds)
+       -> physical-pixel rect (correct across mixed-DPI monitors)
+  -> LocalRunManager.start({ region }) -> createNativeBridge(platform, { region })
+```
+
+The native bridge then captures only that rectangle and **offsets every input
+coordinate by the region origin**, so clicks land on the chosen monitor — fixing
+the old behaviour where capture + clicks were pinned to `PrimaryScreen`. With no
+choice (single monitor, or a non-desktop client) it falls back to the primary
+screen. Region capture is fully implemented on Windows (the reference bridge,
+`CopyFromScreen` of the rect + offset `SetCursorPos`); macOS (`screencapture -R`
++ offset `cliclick`) and Linux (`import -crop` + offset `xdotool`) are
+best-effort. The region geometry is unit-tested in `packages/executor`
+(`windowsBridge.test.ts`, `unixBridges.test.ts`) with fake daemons/`execFile`.
+
+### Manual checklist (multi-monitor capture)
+
+1. **Runs on the focused screen** — move the app window to the secondary
+   monitor, delegate a local task with the Screen selector left at its default →
+   the agent screenshots and clicks on **that** monitor, not the primary.
+2. **Explicit pick** — choose the other display in the Screen selector → capture
+   + clicks target it.
+3. **Mixed DPI** — with monitors at different scaling (100% + 150%), targeting
+   the scaled monitor lands clicks on the right spot (no offset/scale drift).
+4. **Negative-coordinate monitor** — a monitor to the left of / above the
+   primary (negative origin) is captured and clicked correctly.
+
 ## Multi-monitor window placement
 
 The window reopens **where you last closed it, on the monitor it was on** —
@@ -122,6 +158,62 @@ hardware (a laptop + one external monitor is enough for most rows):
    monitor**, not the primary.
 8. **Second-instance focus** — launch a second copy → the existing window
    focuses/restores on its current monitor (does not spawn a window elsewhere).
+
+## Privacy & visibility (capture-hiding + always-on-top)
+
+Two behaviours live in `src/windowGuard.ts` — a pure, Electron-free state
+machine (`WindowGuard`) the real `BrowserWindow` satisfies structurally, so the
+logic is exhaustively unit-tested without spawning a window. `main.ts` wires it
+to the real window/events; fail-safe is the rule — any error on the hide path
+leaves the window **visible**, never stuck invisible.
+
+1. **Hidden from screen capture.** `setContentProtection(true)` is applied on
+   launch (and re-applied on every `show`), so the window is excluded from
+   screenshots and recordings while staying fully visible to you. A global
+   hotkey — **`Ctrl/Cmd+Shift+H`** (override with `COWORK_HIDE_SHORTCUT`) —
+   additionally toggles a full hide → restore: the window's exact state
+   (bounds, maximized/fullscreen/minimized, focus, visibility) is snapshotted on
+   hide and re-applied on restore. It's a system-wide shortcut, so it brings a
+   hidden window back even when unfocused.
+2. **Always-on-top while running** at the `screen-saver` level, re-asserted on
+   `focus`/`blur`/`show`/`restore` (the OS occasionally drops the flag).
+
+### Per-platform behaviour — verify, don't assume
+
+| Behaviour            | Windows                              | macOS                                  | Linux                                       |
+| -------------------- | ------------------------------------ | -------------------------------------- | ------------------------------------------- |
+| Content protection   | `WDA_EXCLUDEFROMCAPTURE` (Win 10 2004+; older ≈ blanks in capture) | `NSWindowSharingNone` — excluded from capture | **Best-effort / often a no-op** — rely on the hide hotkey |
+| Always-on-top (screen-saver) | Above normal + most fullscreen | Survives Spaces/most fullscreen        | WM-dependent                                |
+| Global hide hotkey   | Works                                | Works                                  | Works (X11; Wayland may restrict globals)   |
+
+The hide hotkey is the cross-platform fallback precisely because Linux content
+protection is unreliable.
+
+### Manual checklist (OS-level — unit tests can't assert the pixels/stacking)
+
+1. **Screenshot excluded** — run the app, take a screenshot / start a screen
+   recording → the window is **absent/blank** in the capture but visible to you.
+   (Windows & macOS; on Linux expect it to appear — use the hotkey instead.)
+2. **Hotkey hide → restore** — press `Ctrl/Cmd+Shift+H`; the window vanishes;
+   take your screenshot; press again → it returns to the **exact** prior
+   position, size, mode, and focus.
+3. **Hotkey while unfocused / minimized** — focus another app (or minimize),
+   press the hotkey twice → hide then restore still work and end in the prior
+   state; the window is never stranded.
+4. **Rapid toggling** — mash the hotkey → no flicker-lock; always ends visible.
+5. **Always-on-top** — open other windows / a fullscreen app → the window stays
+   on top (where the OS allows); after clicking away and back it's still on top.
+6. **System dialogs** — trigger an OS dialog / the print or save sheet → it is
+   usable and not hidden behind the always-on-top window.
+7. **Quit while hidden** — hide via the hotkey, then quit → the process exits
+   cleanly with no leftover hidden/ghost window.
+8. **Multi-monitor restore** — hide on the secondary monitor, restore → returns
+   to that monitor; if that monitor was unplugged while hidden, it restores
+   on-screen (bounds are clamped to a live display).
+
+Integration coverage: `e2e/tests/desktop.spec.ts` asserts always-on-top is set
+on launch and re-asserted by the real `focus` handler in the Electron main
+process (content protection has no Electron getter, so it stays manual).
 
 ## Develop
 

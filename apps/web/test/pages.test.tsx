@@ -101,6 +101,7 @@ afterEach(() => {
   setClientForTests(null);
   useAuth.setState({ token: null, user: null });
   vi.restoreAllMocks();
+  delete (window as unknown as { cowork?: unknown }).cowork;
 });
 
 describe('LoginPage', () => {
@@ -217,6 +218,60 @@ describe('HomePage (delegate flow)', () => {
     );
     renderHome();
     expect(await screen.findByRole('alert')).toHaveTextContent(/offline/);
+  });
+});
+
+describe('HomePage — local run screen selector (desktop)', () => {
+  function installDesktopBridge() {
+    const startLocalRun = vi.fn(async () => ({ runId: 'r_local' }));
+    const listScreens = vi.fn(async () => [
+      { id: 11, label: 'Display 1 · 1920×1080 (primary)', primary: true, current: false },
+      { id: 22, label: 'Display 2 · 2560×1440', primary: false, current: true },
+    ]);
+    (window as unknown as { cowork?: unknown }).cowork = {
+      platform: 'desktop',
+      startLocalRun,
+      listScreens,
+    };
+    return { startLocalRun, listScreens };
+  }
+
+  it('offers a screen selector for the local target and runs on the chosen screen', async () => {
+    const { startLocalRun } = installDesktopBridge();
+    setClientForTests(stubClient());
+    renderHome();
+
+    // Pick the local "This computer" target.
+    await userEvent.click(await screen.findByRole('combobox', { name: 'Machine' }));
+    await userEvent.click(await screen.findByRole('option', { name: /this computer/i }));
+
+    // The screen selector appears (two monitors); choose Display 1 explicitly.
+    await userEvent.type(screen.getByLabelText(/task/i), 'tidy my downloads');
+    await userEvent.click(await screen.findByRole('combobox', { name: 'Screen' }));
+    await userEvent.click(await screen.findByRole('option', { name: /display 1/i }));
+
+    await userEvent.click(screen.getByRole('button', { name: /delegate|run|start|submit|send/i }));
+    await userEvent.click(await screen.findByRole('button', { name: /start run/i }));
+
+    await waitFor(() => expect(startLocalRun).toHaveBeenCalledTimes(1));
+    expect(startLocalRun).toHaveBeenCalledWith(
+      expect.objectContaining({ task: 'tidy my downloads', displayId: 11 }),
+    );
+    expect(await screen.findByText('run page')).toBeInTheDocument();
+  });
+
+  it('defaults to the screen the window is on when none is changed', async () => {
+    const { startLocalRun } = installDesktopBridge();
+    setClientForTests(stubClient());
+    renderHome();
+    await userEvent.click(await screen.findByRole('combobox', { name: 'Machine' }));
+    await userEvent.click(await screen.findByRole('option', { name: /this computer/i }));
+    await userEvent.type(screen.getByLabelText(/task/i), 'do a thing');
+    await userEvent.click(screen.getByRole('button', { name: /delegate|run|start|submit|send/i }));
+    await userEvent.click(await screen.findByRole('button', { name: /start run/i }));
+    await waitFor(() => expect(startLocalRun).toHaveBeenCalledTimes(1));
+    // The "current" screen (Display 2 = id 22) is the default.
+    expect(startLocalRun).toHaveBeenCalledWith(expect.objectContaining({ displayId: 22 }));
   });
 });
 

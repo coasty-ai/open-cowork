@@ -10,15 +10,27 @@
 import path from 'node:path';
 import os from 'node:os';
 import { existsSync } from 'node:fs';
-import { app, BrowserWindow, ipcMain, screen } from 'electron';
+import { app, BrowserWindow, globalShortcut, ipcMain, screen } from 'electron';
 import type { Display } from 'electron';
-import { createNativeBridge, LocalExecutor } from '@open-cowork/executor';
+import { createNativeBridge, LocalExecutor, type ScreenRegion } from '@open-cowork/executor';
 import { LocalRunManager } from './localRuns';
 import { ensureOnScreen, resolveWindowBounds, type DisplayLike } from './windowBounds';
 import { loadWindowState, saveWindowState } from './windowState';
+import { WindowGuard } from './windowGuard';
 
 const BACKEND_URL = process.env.COWORK_BACKEND_URL ?? 'http://127.0.0.1:4000';
 const WEB_URL = process.env.COWORK_WEB_URL ?? 'http://127.0.0.1:5173';
+
+// Privacy/visibility behaviours: always-on content protection (excluded from
+// screen capture), screen-saver-level always-on-top, and a global hotkey that
+// fully hides → restores the window for an off-the-record screenshot. The hide
+// shortcut is overridable for users whose default clashes.
+const HIDE_SHORTCUT = process.env.COWORK_HIDE_SHORTCUT ?? 'CommandOrControl+Shift+H';
+const guard = new WindowGuard({
+  level: 'screen-saver',
+  // A window hidden on a monitor that gets unplugged restores onto a live display.
+  clampBounds: (b) => ensureOnScreen(b, currentDisplays(), MIN_SIZE) ?? b,
+});
 
 /**
  * The renderer (web SPA) owns the backend session; each `cowork:local-run`
@@ -30,7 +42,10 @@ let sessionToken: string | null = null;
 const manager = new LocalRunManager({
   backendUrl: BACKEND_URL,
   getToken: () => sessionToken,
-  createExecutor: () => new LocalExecutor({ bridge: createNativeBridge(process.platform) }),
+  // The region (chosen monitor) reaches the native bridge so the run captures +
+  // drives that screen instead of always the primary one.
+  createExecutor: (opts) =>
+    new LocalExecutor({ bridge: createNativeBridge(process.platform, { region: opts?.region }) }),
   machineLabel: os.hostname() || 'local',
 });
 
@@ -58,6 +73,54 @@ function toDisplayLike(d: Display): DisplayLike {
 
 function currentDisplays(): DisplayLike[] {
   return screen.getAllDisplays().map(toDisplayLike);
+}
+
+/** The display the main window currently sits on (for the default screen target). */
+function windowDisplayId(): number {
+  const [win] = BrowserWindow.getAllWindows();
+  const d = win ? screen.getDisplayMatching(win.getBounds()) : screen.getPrimaryDisplay();
+  return d.id;
+}
+
+/** A friendly label for the screen selector, e.g. "Display 2 · 2560×1440 (primary)". */
+function screenLabel(d: Display, index: number, primaryId: number): string {
+  const name = d.label && d.label.trim() ? d.label : `Display ${index + 1}`;
+  const tag = d.id === primaryId ? ' (primary)' : '';
+  return `${name} · ${d.size.width}×${d.size.height}${tag}`;
+}
+
+/** The screens the user can target a local run at (renderer populates the selector). */
+function listScreens(): { id: number; label: string; primary: boolean; current: boolean }[] {
+  const displays = screen.getAllDisplays();
+  const primaryId = screen.getPrimaryDisplay().id;
+  const currentId = windowDisplayId();
+  return displays.map((d, i) => ({
+    id: d.id,
+    label: screenLabel(d, i, primaryId),
+    primary: d.id === primaryId,
+    current: d.id === currentId,
+  }));
+}
+
+/**
+ * Resolve a chosen display id to the physical-pixel rect the native bridge
+ * captures + drives. Falls back to the window's display, then the primary.
+ * `dipToScreenRect` converts Electron's DIP bounds to physical pixels correctly
+ * even across mixed-DPI monitors (a plain scaleFactor multiply would not).
+ */
+function resolveRegion(displayId?: number): ScreenRegion | undefined {
+  try {
+    const displays = screen.getAllDisplays();
+    const display =
+      (displayId !== undefined ? displays.find((d) => d.id === displayId) : undefined) ??
+      displays.find((d) => d.id === windowDisplayId()) ??
+      screen.getPrimaryDisplay();
+    const r = screen.dipToScreenRect(null, display.bounds);
+    return { x: r.x, y: r.y, width: r.width, height: r.height };
+  } catch {
+    // Fall back to the bridge's default (primary screen) rather than failing.
+    return undefined;
+  }
 }
 
 /**
@@ -114,6 +177,15 @@ function createWindow(): BrowserWindow {
   if (saved?.fullScreen) win.setFullScreen(true);
   else if (saved?.maximized) win.maximize();
 
+  // Privacy/visibility: exclude from screen capture + pin always-on-top, and
+  // re-assert on show/focus/blur/restore (the OS can drop always-on-top, and a
+  // restored window must regain both protections).
+  guard.applyProtections(win);
+  win.on('show', () => guard.applyProtections(win));
+  win.on('focus', () => guard.ensureAlwaysOnTop(win));
+  win.on('blur', () => guard.ensureAlwaysOnTop(win));
+  win.on('restore', () => guard.ensureAlwaysOnTop(win));
+
   // Remember placement: a debounced save on move/resize, and a final save on
   // close (covers a maximized/fullscreen window whose normal bounds just changed).
   let saveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -155,6 +227,8 @@ function createWindow(): BrowserWindow {
 interface StartPayload {
   task: string;
   maxSteps?: number;
+  /** Electron display id of the screen to run on (undefined → the window's screen). */
+  displayId?: number;
   token: string | null;
 }
 
@@ -167,8 +241,10 @@ function parseStartPayload(raw: unknown): StartPayload {
     typeof obj.maxSteps === 'number' && Number.isFinite(obj.maxSteps) && obj.maxSteps >= 1
       ? Math.floor(obj.maxSteps)
       : undefined;
+  const displayId =
+    typeof obj.displayId === 'number' && Number.isFinite(obj.displayId) ? obj.displayId : undefined;
   const token = typeof obj.token === 'string' && obj.token.length > 0 ? obj.token : null;
-  return { task, maxSteps, token };
+  return { task, maxSteps, displayId, token };
 }
 
 const gotLock = app.requestSingleInstanceLock();
@@ -188,10 +264,17 @@ if (!gotLock) {
     event.returnValue = { backendUrl: BACKEND_URL };
   });
 
+  // List the monitors the renderer's screen selector offers for a local run.
+  ipcMain.handle('cowork:list-screens', () => listScreens());
+
   ipcMain.handle('cowork:local-run', async (_event, rawInput: unknown) => {
     const input = parseStartPayload(rawInput);
     sessionToken = input.token;
-    return manager.start({ task: input.task, maxSteps: input.maxSteps });
+    return manager.start({
+      task: input.task,
+      maxSteps: input.maxSteps,
+      region: resolveRegion(input.displayId),
+    });
   });
 
   ipcMain.handle('cowork:cancel-local-run', async () => {
@@ -220,6 +303,19 @@ if (!gotLock) {
     screen.on('display-added', reclampAll);
     screen.on('display-metrics-changed', reclampAll);
 
+    // Global hotkey to hide → restore the window for an off-the-record
+    // screenshot (works even when the window is hidden/unfocused, since it is a
+    // system-wide shortcut — that's how the user gets a hidden window back).
+    const registered = globalShortcut.register(HIDE_SHORTCUT, () => {
+      const [win] = BrowserWindow.getAllWindows();
+      if (win) guard.toggle(win);
+    });
+    if (!registered) {
+      console.warn(
+        `[desktop] could not register hide shortcut "${HIDE_SHORTCUT}" (already in use)`,
+      );
+    }
+
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow();
     });
@@ -232,5 +328,12 @@ if (!gotLock) {
   app.on('before-quit', () => {
     // Best-effort: abort an in-flight local run so it is mirrored 'cancelled'.
     void manager.cancel();
+    // Never quit with a window left hidden — un-hide it so nothing is stranded.
+    const [win] = BrowserWindow.getAllWindows();
+    if (win) guard.releaseForQuit(win);
+  });
+
+  app.on('will-quit', () => {
+    globalShortcut.unregisterAll();
   });
 }

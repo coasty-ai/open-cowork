@@ -80,6 +80,7 @@ export type { WalletCardProps } from './components/WalletCard';
 export { TaskComposer } from './components/TaskComposer';
 export type {
   MachineOption,
+  SelectOption,
   TaskComposerProps,
   TaskComposerSubmit,
 } from './components/TaskComposer';

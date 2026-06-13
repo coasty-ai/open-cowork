@@ -525,3 +525,47 @@ describe('LocalRunManager — event batching', () => {
     expect(backend.mirrored().at(-1)!.type).toBe('done');
   });
 });
+
+describe('LocalRunManager — screen region', () => {
+  it('passes the chosen screen region through to the executor factory', async () => {
+    const { executor } = fakeExecutor();
+    const backend = fakeBackend();
+    let receivedRegion: unknown = 'unset';
+    const manager = new LocalRunManager({
+      backendUrl: 'http://backend.test',
+      getToken: () => 'tok_1',
+      createExecutor: (opts) => {
+        receivedRegion = opts?.region;
+        return executor;
+      },
+      fetchImpl: backend.fetchImpl,
+      settleMs: 0,
+      machineLabel: 'test-machine',
+    });
+    const region = { x: 1920, y: 0, width: 2560, height: 1440 };
+    await manager.start({ task: 'run on the second screen', maxSteps: 3, region });
+    await manager.whenIdle();
+    expect(receivedRegion).toEqual(region);
+  });
+
+  it('omits the region when none is chosen (bridge falls back to primary)', async () => {
+    const { executor } = fakeExecutor();
+    const backend = fakeBackend();
+    let received: { region?: unknown } | undefined | 'unset' = 'unset';
+    const manager = new LocalRunManager({
+      backendUrl: 'http://backend.test',
+      getToken: () => 'tok_1',
+      createExecutor: (opts) => {
+        received = opts;
+        return executor;
+      },
+      fetchImpl: backend.fetchImpl,
+      settleMs: 0,
+      machineLabel: 'test-machine',
+    });
+    await manager.start({ task: 'no screen chosen', maxSteps: 3 });
+    await manager.whenIdle();
+    expect(received).not.toBe('unset');
+    expect((received as { region?: unknown }).region).toBeUndefined();
+  });
+});

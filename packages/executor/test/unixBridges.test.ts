@@ -451,3 +451,75 @@ describe('pngDimensions extra edge cases', () => {
     expect(pngDimensions(view)).toEqual({ width: 12, height: 34 });
   });
 });
+
+describe('region targeting — capture + input offset (multi-monitor fix)', () => {
+  // A 2560×1440 monitor to the RIGHT of a 1920-wide primary.
+  const REGION = { x: 1920, y: 0, width: 2560, height: 1440 };
+
+  describe('DarwinBridge', () => {
+    let bridge: DarwinBridge;
+    beforeEach(() => {
+      bridge = new DarwinBridge(REGION);
+    });
+
+    it('capture grabs only the target rect (-R x,y,w,h)', async () => {
+      fsState.fileBuffer = tinyPng(2560, 1440);
+      const shot = await bridge.capture();
+      expect(onlyCall().args[0]).toBe('-R1920,0,2560,1440');
+      expect(shot).toMatchObject({ width: 2560, height: 1440 });
+    });
+
+    it('screenSize is the region size (no shell call)', async () => {
+      expect(await bridge.screenSize()).toEqual({ width: 2560, height: 1440 });
+      expect(h.calls).toHaveLength(0);
+    });
+
+    it('click is offset by the region origin', async () => {
+      await bridge.click(10, 20, 'left', 1);
+      expect(onlyCall()).toEqual({ cmd: 'cliclick', args: ['c:1930,20'] });
+    });
+
+    it('drag endpoints are both offset', async () => {
+      await bridge.drag(0, 0, 100, 50, 'left');
+      expect(onlyCall().args).toEqual(['dd:1920,0', 'du:2020,50']);
+    });
+  });
+
+  describe('LinuxBridge', () => {
+    let bridge: LinuxBridge;
+    beforeEach(() => {
+      bridge = new LinuxBridge(REGION);
+    });
+
+    it('capture crops to the target rect (WxH+X+Y +repage)', async () => {
+      h.setResponder(() => tinyPng(2560, 1440));
+      const shot = await bridge.capture();
+      expect(onlyCall().args).toEqual([
+        '-window',
+        'root',
+        '-crop',
+        '2560x1440+1920+0',
+        '+repage',
+        'png:-',
+      ]);
+      expect(shot).toMatchObject({ width: 2560, height: 1440 });
+    });
+
+    it('screenSize is the region size (no shell call)', async () => {
+      expect(await bridge.screenSize()).toEqual({ width: 2560, height: 1440 });
+      expect(h.calls).toHaveLength(0);
+    });
+
+    it('click moves to the offset coordinate', async () => {
+      await bridge.click(10, 20, 'left', 1);
+      expect(onlyCall().args.slice(0, 3)).toEqual(['mousemove', '1930', '20']);
+    });
+  });
+
+  it('createNativeBridge forwards the region to the platform bridge', () => {
+    const darwin = createNativeBridge('darwin', { region: REGION }) as DarwinBridge;
+    expect(darwin).toBeInstanceOf(DarwinBridge);
+    // The region drives screenSize without any shell call.
+    return expect(darwin.screenSize()).resolves.toEqual({ width: 2560, height: 1440 });
+  });
+});

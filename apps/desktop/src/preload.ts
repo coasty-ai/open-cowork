@@ -32,10 +32,20 @@ function readSessionToken(): string | null {
 contextBridge.exposeInMainWorld('cowork', {
   platform: 'desktop' as const,
   backendUrl: config.backendUrl,
-  startLocalRun: (input: { task: string; maxSteps?: number }): Promise<{ runId: string }> =>
+  startLocalRun: (input: {
+    task: string;
+    maxSteps?: number;
+    /** Electron display id of the screen to run on (from `listScreens`). */
+    displayId?: number;
+  }): Promise<{ runId: string }> =>
     ipcRenderer.invoke('cowork:local-run', { ...input, token: readSessionToken() }) as Promise<{
       runId: string;
     }>,
   cancelLocalRun: (): Promise<void> =>
     ipcRenderer.invoke('cowork:cancel-local-run') as Promise<void>,
+  /** The monitors a local run can target (for the screen selector). */
+  listScreens: (): Promise<{ id: number; label: string; primary: boolean; current: boolean }[]> =>
+    ipcRenderer.invoke('cowork:list-screens') as Promise<
+      { id: number; label: string; primary: boolean; current: boolean }[]
+    >,
 });

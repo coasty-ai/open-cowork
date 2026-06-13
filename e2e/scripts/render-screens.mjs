@@ -315,6 +315,34 @@ const SCREENS = [
   { name: 'home-mobile', path: '/', theme: 'dark', w: 390, h: 760 },
   // Desktop (Electron) variant — different subtitle + a local run target.
   { name: 'home-desktop', path: '/', theme: 'dark', w: 1280, h: 900, desktop: true },
+  // Desktop multi-monitor: pick "This computer" → the Screen selector appears.
+  {
+    name: 'home-screen-select',
+    path: '/',
+    theme: 'dark',
+    w: 1280,
+    h: 900,
+    desktop: true,
+    selectLocal: true,
+    screens: [
+      { id: 1, label: 'Display 1 · 1920×1080 (primary)', primary: true, current: false },
+      { id: 2, label: 'Display 2 · 2560×1440', primary: false, current: true },
+    ],
+  },
+  {
+    name: 'home-screen-select-light',
+    path: '/',
+    theme: 'light',
+    w: 1280,
+    h: 900,
+    desktop: true,
+    selectLocal: true,
+    openScreen: true,
+    screens: [
+      { id: 1, label: 'Display 1 · 1920×1080 (primary)', primary: true, current: false },
+      { id: 2, label: 'Display 2 · 2560×1440', primary: false, current: true },
+    ],
+  },
   // In-house machine dropdown, opened — both themes.
   { name: 'home-menu', path: '/', theme: 'dark', w: 1280, h: 900, openMachine: true },
   { name: 'home-menu-light', path: '/', theme: 'light', w: 1280, h: 900, openMachine: true },
@@ -395,10 +423,15 @@ try {
       }
     }, s.theme);
     if (s.desktop) {
-      await context.addInitScript(() => {
+      await context.addInitScript((screens) => {
         // eslint-disable-next-line no-undef
-        window.cowork = { platform: 'desktop' };
-      });
+        window.cowork = {
+          platform: 'desktop',
+          startLocalRun: async () => ({ runId: 'r1' }),
+          cancelLocalRun: async () => undefined,
+          listScreens: async () => screens ?? [],
+        };
+      }, s.screens ?? null);
     }
     if (s.manyRuns) {
       const many = Array.from({ length: 30 }, (_, i) =>
@@ -455,6 +488,17 @@ try {
     }
     if (s.openMachine) {
       await page.click('[role="combobox"][aria-label="Machine"]').catch(() => {});
+    }
+    if (s.selectLocal) {
+      // Choose the local "This computer" target so the Screen selector appears.
+      await page.click('[role="combobox"][aria-label="Machine"]').catch(() => {});
+      await page
+        .getByRole('option', { name: /this computer/i })
+        .click()
+        .catch(() => {});
+    }
+    if (s.openScreen) {
+      await page.click('[role="combobox"][aria-label="Screen"]').catch(() => {});
     }
     if (s.expandScreen) {
       // Let the first live frame land so the expand button is enabled.

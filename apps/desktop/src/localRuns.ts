@@ -25,7 +25,7 @@ import {
   type PredictStepResult,
   type SessionPredictResponse,
 } from '@open-cowork/core';
-import type { Executor } from '@open-cowork/executor';
+import type { Executor, ScreenRegion } from '@open-cowork/executor';
 
 /** One event row appended to the backend's run timeline. */
 export interface BackendRunEvent {
@@ -38,8 +38,11 @@ export interface LocalRunManagerDeps {
   backendUrl: string;
   /** Session token getter — on desktop the token arrives with each IPC call. */
   getToken: () => string | null;
-  /** Fresh executor per run (disposed when the run settles). */
-  createExecutor: () => Executor;
+  /**
+   * Fresh executor per run (disposed when the run settles). Receives the target
+   * screen region so the run drives the monitor the user picked, not the primary.
+   */
+  createExecutor: (opts?: { region?: ScreenRegion }) => Executor;
   fetchImpl?: typeof fetch;
   /** Pause between agent steps (default 500ms; tests pass 0). */
   settleMs?: number;
@@ -66,6 +69,8 @@ export interface LocalRunManagerDeps {
 export interface StartLocalRunInput {
   task: string;
   maxSteps?: number;
+  /** Physical-pixel rect of the monitor to drive (resolved by the desktop main). */
+  region?: ScreenRegion;
 }
 
 export type LocalRunListener = (event: AgentLoopEvent) => void;
@@ -138,7 +143,7 @@ export class LocalRunManager {
       this.flushTimer = null;
     }
 
-    const executor = this.deps.createExecutor();
+    const executor = this.deps.createExecutor({ region: input.region });
     let runId: string | null = null;
     try {
       const run = await this.api<{ id: string }>('/api/local-runs', 'POST', {

@@ -2,12 +2,21 @@ import { useEffect, useId, useRef, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { cx } from '../cx';
 import { Button } from './Button';
-import { Icon } from './Icon';
+import { Icon, type IconName } from './Icon';
 
-/** One selectable machine target. */
-export interface MachineOption {
+/** One selectable option (machine target or screen). */
+export interface SelectOption {
   id: string;
   label: string;
+}
+
+/** One selectable machine target. */
+export interface MachineOption extends SelectOption {
+  /**
+   * Marks the "this computer (local)" target. When the local target is selected
+   * and more than one screen is available, the screen selector is shown.
+   */
+  local?: boolean;
 }
 
 /** Payload emitted by {@link TaskComposer} on submit. */
@@ -16,6 +25,8 @@ export interface TaskComposerSubmit {
   task: string;
   /** Selected machine id. */
   machineId: string;
+  /** Selected screen id — only present for a local run with a screen choice. */
+  screenId?: string;
 }
 
 /** Props for {@link TaskComposer}. */
@@ -26,27 +37,42 @@ export interface TaskComposerProps {
   pending?: boolean;
   /** Pre-selected machine id. */
   defaultMachineId?: string;
-  /** Called with `{ task, machineId }` when the form is submitted. */
+  /**
+   * Screens a LOCAL run can target (desktop only). The selector appears only
+   * when the local target is selected and there is more than one screen.
+   */
+  screenOptions?: SelectOption[];
+  /** Pre-selected screen id (typically the display the app window is on). */
+  defaultScreenId?: string;
+  /** Called with `{ task, machineId, screenId? }` when the form is submitted. */
   onSubmit: (payload: TaskComposerSubmit) => void;
   className?: string;
 }
 
 /**
- * In-house machine selector: a sleek trigger + a custom popover listbox (no
- * native OS dropdown, so it looks identical in both themes). The combobox keeps
- * focus and points at the active option via `aria-activedescendant`. Keyboard:
- * ↑/↓ move, Enter/Space select, Escape closes; click-outside dismisses.
+ * In-house select: a sleek trigger + a custom popover listbox (no native OS
+ * dropdown, so it looks identical in both themes). The combobox keeps focus and
+ * points at the active option via `aria-activedescendant`. Keyboard: ↑/↓ move,
+ * Enter/Space select, Escape closes; click-outside dismisses.
  */
-function MachineSelect({
+function InlineSelect({
   options,
   value,
   onChange,
   disabled,
+  icon,
+  ariaLabel,
+  menuLabel,
+  placeholder,
 }: {
-  options: MachineOption[];
+  options: SelectOption[];
   value: string;
   onChange: (id: string) => void;
   disabled?: boolean;
+  icon: IconName;
+  ariaLabel: string;
+  menuLabel: string;
+  placeholder: string;
 }) {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
@@ -109,18 +135,18 @@ function MachineSelect({
         aria-expanded={open}
         aria-controls={listboxId}
         aria-activedescendant={open ? optionId(active) : undefined}
-        aria-label="Machine"
+        aria-label={ariaLabel}
         data-placeholder={selected ? undefined : true}
         disabled={disabled}
         onClick={() => (open ? setOpen(false) : openMenu())}
         onKeyDown={onKeyDown}
       >
-        <Icon name="machines" size={15} className="oc-mselect__icon" />
-        <span className="oc-mselect__label">{selected?.label ?? 'Select a machine'}</span>
+        <Icon name={icon} size={15} className="oc-mselect__icon" />
+        <span className="oc-mselect__label">{selected?.label ?? placeholder}</span>
         <Icon name="chevronDown" size={15} className="oc-mselect__chevron" />
       </button>
       {open ? (
-        <ul className="oc-mselect__menu" role="listbox" id={listboxId} aria-label="Machines">
+        <ul className="oc-mselect__menu" role="listbox" id={listboxId} aria-label={menuLabel}>
           {options.map((o, i) => (
             <li
               key={o.id}
@@ -148,22 +174,37 @@ function MachineSelect({
 /**
  * Delegate-a-task composer styled as a single chat input: an auto-growing task
  * textarea is the focal element, with the in-house machine selector inline at
- * the bottom left and a send button at the bottom right. Submit stays disabled
- * until both a non-empty task and a machine are present. Ctrl/Cmd+Enter submits
- * from the textarea (Enter inserts a newline).
+ * the bottom left and a send button at the bottom right. When the selected
+ * target is the local computer and more than one screen is available, a screen
+ * selector appears beside it so the agent drives the monitor you choose. Submit
+ * stays disabled until both a non-empty task and a machine are present.
+ * Ctrl/Cmd+Enter submits from the textarea (Enter inserts a newline).
  */
 export function TaskComposer({
   options,
   pending = false,
   defaultMachineId,
+  screenOptions,
+  defaultScreenId,
   onSubmit,
   className,
 }: TaskComposerProps) {
   const [task, setTask] = useState('');
   const [machineId, setMachineId] = useState(defaultMachineId ?? '');
+  const [screenId, setScreenId] = useState(defaultScreenId ?? '');
   const taskRef = useRef<HTMLTextAreaElement>(null);
 
   const canSubmit = task.trim().length > 0 && machineId !== '' && !pending;
+
+  // The screen selector only matters for the local target, and only when there
+  // is an actual choice (more than one monitor).
+  const selectedMachine = options.find((o) => o.id === machineId);
+  const showScreens = Boolean(selectedMachine?.local) && (screenOptions?.length ?? 0) > 1;
+
+  // Adopt the default screen (the window's current monitor) once screens load.
+  useEffect(() => {
+    if (defaultScreenId && screenId === '') setScreenId(defaultScreenId);
+  }, [defaultScreenId, screenId]);
 
   // Auto-grow the textarea with its content. The CSS `max-height` on
   // `.oc-composer__input` is the single source of the grow cap — it clamps the
@@ -177,7 +218,7 @@ export function TaskComposer({
 
   const submit = () => {
     if (!canSubmit) return;
-    onSubmit({ task: task.trim(), machineId });
+    onSubmit({ task: task.trim(), machineId, screenId: showScreens ? screenId : undefined });
   };
 
   const onTaskKeyDown = (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
@@ -208,12 +249,30 @@ export function TaskComposer({
         onKeyDown={onTaskKeyDown}
       />
       <div className="oc-composer__toolbar">
-        <MachineSelect
-          options={options}
-          value={machineId}
-          onChange={setMachineId}
-          disabled={pending}
-        />
+        <div className="oc-composer__selects">
+          <InlineSelect
+            options={options}
+            value={machineId}
+            onChange={setMachineId}
+            disabled={pending}
+            icon="machines"
+            ariaLabel="Machine"
+            menuLabel="Machines"
+            placeholder="Select a machine"
+          />
+          {showScreens ? (
+            <InlineSelect
+              options={screenOptions ?? []}
+              value={screenId}
+              onChange={setScreenId}
+              disabled={pending}
+              icon="monitor"
+              ariaLabel="Screen"
+              menuLabel="Screens"
+              placeholder="Select a screen"
+            />
+          ) : null}
+        </div>
         <div className="oc-composer__actions">
           <Button
             type="submit"

@@ -171,8 +171,17 @@ declare global {
     cowork?: {
       platform: 'desktop' | 'web';
       backendUrl?: string;
-      startLocalRun?: (input: { task: string; maxSteps?: number }) => Promise<{ runId: string }>;
+      startLocalRun?: (input: {
+        task: string;
+        maxSteps?: number;
+        /** Electron display id of the screen to run on (from `listScreens`). */
+        displayId?: number;
+      }) => Promise<{ runId: string }>;
       cancelLocalRun?: () => Promise<void>;
+      /** The monitors a local run can target (for the screen selector). */
+      listScreens?: () => Promise<
+        { id: number; label: string; primary: boolean; current: boolean }[]
+      >;
     };
   }
 }

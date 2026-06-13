@@ -11,13 +11,27 @@ export interface CaptureResult {
   height: number;
 }
 
+/**
+ * A physical-pixel rectangle of one display on the virtual desktop. When a
+ * bridge is created with a region it captures ONLY that rectangle and offsets
+ * every input coordinate by `x`/`y`, so a local run drives the monitor the user
+ * picked rather than always the primary one. `x`/`y` may be negative (a monitor
+ * to the left of / above the primary).
+ */
+export interface ScreenRegion {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export type MouseButton = 'left' | 'right' | 'middle';
 export type ScrollDirection = 'up' | 'down' | 'left' | 'right';
 
 export interface NativeBridge {
-  /** Capture the primary screen. */
+  /** Capture the target screen (the configured {@link ScreenRegion}, else primary). */
   capture(): Promise<CaptureResult>;
-  /** Primary screen size in the same coordinate space `click` etc. use. */
+  /** Target screen size — the coordinate space the model's coordinates live in. */
   screenSize(): Promise<{ width: number; height: number }>;
   click(x: number, y: number, button: MouseButton, clicks: number): Promise<void>;
   moveMouse(x: number, y: number): Promise<void>;

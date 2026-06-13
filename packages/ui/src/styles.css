@@ -1301,6 +1301,15 @@ textarea {
   gap: var(--space-2);
 }
 
+/* The target selectors (machine + optional screen) share the bottom-left group. */
+.oc-composer__selects {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
 /* In-house machine selector (bottom-left): a sleek trigger — leading machine
    icon, label, trailing chevron — that opens a custom popover listbox (no native
    OS dropdown). The composer's focus aura carries focus, so the trigger is quiet.
