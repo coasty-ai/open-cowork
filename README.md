@@ -76,6 +76,9 @@ Desktop (Electron, local screen control): `pnpm dev:desktop` (with `pnpm dev`
 running). Mobile (Expo): `pnpm dev:mobile`, or `pnpm --filter
 @open-cowork/mobile web` for the browser-hosted build. See each app's README.
 
+**Want the agent to automate your own PC** (drive your real mouse/keyboard)?
+That's the desktop app — full step-by-step in **[RUN_LOCALLY.md](RUN_LOCALLY.md)**.
+
 ### Use your own Coasty account (still just one key)
 
 The **only** thing you ever need to configure is the Coasty key:
@@ -123,7 +126,8 @@ tools/mock-coasty   Full offline mock of the Coasty API (REST + SSE + webhooks)
 e2e                 Playwright end-to-end flows (web + desktop)
 ```
 
-Deep dives: [ARCHITECTURE.md](ARCHITECTURE.md) · [SECURITY.md](SECURITY.md) ·
+Deep dives: [RUN_LOCALLY.md](RUN_LOCALLY.md) (automate your own PC) ·
+[ARCHITECTURE.md](ARCHITECTURE.md) · [SECURITY.md](SECURITY.md) ·
 [DECISIONS.md](DECISIONS.md) · [DEPLOYMENT.md](DEPLOYMENT.md) ·
 [COOKBOOK.md](COOKBOOK.md) · [CONTRIBUTING.md](CONTRIBUTING.md) ·
 [SUMMARY.md](SUMMARY.md)
