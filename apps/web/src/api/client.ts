@@ -93,6 +93,19 @@ export class ApiError extends Error {
 }
 
 /**
+ * True when an error means the backend itself is unreachable — either the dev
+ * proxy answered with our `503 BACKEND_UNREACHABLE` (web, backend not up) or the
+ * fetch never connected at all (desktop talking directly to the backend, status
+ * 0 `NETWORK_ERROR`). Lets the UI show a "start the backend" hint instead of a
+ * generic failure, and lets callers back off polling.
+ */
+export function isBackendUnreachable(err: unknown): boolean {
+  return (
+    err instanceof ApiError && (err.code === 'NETWORK_ERROR' || err.code === 'BACKEND_UNREACHABLE')
+  );
+}
+
+/**
  * A human-readable, debuggable rendering of an error for the UI: the message,
  * the stable code, any offending fields, and the upstream request id. Turns a
  * terse "Could not create run." into something actionable.
@@ -101,6 +114,9 @@ export function formatApiError(err: unknown): string {
   if (!(err instanceof ApiError)) {
     return err instanceof Error ? err.message : 'Unexpected error';
   }
+  // Connectivity failures already carry a friendly, actionable message — return
+  // it bare, without an error-code tag or request id to clutter the banner.
+  if (isBackendUnreachable(err)) return err.message;
   const parts = [err.message];
   if (err.code && err.code !== 'UNKNOWN' && !err.message.includes(err.code)) {
     parts.push(`[${err.code}]`);
@@ -182,7 +198,12 @@ export class BackendClient {
         },
       });
     } catch (err) {
-      throw new ApiError(0, 'NETWORK_ERROR', 'Cannot reach the open-cowork backend', err);
+      throw new ApiError(
+        0,
+        'NETWORK_ERROR',
+        'Cannot reach the open-cowork backend — is it running? Start it with `pnpm dev` (or `pnpm desktop`).',
+        err,
+      );
     }
     if (!res.ok) {
       let body: {

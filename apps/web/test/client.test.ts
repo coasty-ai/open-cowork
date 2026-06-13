@@ -4,7 +4,13 @@
  * all via an injected fetchImpl (no real network).
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ApiError, BackendClient, defaultBaseUrl, formatApiError } from '../src/api/client';
+import {
+  ApiError,
+  BackendClient,
+  defaultBaseUrl,
+  formatApiError,
+  isBackendUnreachable,
+} from '../src/api/client';
 
 function jsonResponse(body: unknown, init: { ok?: boolean; status?: number } = {}): Response {
   return {
@@ -45,6 +51,33 @@ describe('formatApiError', () => {
   it('passes plain Errors through and handles non-errors', () => {
     expect(formatApiError(new Error('boom'))).toBe('boom');
     expect(formatApiError('weird')).toBe('Unexpected error');
+  });
+
+  it('renders connectivity errors bare — no code tag or request id', () => {
+    const network = new ApiError(
+      0,
+      'NETWORK_ERROR',
+      'Cannot reach the backend',
+      undefined,
+      'req_x',
+    );
+    expect(formatApiError(network)).toBe('Cannot reach the backend');
+    const unreachable = new ApiError(503, 'BACKEND_UNREACHABLE', 'Backend not reachable yet');
+    expect(formatApiError(unreachable)).toBe('Backend not reachable yet');
+  });
+});
+
+describe('isBackendUnreachable', () => {
+  it('is true for NETWORK_ERROR and BACKEND_UNREACHABLE ApiErrors', () => {
+    expect(isBackendUnreachable(new ApiError(0, 'NETWORK_ERROR', 'x'))).toBe(true);
+    expect(isBackendUnreachable(new ApiError(503, 'BACKEND_UNREACHABLE', 'x'))).toBe(true);
+  });
+
+  it('is false for other ApiErrors and non-ApiErrors', () => {
+    expect(isBackendUnreachable(new ApiError(422, 'BUDGET_EXCEEDED', 'x'))).toBe(false);
+    expect(isBackendUnreachable(new Error('boom'))).toBe(false);
+    expect(isBackendUnreachable(null)).toBe(false);
+    expect(isBackendUnreachable('nope')).toBe(false);
   });
 });
 
@@ -192,7 +225,7 @@ describe('BackendClient.request pipeline', () => {
     expect((err as ApiError).message).toContain('500');
   });
 
-  it('wraps a fetch rejection as NETWORK_ERROR (status 0)', async () => {
+  it('wraps a fetch rejection as NETWORK_ERROR (status 0) with an actionable hint', async () => {
     const fetchImpl = vi.fn(async () => Promise.reject(new Error('ECONNREFUSED')));
     const client = new BackendClient({
       getToken: () => null,
@@ -202,6 +235,33 @@ describe('BackendClient.request pipeline', () => {
     expect(err).toBeInstanceOf(ApiError);
     expect((err as ApiError).status).toBe(0);
     expect((err as ApiError).code).toBe('NETWORK_ERROR');
+    expect((err as ApiError).message).toMatch(/running/i);
+    expect(isBackendUnreachable(err)).toBe(true);
+  });
+
+  it("shapes the dev proxy's 503 BACKEND_UNREACHABLE body into an ApiError", async () => {
+    // Mirrors what apps/web/dev-proxy.ts sends when the backend is down.
+    const fetchImpl = vi.fn(async () =>
+      jsonResponse(
+        {
+          error: {
+            code: 'BACKEND_UNREACHABLE',
+            message: 'The open-cowork backend at http://127.0.0.1:4000 is not reachable yet.',
+          },
+        },
+        { ok: false, status: 503 },
+      ),
+    );
+    const client = new BackendClient({
+      getToken: () => 'tok',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+    const err = await client.listMachines().catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(ApiError);
+    expect((err as ApiError).status).toBe(503);
+    expect((err as ApiError).code).toBe('BACKEND_UNREACHABLE');
+    expect(isBackendUnreachable(err)).toBe(true);
+    expect(formatApiError(err)).not.toContain('[BACKEND_UNREACHABLE]');
   });
 
   it('builds the right method/URL for resume, cancel, and DELETE endpoints', async () => {
