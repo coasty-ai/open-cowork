@@ -24,7 +24,10 @@ test-results/
 .DS_Store
 Thumbs.db
 
-# Local databases
+# Local databases (incl. WAL sidecars)
 *.sqlite
 *.sqlite-journal
+*.sqlite-shm
+*.sqlite-wal
 *.db
+apps/backend/data/

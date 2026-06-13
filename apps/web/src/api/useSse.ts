@@ -60,6 +60,13 @@ export function useSse(opts: UseSseOptions): UseSseResult {
             },
             signal: controller.signal,
           });
+          // A 401 means the session is gone — stop, don't hammer with retries.
+          // (The page's REST calls clear the session and bounce to login.)
+          if (res.status === 401) {
+            setConnected(false);
+            setError('unauthorized');
+            return;
+          }
           if (!res.ok || !res.body) throw new Error(`stream failed (${res.status})`);
           setConnected(true);
           setError(null);

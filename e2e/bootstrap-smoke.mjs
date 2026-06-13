@@ -98,16 +98,22 @@ async function main() {
       },
       body: JSON.stringify(body),
     });
-  const get = (path, token) => fetch(`${base}${path}`, { headers: { Authorization: `Bearer ${token}` } });
+  const get = (path, token) =>
+    fetch(`${base}${path}`, { headers: { Authorization: `Bearer ${token}` } });
 
   const { token } = await j(await post('/api/auth/login', { email: 'smoke@example.com' }));
   if (!token) throw new Error('login returned no token');
 
   const machine = await j(
-    await post('/api/machines', { displayName: 'smoke-vm', osType: 'linux', confirmCostCents: 5 }, token),
+    await post(
+      '/api/machines',
+      { displayName: 'smoke-vm', osType: 'linux', confirmCostCents: 5 },
+      token,
+    ),
   );
   const machineId = machine.machine.id;
-  if (!String(machineId).startsWith('mch_test_')) throw new Error(`expected sandbox machine, got ${machineId}`);
+  if (!String(machineId).startsWith('mch_test_'))
+    throw new Error(`expected sandbox machine, got ${machineId}`);
 
   const run = await j(
     await post(

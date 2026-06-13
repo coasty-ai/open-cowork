@@ -33,6 +33,7 @@ export function WorkflowRunDetailPage() {
     if (!id) return;
     try {
       setRun(await client.getWorkflowRun(id));
+      setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load the workflow run');
     }

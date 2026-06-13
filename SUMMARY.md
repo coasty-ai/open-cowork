@@ -50,33 +50,58 @@ coworker on the Coasty Computer Use API, as a pnpm + Turborepo monorepo
   GitHub Actions (ubuntu + windows matrix: lint/format/typecheck/unit/
   integration/security-scan on push; E2E with xvfb on PRs; non-blocking audit).
 
+## Setup: one key (or none)
+
+The only thing you ever configure is `COASTY_API_KEY`:
+
+- **Nothing set** → `pnpm dev` boots the bundled mock + backend + web in DEMO
+  MODE (ephemeral sandbox key, auto-generated session secret). Zero account,
+  zero spend, full product end-to-end.
+- **One key set** → the whole stack talks to the real Coasty API. Every other
+  setting (session secret, ports, base URL, DB path) has a working default.
+
+This is enforced in code (`apps/backend/src/config.ts`) and proven three ways:
+`config.test.ts` (12 cases pinning every branch), `bootstrap.test.ts` (boots
+the real in-process server from an EMPTY env and runs a full flow), and
+`e2e/bootstrap-smoke.mjs` (spawns the actual `main.ts` + mock CLI with no key
+and drives login→provision→run→succeeded over real HTTP). `pnpm doctor` is a
+preflight check; `pnpm dev` is the one-command runner.
+
 ## Verification status
 
 `pnpm test`, `pnpm typecheck`, `pnpm lint`, `pnpm format`,
 `pnpm security:scan` — **all green, fully offline** (18/18 turbo tasks across
 9 packages). E2E (Playwright, against mock + real backend + built SPA):
-**web 3/3, desktop 1/1 — green** on Windows 11.
+**web 3/3, desktop 1/1 — green** on Windows 11, plus the zero-config
+entrypoint smoke.
 
 | Suite | Tests | Notes |
 | --- | --- | --- |
 | core (unit) | 166 + live-smoke gate | loop, DSL, cost table, HMAC vectors (valid/tampered/stale/future/malformed/rotation), retry, SSE parser, client incl. SSE-reconnect Last-Event-ID |
-| executor (unit) | 31 | fake-daemon protocol, DPI scaling, action mapping; +1 opt-in native capture smoke (passed on real hardware) |
-| mock-coasty | 56 | pricing math incl. HD boundary, run state machine, SSE drop→reconnect (no dupes/gaps), signed webhooks verified by hand-rolled HMAC, workflow guards/approvals, machines |
-| backend (integration) | 22 | real HTTP vs in-process mock: lifecycle, awaiting_human→resume, webhook tamper/stale/unknown → 401, SSE replay+reconnect, BUDGET_EXCEEDED / ESTIMATE_CHANGED / 402 paths, local runs, allowlisted actions |
+| executor (unit) | 98 (+1 opt-in native smoke) | macOS/Linux bridge command-string construction via mocked child_process (proves cross-platform drive without that hardware), Windows daemon protocol, agent-loop↔all-3-executors integration, DPI scaling, action mapping |
+| mock-coasty | 134 | full error catalog + types, pricing/HD boundary, run+workflow state machines, SSE drop→reconnect (no dupes/gaps) incl. ?after= replay, hand-verified HMAC webhooks, idempotency, machines (FS/terminal/browser/batch) |
+| backend (integration) | 83 | real HTTP vs in-process mock: run+workflow lifecycle/SSE/reconnect, webhook tamper/stale/unknown→401, BUDGET_EXCEEDED/ESTIMATE_CHANGED/402, machines, wallet+budget, inference proxy errors, entrypoint banners; config (12) + zero-config bootstrap (1) |
 | ui (RTL) | 107 | all 20 components: roles/names, loading/error/empty, keyboard interactions |
-| web (RTL) | 19 | login, delegate→confirm-cost→create, budget-error surfacing, empty/error states, event mapping |
+| web (RTL) | 82 | login, delegate→confirm-cost→create, run/workflow detail (stubbed SSE), workflow builder validation, settings, useSse reconnect, global feed banner, 401 auto-logout |
 | desktop (unit) | 8 | LocalRunManager happy path/cancel/failure/batching vs fake executor + scripted backend; build smoke |
 | mobile (RTL via react-native-web) | 33 | all 5 screens incl. cursor-polled timeline, approval flow, banners |
 | **E2E web** | 3 | full journey: login→provision→delegate→confirm $1.25→live timeline+frames→approve with note→succeeded+cost summary; workflow build→validate→run→approve→output; server-side budget refusal. Plus a runtime watcher asserting **no request ever contains key/secret material** |
 | **E2E desktop** | 1 | Electron boots, secure bridge present, no Node leak in renderer, login works, "This computer (local screen)" target + local-control warning |
-| **Total** | **≈446** | |
+| **E2E bootstrap smoke** | 1 | real entrypoint, zero config, full flow over HTTP |
+| **Total** | **≈712 unit/integration + 5 E2E** | |
 
-Coverage (v8, lines): core **94.1%**, ui **99.9%**, mobile **98.4%**,
-mock-coasty **84.2%**, backend **83.5%**, executor **64.7%** (the embedded
-PowerShell daemon string and untestable-on-CI unix bridges dominate the
-uncovered lines), desktop **63.4%** (Electron main/preload are E2E-covered
-instead), web **25.5% by unit tests** — the pages are primarily covered by the
-three full-journey E2E flows.
+Coverage (v8, lines): ui **99.9%**, mobile **98.4%**, mock-coasty **96.6%**,
+backend **96.2%**, executor **95.3%**, core **94.1%**, web **83.2%** (App/main
+routing is E2E territory), desktop **63.4%** (Electron main/preload are
+E2E-covered instead).
+
+Two real UI bugs were found and fixed during the coverage push: `RunDetailPage`
+and `WorkflowRunDetailPage` never cleared a prior error on a successful
+refresh, leaving the Retry button dead. A resilience fix was also added — the
+web client auto-logs-out on any `401` (so a backend restart that forgets a
+session, the norm with an auto-generated secret, returns the user to login
+instead of stranding them on a broken screen), covered by unit + the desktop
+E2E.
 
 ## Platform status matrix
 

@@ -27,10 +27,18 @@ export const useAuth = create<AuthState>()(
 
 let client: BackendClient | null = null;
 
-/** Singleton backend client bound to the session store. */
+/** Singleton backend client bound to the session store. A 401 on any
+ * authenticated call clears the session so the app returns to login — this is
+ * what keeps clients sane when the backend restarts and forgets tokens (the
+ * default with an auto-generated session secret). */
 export function getClient(): BackendClient {
   if (!client) {
-    client = new BackendClient({ getToken: () => useAuth.getState().token });
+    client = new BackendClient({
+      getToken: () => useAuth.getState().token,
+      onUnauthorized: () => {
+        if (useAuth.getState().token) useAuth.getState().logout();
+      },
+    });
   }
   return client;
 }

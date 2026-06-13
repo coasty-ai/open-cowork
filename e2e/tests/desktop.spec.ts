@@ -43,6 +43,12 @@ test('desktop shell boots, exposes window.cowork, and offers the local target', 
   try {
     const page = await app.firstWindow();
     await page.waitForLoadState('domcontentloaded');
+    // Electron persists localStorage across launches; a token left by a prior
+    // run would skip the login screen. Start each run from a clean session.
+    // (The app also auto-logs-out on a 401, so a stale token can't strand it.)
+    await page.evaluate(() => localStorage.clear());
+    await page.reload();
+    await page.waitForLoadState('domcontentloaded');
 
     // Preload bridge is present and renderer-safe (contextIsolation on).
     const bridge = await page.evaluate(() => ({

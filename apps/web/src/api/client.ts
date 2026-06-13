@@ -91,6 +91,13 @@ export interface BackendClientOptions {
   baseUrl?: string;
   getToken: () => string | null;
   fetchImpl?: typeof fetch;
+  /**
+   * Called when an authenticated request is rejected with 401 — the session
+   * token is no longer valid (expired, or the backend restarted and forgot it,
+   * which happens whenever the session secret is auto-generated). The app
+   * clears the session and returns to login. Not fired for the login route.
+   */
+  onUnauthorized?: () => void;
 }
 
 declare global {
@@ -114,11 +121,13 @@ export class BackendClient {
   private readonly baseUrl: string;
   private readonly getToken: () => string | null;
   private readonly fetchImpl: typeof fetch;
+  private readonly onUnauthorized: (() => void) | undefined;
 
   constructor(opts: BackendClientOptions) {
     this.baseUrl = (opts.baseUrl ?? defaultBaseUrl()).replace(/\/+$/, '');
     this.getToken = opts.getToken;
     this.fetchImpl = opts.fetchImpl ?? ((input, init) => fetch(input, init));
+    this.onUnauthorized = opts.onUnauthorized;
   }
 
   url(path: string): string {
@@ -150,6 +159,11 @@ export class BackendClient {
         body = (await res.json()) as typeof body;
       } catch {
         // non-JSON error body
+      }
+      // A stale/invalid session token: clear it and bounce to login. (Skip the
+      // login route itself, where a 401 is a normal credential rejection.)
+      if (res.status === 401 && !path.startsWith('/api/auth/')) {
+        this.onUnauthorized?.();
       }
       throw new ApiError(
         res.status,

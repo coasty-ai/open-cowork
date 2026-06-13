@@ -36,6 +36,7 @@ export function RunDetailPage() {
     if (!id) return;
     try {
       setRun(await client.getRun(id));
+      setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load the run');
     }
