@@ -21,7 +21,7 @@ body {
   background: var(--color-bg);
   color: var(--color-text);
   font-family: var(--font-sans);
-  line-height: 1.5;
+  line-height: var(--lh-normal);
   -webkit-font-smoothing: antialiased;
 }
 
@@ -57,11 +57,11 @@ textarea {
   /* The mark fades to `currentColor`; a faint ring keeps the transparent
      top edge readable on either surface without changing the silhouette. */
   border-radius: var(--radius-full);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 12%, transparent);
+  box-shadow: var(--shadow-ring);
 }
 
 .oc-logo__word {
-  font-weight: 700;
+  font-weight: var(--font-weight-bold);
   font-size: 1em;
   letter-spacing: -0.01em;
   white-space: nowrap;
@@ -75,7 +75,7 @@ textarea {
   gap: var(--space-2);
   border: 1px solid transparent;
   border-radius: var(--radius-md);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   cursor: pointer;
   transition:
     background-color 120ms ease,
@@ -85,12 +85,12 @@ textarea {
 
 .oc-button--md {
   padding: var(--space-2) var(--space-4);
-  font-size: 0.9375rem;
+  font-size: var(--font-size-md);
 }
 
 .oc-button--sm {
   padding: var(--space-1) var(--space-3);
-  font-size: 0.8125rem;
+  font-size: var(--font-size-sm);
 }
 
 .oc-button--primary {
@@ -134,8 +134,8 @@ textarea {
 
 .oc-card__title {
   margin: 0 0 var(--space-3);
-  font-size: 1rem;
-  font-weight: 600;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
 }
 
 /* ---------- Badge ---------- */
@@ -146,8 +146,8 @@ textarea {
   gap: var(--space-1);
   padding: 0 var(--space-2);
   border-radius: var(--radius-full);
-  font-size: 0.75rem;
-  font-weight: 600;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
   line-height: 1.6;
   border: 1px solid var(--color-border);
   background: var(--color-surface-raised);
@@ -204,7 +204,7 @@ textarea {
   inset: 0;
   display: grid;
   place-items: center;
-  background: rgb(0 0 0 / 60%);
+  background: var(--overlay-scrim);
   padding: var(--space-4);
   z-index: 100;
 }
@@ -218,11 +218,12 @@ textarea {
   width: 100%;
   max-height: 85vh;
   overflow: auto;
+  box-shadow: var(--shadow-lg);
 }
 
 .oc-modal__title {
   margin: 0 0 var(--space-4);
-  font-size: 1.125rem;
+  font-size: var(--font-size-xl);
 }
 
 /* ---------- Field ---------- */
@@ -234,8 +235,8 @@ textarea {
 }
 
 .oc-field__label {
-  font-size: 0.875rem;
-  font-weight: 600;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
 }
 
 .oc-field__required {
@@ -244,13 +245,13 @@ textarea {
 
 .oc-field__hint {
   margin: 0;
-  font-size: 0.8125rem;
+  font-size: var(--font-size-sm);
   color: var(--color-text-muted);
 }
 
 .oc-field__error {
   margin: 0;
-  font-size: 0.8125rem;
+  font-size: var(--font-size-sm);
   color: var(--color-danger);
 }
 
@@ -283,7 +284,7 @@ textarea {
   padding: var(--space-3) var(--space-4);
   overflow: auto;
   font-family: var(--font-mono);
-  font-size: 0.8125rem;
+  font-size: var(--font-size-sm);
 }
 
 .oc-codeblock__copy {
@@ -294,7 +295,7 @@ textarea {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   padding: var(--space-1) var(--space-2);
-  font-size: 0.75rem;
+  font-size: var(--font-size-xs);
   cursor: pointer;
 }
 
@@ -313,7 +314,7 @@ textarea {
   padding: var(--space-2) var(--space-3);
   color: var(--color-text-muted);
   cursor: pointer;
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 
 .oc-tabs__tab[aria-selected='true'] {
@@ -340,12 +341,12 @@ textarea {
 .oc-empty-state__title {
   margin: 0;
   color: var(--color-text);
-  font-size: 1rem;
+  font-size: var(--font-size-lg);
 }
 
 .oc-empty-state__description {
   margin: 0;
-  font-size: 0.875rem;
+  font-size: var(--font-size-base);
 }
 
 .oc-error-state {
@@ -369,8 +370,8 @@ textarea {
   padding: var(--space-2) var(--space-4);
   background: var(--color-warning);
   color: var(--color-accent-contrast);
-  font-size: 0.875rem;
-  font-weight: 600;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
   text-align: center;
 }
 
@@ -400,8 +401,8 @@ textarea {
   padding: 0 var(--space-2);
   border-radius: var(--radius-full);
   border: 1px solid var(--color-border);
-  font-size: 0.75rem;
-  font-weight: 600;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
   font-variant-numeric: tabular-nums;
   line-height: 1.6;
 }
@@ -457,13 +458,13 @@ textarea {
 
 .oc-timeline__at {
   color: var(--color-text-muted);
-  font-size: 0.75rem;
+  font-size: var(--font-size-xs);
 }
 
 .oc-timeline__detail summary {
   cursor: pointer;
   color: var(--color-text-muted);
-  font-size: 0.8125rem;
+  font-size: var(--font-size-sm);
 }
 
 .oc-timeline__detail pre {
@@ -472,7 +473,7 @@ textarea {
   background: var(--color-surface-raised);
   border-radius: var(--radius-sm);
   font-family: var(--font-mono);
-  font-size: 0.75rem;
+  font-size: var(--font-size-xs);
   overflow: auto;
 }
 
@@ -508,8 +509,8 @@ textarea {
   border-radius: var(--radius-sm);
   background: var(--color-danger);
   color: var(--color-accent-contrast);
-  font-size: 0.6875rem;
-  font-weight: 700;
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-bold);
   letter-spacing: 0.08em;
 }
 
@@ -521,8 +522,8 @@ textarea {
   border-radius: var(--radius-sm);
   background: var(--color-warning);
   color: var(--color-accent-contrast);
-  font-size: 0.6875rem;
-  font-weight: 700;
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-bold);
 }
 
 /* ---------- ApprovalBar ---------- */
@@ -540,12 +541,12 @@ textarea {
 .oc-approval-bar__reason {
   margin: 0;
   color: var(--color-warning);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 
 .oc-approval-bar__label {
-  font-size: 0.875rem;
-  font-weight: 600;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
 }
 
 .oc-approval-bar__note {
@@ -619,7 +620,7 @@ textarea {
 
 .oc-step-tree__type {
   color: var(--color-text-muted);
-  font-size: 0.75rem;
+  font-size: var(--font-size-xs);
   font-family: var(--font-mono);
 }
 
@@ -631,7 +632,7 @@ textarea {
   align-items: center;
   margin: var(--space-2) 0 var(--space-3);
   color: var(--color-text-muted);
-  font-size: 0.8125rem;
+  font-size: var(--font-size-sm);
 }
 
 .oc-machine-card__actions {
@@ -650,13 +651,13 @@ textarea {
 
 .oc-wallet-card__stats dt {
   color: var(--color-text-muted);
-  font-size: 0.8125rem;
+  font-size: var(--font-size-sm);
 }
 
 .oc-wallet-card__stats dd {
   margin: 0;
   font-size: 1.25rem;
-  font-weight: 700;
+  font-weight: var(--font-weight-bold);
   font-variant-numeric: tabular-nums;
 }
 
@@ -669,8 +670,8 @@ textarea {
 }
 
 .oc-task-composer__label {
-  font-size: 0.875rem;
-  font-weight: 600;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
 }
 
 .oc-task-composer textarea {
