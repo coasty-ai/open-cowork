@@ -39,6 +39,16 @@ function createWindow(): BrowserWindow {
   const win = new BrowserWindow({
     width: 1280,
     height: 840,
+    // Keep the window above the 800px responsive breakpoint so the phone/stacked
+    // layout can never appear inside a desktop frame.
+    minWidth: 940,
+    minHeight: 640,
+    // Paint the dark canvas immediately so there is no white flash while the SPA
+    // initialises.  Matches the --color-bg token (#0a0a0a) in the web design.
+    backgroundColor: '#0a0a0a',
+    // Hide until the renderer is ready; revealed in the 'ready-to-show' handler
+    // below.  Eliminates the flash-of-unstyled-content on startup.
+    show: false,
     title: 'open-cowork',
     ...(existsSync(ICON_PATH) ? { icon: ICON_PATH } : {}),
     webPreferences: {
@@ -47,6 +57,14 @@ function createWindow(): BrowserWindow {
       preload: path.join(__dirname, 'preload.cjs'),
     },
   });
+
+  // Show the window as soon as the renderer's first paint is complete.
+  // 'ready-to-show' fires once, reliably, before the OS repaints — so there is
+  // no need for a fallback timer.
+  win.once('ready-to-show', () => {
+    win.show();
+  });
+
   // E2E loads a built SPA from disk; dev points at the vite dev server.
   const webDist = process.env.COWORK_WEB_DIST;
   if (webDist) {
