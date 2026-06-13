@@ -4,6 +4,14 @@
   "private": true,
   "description": "Cross-platform agentic coworker on the Coasty Computer Use API",
   "license": "MIT",
+  "homepage": "https://github.com/coasty-ai/open-cowork#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/coasty-ai/open-cowork.git"
+  },
+  "bugs": {
+    "url": "https://github.com/coasty-ai/open-cowork/issues"
+  },
   "packageManager": "pnpm@10.30.3",
   "engines": {
     "node": ">=22.5"

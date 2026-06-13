@@ -60,4 +60,6 @@ cp .env.example .env        # defaults point at the mock server — no real key 
 
 ## Reporting security issues
 
-Please do not open public issues for vulnerabilities — see `SECURITY.md`.
+Please do not open public issues for vulnerabilities. Report them privately via
+[GitHub Security Advisories](https://github.com/coasty-ai/open-cowork/security/advisories/new) —
+see [SECURITY.md](SECURITY.md).

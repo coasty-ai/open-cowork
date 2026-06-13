@@ -1,8 +1,9 @@
 # SECURITY
 
 The trust model, what enforces it, and known limitations. Report
-vulnerabilities privately to the maintainers (see repository contacts) — not
-in public issues.
+vulnerabilities **privately** via GitHub Security Advisories at
+<https://github.com/coasty-ai/open-cowork/security/advisories/new> — not in
+public issues.
 
 ## Trust boundaries
 
@@ -36,7 +37,7 @@ in public issues.
   3. CI runs both on every push.
 - `.env` is gitignored; `.env.example` ships placeholders only. **If a real
   key was ever present in a working tree you don't fully trust, rotate it at
-  https://coasty.ai/developers/keys** — rotation is cheap, doubt is not.
+  <https://coasty.ai/developers/keys>** — rotation is cheap, doubt is not.
 
 ## Webhook authenticity (HMAC)
 

@@ -1,11 +1,25 @@
-# open-cowork
+<p align="center">
+  <a href="https://github.com/coasty-ai/open-cowork">
+    <img src="docs/banner.svg" alt="open-cowork — hand off computer tasks to an AI coworker; watch it work, approve from anywhere" width="100%">
+  </a>
+</p>
 
-An open-source, cross-platform **agentic coworker** powered by the
-[Coasty Computer Use API](https://coasty.ai/docs). Hand a task to an AI agent
-that *sees a screen and acts on it*, watch it work live, approve the sensitive
-steps from any device, and keep every cent of spend visible and capped.
+<p align="center">
+  <strong>An open-source, cross-platform agentic coworker on the
+  <a href="https://coasty.ai/docs">Coasty Computer Use API</a>.</strong><br>
+  Hand a task to an AI agent that <em>sees a screen and acts on it</em>, watch it work live,
+  approve the sensitive steps from any device, and keep every cent of spend visible and capped.
+</p>
 
-```
+<p align="center">
+  <a href="https://github.com/coasty-ai/open-cowork/actions"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/coasty-ai/open-cowork/ci.yml?branch=main&label=CI"></a>
+  <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg">
+  <img alt="Platforms" src="https://img.shields.io/badge/platforms-desktop%20%C2%B7%20web%20%C2%B7%20mobile-0aa">
+  <img alt="TypeScript strict" src="https://img.shields.io/badge/TypeScript-strict-3178c6">
+  <img alt="Tests" src="https://img.shields.io/badge/tests-~712%20%2B%205%20E2E-success">
+</p>
+
+```text
  You ──► open-cowork backend ──► Coasty API ──► a screen the agent drives
             │   (the ONLY place           ├─ your own desktop   (desktop app)
             │    the API key lives)       ├─ a Coasty cloud VM  (any client)
@@ -43,7 +57,7 @@ steps from any device, and keep every cent of spend visible and capped.
 Prereqs: **Node ≥ 22.5** (we use 24) and **pnpm 10** (`corepack enable`).
 
 ```bash
-git clone <this repo> && cd open-cowork
+git clone https://github.com/coasty-ai/open-cowork.git && cd open-cowork
 pnpm install      # one install for the whole monorepo
 pnpm doctor       # optional: confirms you're ready
 pnpm dev          # starts the mock Coasty server + backend + web, all wired
@@ -131,6 +145,13 @@ request for secret material. Coasty webhooks are verified with per-run HMAC
 secrets (constant-time compare, ±5-minute replay window) before they can touch
 any state. Details and threat notes: [SECURITY.md](SECURITY.md).
 
+## Links
+
+- Repository: <https://github.com/coasty-ai/open-cowork>
+- Issues & feature requests: <https://github.com/coasty-ai/open-cowork/issues>
+- Report a vulnerability: [Security Advisories](https://github.com/coasty-ai/open-cowork/security/advisories) (see [SECURITY.md](SECURITY.md))
+- Coasty API docs: <https://coasty.ai/docs> · keys: <https://coasty.ai/developers/keys>
+
 ## License
 
-MIT.
+MIT — see [LICENSE](LICENSE).
