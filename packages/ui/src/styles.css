@@ -147,33 +147,56 @@ textarea {
 }
 
 .oc-button--primary {
-  background: var(--color-accent);
-  color: var(--color-accent-contrast);
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+.oc-button--primary:hover:not(:disabled) {
+  background: var(--primary-hover);
+}
+.oc-button--primary:active:not(:disabled) {
+  background: var(--primary-active);
 }
 
 .oc-button--secondary {
-  background: var(--color-surface-raised);
-  border-color: var(--color-border);
-  color: var(--color-text);
+  background: var(--secondary);
+  border-color: var(--border);
+  color: var(--secondary-foreground);
+}
+.oc-button--secondary:hover:not(:disabled) {
+  background: var(--secondary-hover);
 }
 
+/* `danger` is a deprecated alias of `destructive` — both are a solid fill. */
+.oc-button--destructive,
 .oc-button--danger {
-  background: var(--color-danger);
-  color: var(--color-accent-contrast);
+  background: var(--destructive);
+  color: var(--destructive-foreground);
+}
+.oc-button--destructive:hover:not(:disabled),
+.oc-button--danger:hover:not(:disabled) {
+  background: var(--destructive-hover);
+}
+
+.oc-button--outline {
+  background: transparent;
+  border-color: var(--input);
+  color: var(--foreground);
+}
+.oc-button--outline:hover:not(:disabled) {
+  background: var(--accent);
 }
 
 .oc-button--ghost {
   background: transparent;
-  color: var(--color-text);
+  color: var(--foreground);
 }
-
-.oc-button:hover:not(:disabled) {
-  filter: brightness(1.1);
+.oc-button--ghost:hover:not(:disabled) {
+  background: var(--accent);
 }
 
 .oc-button:disabled {
   cursor: not-allowed;
-  opacity: 0.55;
+  opacity: var(--disabled-opacity);
 }
 
 /* ---------- Card ---------- */

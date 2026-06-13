@@ -16,7 +16,7 @@ describe('Button', () => {
     expect(screen.getByRole('button', { name: 'Go' })).toHaveAttribute('type', 'submit');
   });
 
-  it.each(['primary', 'secondary', 'danger', 'ghost'] as const)(
+  it.each(['primary', 'secondary', 'destructive', 'outline', 'ghost', 'danger'] as const)(
     'applies the %s variant class',
     (variant) => {
       render(<Button variant={variant}>X</Button>);

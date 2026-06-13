@@ -2,8 +2,19 @@ import type { ButtonHTMLAttributes } from 'react';
 import { cx } from '../cx';
 import { Spinner } from './Spinner';
 
-/** Visual style of a {@link Button}. */
-export type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'ghost';
+/**
+ * Visual style of a {@link Button}. `destructive` is a solid-fill danger action.
+ * @remarks `danger` is a deprecated alias of `destructive`, kept so existing
+ * call sites keep working; prefer `destructive` in new code.
+ */
+export type ButtonVariant =
+  | 'primary'
+  | 'secondary'
+  | 'destructive'
+  | 'outline'
+  | 'ghost'
+  /** @deprecated use `destructive` */
+  | 'danger';
 
 /** Size of a {@link Button}. */
 export type ButtonSize = 'sm' | 'md';
