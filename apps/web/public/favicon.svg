@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!--
+    open-cowork brand mark — the same "horizon" gradient circle used in-app.
+    Theme-aware: the mark fades to black on light browser chrome and to white
+    on dark, so the tab/bookmark icon stays legible either way.
+  -->
+  <style>
+    :root { --mark: 11, 14, 20; }
+    @media (prefers-color-scheme: dark) { :root { --mark: 231, 234, 242; } }
+    stop { stop-color: rgb(var(--mark)); }
+  </style>
+  <defs>
+    <linearGradient id="horizon" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-opacity="0" />
+      <stop offset="25%" stop-opacity="0.06" />
+      <stop offset="45%" stop-opacity="0.18" />
+      <stop offset="60%" stop-opacity="0.4" />
+      <stop offset="80%" stop-opacity="0.75" />
+      <stop offset="100%" stop-opacity="1" />
+    </linearGradient>
+  </defs>
+  <circle cx="100" cy="100" r="100" fill="url(#horizon)" />
+</svg>

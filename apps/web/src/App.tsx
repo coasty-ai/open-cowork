@@ -1,6 +1,6 @@
 import { Component, type ReactNode } from 'react';
 import { Navigate, NavLink, Route, Routes, useLocation } from 'react-router-dom';
-import { Button, ErrorState, OfflineBanner } from '@open-cowork/ui';
+import { Button, ErrorState, Logo, OfflineBanner } from '@open-cowork/ui';
 import { useAuth } from './store';
 import { useGlobalFeed } from './useGlobalFeed';
 import { LoginPage } from './pages/LoginPage';
@@ -40,7 +40,9 @@ function Shell({ children }: { children: ReactNode }) {
   return (
     <div className="app-shell">
       <nav className="app-nav" aria-label="Primary">
-        <div className="app-nav__brand">open-cowork</div>
+        <NavLink to="/" end className="app-nav__brand" aria-label="open-cowork home">
+          <Logo size={24} />
+        </NavLink>
         <NavLink to="/" end>
           Delegate
         </NavLink>

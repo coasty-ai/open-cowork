@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { Button, Card, Field } from '@open-cowork/ui';
+import { Button, Card, Field, Logo } from '@open-cowork/ui';
 import { getClient, useAuth } from '../store';
 
 export function LoginPage() {
@@ -37,7 +37,10 @@ export function LoginPage() {
           onSubmit={(e) => void submit(e)}
           style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 300 }}
         >
-          <h1 className="page-title">Sign in to open-cowork</h1>
+          <Logo size={34} />
+          <h1 className="page-title" style={{ marginTop: 4 }}>
+            Sign in
+          </h1>
           <p style={{ color: 'var(--color-text-muted)', margin: 0, fontSize: '0.9rem' }}>
             Demo single-tenant auth — enter an email to get a session.
           </p>

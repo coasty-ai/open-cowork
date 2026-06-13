@@ -10,6 +10,10 @@
  * core's API types into them.
  */
 
+// Brand
+export { Logo } from './components/Logo';
+export type { LogoProps } from './components/Logo';
+
 // Primitives
 export { Button } from './components/Button';
 export type { ButtonProps, ButtonSize, ButtonVariant } from './components/Button';

@@ -7,8 +7,10 @@
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#0b0e14",
+    "icon": "./assets/icon.png",
     "platforms": ["ios", "android", "web"],
     "splash": {
+      "image": "./assets/splash.png",
       "backgroundColor": "#0b0e14",
       "resizeMode": "contain"
     },
@@ -16,11 +18,16 @@
       "supportsTablet": true
     },
     "android": {
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0b0e14"
+      }
     },
     "web": {
       "bundler": "metro",
-      "output": "single"
+      "output": "single",
+      "favicon": "./assets/favicon.png"
     }
   }
 }

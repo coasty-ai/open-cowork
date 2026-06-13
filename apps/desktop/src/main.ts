@@ -9,6 +9,7 @@
  */
 import path from 'node:path';
 import os from 'node:os';
+import { existsSync } from 'node:fs';
 import { app, BrowserWindow, ipcMain } from 'electron';
 import { createNativeBridge, LocalExecutor } from '@open-cowork/executor';
 import { LocalRunManager } from './localRuns';
@@ -30,10 +31,16 @@ const manager = new LocalRunManager({
   machineLabel: os.hostname() || 'local',
 });
 
+// The brand icon (Windows/Linux window + taskbar). Bundled CJS lives in dist/,
+// so the committed asset is one level up. macOS uses the packaged .icns.
+const ICON_PATH = path.join(__dirname, '..', 'assets', 'icon.png');
+
 function createWindow(): BrowserWindow {
   const win = new BrowserWindow({
     width: 1280,
     height: 840,
+    title: 'open-cowork',
+    ...(existsSync(ICON_PATH) ? { icon: ICON_PATH } : {}),
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,

@@ -110,6 +110,65 @@ export function ScreenTitle({ title }: { title: string }) {
   return <Text style={styles.screenTitle}>{title}</Text>;
 }
 
+// ── BrandLogo ────────────────────────────────────────────────────────────────
+
+/**
+ * The open-cowork "horizon" mark + wordmark, dependency-free.
+ *
+ * React Native core has no gradient primitive, so the same six brand stops
+ * (see packages/ui `<Logo>` / public/logo_*.svg) are reproduced as a stack of
+ * interpolated horizontal bands clipped to a circle — faithful at the small
+ * sizes we render, and identical through react-native-web in tests.
+ */
+const BRAND_STOPS: ReadonlyArray<readonly [number, number]> = [
+  [0, 0],
+  [0.25, 0.06],
+  [0.45, 0.18],
+  [0.6, 0.4],
+  [0.8, 0.75],
+  [1, 1],
+];
+const BRAND_BANDS = 16;
+
+/** Piecewise-linear opacity of the horizon gradient at vertical position `t` (0..1). */
+function brandOpacityAt(t: number): number {
+  for (let i = 1; i < BRAND_STOPS.length; i++) {
+    const [x0, y0] = BRAND_STOPS[i - 1]!;
+    const [x1, y1] = BRAND_STOPS[i]!;
+    if (t <= x1) return y0 + ((t - x0) / (x1 - x0)) * (y1 - y0);
+  }
+  return 1;
+}
+
+export interface BrandLogoProps {
+  size?: number;
+  withWordmark?: boolean;
+}
+
+export function BrandLogo({ size = 28, withWordmark = true }: BrandLogoProps) {
+  return (
+    <View accessibilityRole="image" accessibilityLabel="open-cowork" style={styles.brandRow}>
+      <View style={[styles.brandMark, { width: size, height: size, borderRadius: size / 2 }]}>
+        {Array.from({ length: BRAND_BANDS }, (_, i) => {
+          const t = (i + 0.5) / BRAND_BANDS;
+          return (
+            <View
+              key={i}
+              style={{
+                flex: 1,
+                backgroundColor: `rgba(231,234,242,${brandOpacityAt(t).toFixed(3)})`,
+              }}
+            />
+          );
+        })}
+      </View>
+      {withWordmark ? (
+        <Text style={[styles.brandWord, { fontSize: size * 0.64 }]}>open-cowork</Text>
+      ) : null}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   button: {
     alignItems: 'center',
@@ -172,4 +231,8 @@ const styles = StyleSheet.create({
     paddingTop: spacing.lg,
     paddingBottom: spacing.sm,
   },
+
+  brandRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm },
+  brandMark: { flexDirection: 'column', overflow: 'hidden' },
+  brandWord: { color: colors.text, fontWeight: '800', letterSpacing: -0.3 },
 });

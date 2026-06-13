@@ -5,7 +5,7 @@
 import { useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { api, ApiError, setToken, type SessionUser } from '../api';
-import { AppButton } from '../components';
+import { AppButton, BrandLogo } from '../components';
 import { colors, radius, spacing } from '../theme';
 
 export interface LoginScreenProps {
@@ -38,7 +38,7 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
 
   return (
     <View style={styles.root}>
-      <Text style={styles.brand}>open-cowork</Text>
+      <BrandLogo size={36} />
       <Text style={styles.tagline}>
         Monitor runs, watch the machine screen, and approve human steps from your phone.
       </Text>
@@ -76,8 +76,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: spacing.xl,
   },
-  brand: { color: colors.accent, fontSize: 28, fontWeight: '800' },
-  tagline: { color: colors.textMuted, fontSize: 15, marginBottom: spacing.md },
+  tagline: {
+    color: colors.textMuted,
+    fontSize: 15,
+    marginTop: spacing.sm,
+    marginBottom: spacing.md,
+  },
   input: {
     backgroundColor: colors.surface,
     borderColor: colors.border,

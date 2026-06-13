@@ -12,10 +12,17 @@
   gap: var(--space-2);
 }
 .app-nav__brand {
-  font-weight: 700;
-  font-size: 1.05rem;
   margin-bottom: var(--space-4);
-  color: var(--color-text);
+  padding: 0;
+  border-radius: var(--radius-md);
+}
+/* The brand links home but must not look like an active nav item. */
+.app-nav__brand,
+.app-nav__brand[aria-current='page'] {
+  background: transparent;
+}
+.app-nav__brand:hover {
+  opacity: 0.85;
 }
 .app-nav a {
   color: var(--color-text-muted);
