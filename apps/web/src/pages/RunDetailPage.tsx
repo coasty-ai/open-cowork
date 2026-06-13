@@ -16,6 +16,8 @@ import {
   ScreenView,
   Spinner,
   type RunStatus,
+  Heading,
+  Text,
 } from '@open-cowork/ui';
 import { getClient } from '../store';
 import { useSse } from '../api/useSse';
@@ -133,15 +135,15 @@ export function RunDetailPage() {
       <div className="page-header">
         <div className="row">
           <RunStatusBadge status={run.status as RunStatus} />
-          <h1 className="page-title" style={{ wordBreak: 'break-word' }}>
+          <Heading level={1} className="run-title">
             {run.task}
-          </h1>
+          </Heading>
         </div>
         <div className="row">
           <CostPill cents={run.costCents} variant="actual" />
           {active ? (
             <Button
-              variant="danger"
+              variant="destructive"
               size="sm"
               onClick={() => void cancel()}
               loading={actionPending}
@@ -163,9 +165,9 @@ export function RunDetailPage() {
 
       <div className="run-detail-grid">
         <Card>
-          <h2 style={{ marginTop: 0, fontSize: '1rem' }}>
+          <Heading level={4}>
             {run.kind === 'local' ? 'Your screen (local run)' : 'Machine screen'}
-          </h2>
+          </Heading>
           <ScreenView
             frameB64={frame?.b64}
             live={active && connected}
@@ -174,16 +176,16 @@ export function RunDetailPage() {
             alt={run.kind === 'local' ? 'Local screen' : 'Remote machine screen'}
           />
           {run.kind === 'local' ? (
-            <p style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>
+            <Text variant="caption" as="p">
               This is a live view of your own screen, captured by the desktop app each step.
-            </p>
+            </Text>
           ) : null}
         </Card>
         <Card>
-          <h2 style={{ marginTop: 0, fontSize: '1rem' }}>
+          <Heading level={4}>
             Timeline{' '}
             {connected ? <span style={{ color: 'var(--color-success)' }}>· live</span> : null}
-          </h2>
+          </Heading>
           {streamError && events.length === 0 ? (
             <ErrorState message={`Event stream: ${streamError}`} />
           ) : null}
@@ -197,7 +199,7 @@ export function RunDetailPage() {
 
       {TERMINAL.has(run.status) ? (
         <Card>
-          <h2 style={{ marginTop: 0, fontSize: '1rem' }}>Summary</h2>
+          <Heading level={4}>Summary</Heading>
           <p>
             Finished <strong>{run.status}</strong> after {run.stepsCompleted} steps — total cost{' '}
             <CostPill cents={run.costCents} variant="actual" />.

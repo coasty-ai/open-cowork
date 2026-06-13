@@ -7,6 +7,8 @@ import {
   RunStatusBadge,
   Spinner,
   type RunStatus,
+  Heading,
+  Text,
 } from '@open-cowork/ui';
 import { getClient } from '../store';
 import type { RunDto } from '../api/client';
@@ -37,7 +39,7 @@ export function RunsPage() {
   return (
     <>
       <div className="page-header">
-        <h1 className="page-title">Runs</h1>
+        <Heading level={1}>Runs</Heading>
       </div>
       {runs.length === 0 ? (
         <EmptyState title="No runs yet" description="Delegate a task from the home screen." />
@@ -50,9 +52,9 @@ export function RunsPage() {
                 {run.kind === 'local' ? '💻 ' : '☁ '}
                 {run.task}
               </span>
-              <span style={{ color: 'var(--color-text-muted)', fontSize: '0.8rem' }}>
+              <Text variant="caption" as="span">
                 {run.stepsCompleted} steps
-              </span>
+              </Text>
               <CostPill cents={run.costCents} variant="actual" />
             </Link>
           ))}

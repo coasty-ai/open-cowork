@@ -1,6 +1,6 @@
 import { Component, type ReactNode } from 'react';
 import { Navigate, NavLink, Route, Routes, useLocation } from 'react-router-dom';
-import { Button, ErrorState, Logo, OfflineBanner } from '@open-cowork/ui';
+import { Button, ErrorState, Logo, OfflineBanner, Text } from '@open-cowork/ui';
 import { useAuth } from './store';
 import { useGlobalFeed } from './useGlobalFeed';
 import { LoginPage } from './pages/LoginPage';
@@ -51,9 +51,7 @@ function Shell({ children }: { children: ReactNode }) {
         <NavLink to="/machines">Machines</NavLink>
         <NavLink to="/settings">Settings</NavLink>
         <div className="app-nav__footer">
-          <span style={{ color: 'var(--color-text-muted)', fontSize: '0.8rem' }}>
-            {user?.email}
-          </span>
+          <Text variant="caption">{user?.email}</Text>
           <Button variant="ghost" size="sm" onClick={logout}>
             Sign out
           </Button>

@@ -15,6 +15,7 @@ import {
   Spinner,
   WalletCard,
   type MachineStatus,
+  Heading,
 } from '@open-cowork/ui';
 import { getClient } from '../store';
 import type { MachineDto, WalletDto } from '../api/client';
@@ -89,7 +90,7 @@ export function MachinesPage() {
   return (
     <>
       <div className="page-header">
-        <h1 className="page-title">Machines</h1>
+        <Heading level={1}>Machines</Heading>
         <Button onClick={() => setProvisionOpen(true)}>Provision machine</Button>
       </div>
 

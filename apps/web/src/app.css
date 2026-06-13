@@ -53,10 +53,8 @@
   flex-direction: column;
   gap: var(--space-2);
 }
-.page-title {
-  font-size: 1.3rem;
-  font-weight: 650;
-  margin: 0;
+.run-title {
+  word-break: break-word;
 }
 .page-header {
   display: flex;

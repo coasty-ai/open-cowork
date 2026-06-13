@@ -14,6 +14,7 @@ import {
   Spinner,
   WorkflowStepTree,
   type WorkflowStep as UiStep,
+  Heading,
 } from '@open-cowork/ui';
 import { getClient } from '../store';
 import type { MachineDto, WorkflowDto } from '../api/client';
@@ -133,7 +134,7 @@ export function WorkflowDetailPage() {
     <>
       <div className="page-header">
         <div className="row">
-          <h1 className="page-title">{workflow.name}</h1>
+          <Heading level={1}>{workflow.name}</Heading>
           <Badge tone="info">v{workflow.version}</Badge>
         </div>
         <Button onClick={() => setRunOpen(true)}>Run workflow</Button>
@@ -141,7 +142,7 @@ export function WorkflowDetailPage() {
 
       <div className="run-detail-grid">
         <Card>
-          <h2 style={{ marginTop: 0, fontSize: '1rem' }}>Definition</h2>
+          <Heading level={4}>Definition</Heading>
           <textarea
             className="json-editor"
             aria-label="Workflow definition JSON"
@@ -165,7 +166,7 @@ export function WorkflowDetailPage() {
           </div>
         </Card>
         <Card>
-          <h2 style={{ marginTop: 0, fontSize: '1rem' }}>Structure</h2>
+          <Heading level={4}>Structure</Heading>
           <WorkflowStepTree steps={tree} />
         </Card>
       </div>

@@ -15,6 +15,8 @@ import {
   RunStatusBadge,
   Spinner,
   type RunStatus,
+  Heading,
+  Text,
 } from '@open-cowork/ui';
 import { getClient } from '../store';
 import type { WorkflowDto, WorkflowRunDto } from '../api/client';
@@ -115,7 +117,7 @@ export function WorkflowsPage() {
   return (
     <>
       <div className="page-header">
-        <h1 className="page-title">Workflows</h1>
+        <Heading level={1}>Workflows</Heading>
         <Button onClick={() => setBuilderOpen(true)}>New workflow</Button>
       </div>
 
@@ -132,16 +134,16 @@ export function WorkflowsPage() {
               <Badge tone={wf.status === 'active' ? 'success' : 'neutral'}>v{wf.version}</Badge>
               <span className="run-row__task">
                 <strong>{wf.name}</strong>{' '}
-                <span style={{ color: 'var(--color-text-muted)' }}>({wf.slug})</span>
+                <Text variant="muted" as="span">
+                  ({wf.slug})
+                </Text>
               </span>
             </Link>
           ))}
         </div>
       )}
 
-      <h2 className="page-title" style={{ fontSize: '1.05rem' }}>
-        Recent workflow runs
-      </h2>
+      <Heading level={2}>Recent workflow runs</Heading>
       {runs.length === 0 ? (
         <EmptyState title="No workflow runs yet" />
       ) : (
@@ -150,10 +152,10 @@ export function WorkflowsPage() {
             <Link key={run.id} className="run-row" to={`/workflows/runs/${run.id}`}>
               <RunStatusBadge status={run.status as RunStatus} />
               <span className="run-row__task">{run.id}</span>
-              <span style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>
+              <Text variant="caption" as="span">
                 spent ${(run.spentCents / 100).toFixed(2)} / cap $
                 {(run.budgetCents / 100).toFixed(2)}
-              </span>
+              </Text>
             </Link>
           ))}
         </div>

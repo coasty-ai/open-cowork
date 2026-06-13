@@ -14,6 +14,7 @@ import {
   RunStatusBadge,
   Spinner,
   type RunStatus,
+  Heading,
 } from '@open-cowork/ui';
 import { getClient } from '../store';
 import { useSse } from '../api/useSse';
@@ -84,14 +85,14 @@ export function WorkflowRunDetailPage() {
       <div className="page-header">
         <div className="row">
           <RunStatusBadge status={run.status as RunStatus} />
-          <h1 className="page-title">Workflow run {run.id}</h1>
+          <Heading level={1}>Workflow run {run.id}</Heading>
         </div>
         <div className="row">
           <span className="notice" style={{ padding: '4px 10px' }}>
             spent ${(run.spentCents / 100).toFixed(2)} / cap ${(run.budgetCents / 100).toFixed(2)}
           </span>
           {active ? (
-            <Button variant="danger" size="sm" onClick={() => void cancel()} loading={pending}>
+            <Button variant="destructive" size="sm" onClick={() => void cancel()} loading={pending}>
               Cancel
             </Button>
           ) : null}
@@ -113,10 +114,10 @@ export function WorkflowRunDetailPage() {
       ) : null}
 
       <Card>
-        <h2 style={{ marginTop: 0, fontSize: '1rem' }}>
+        <Heading level={4}>
           Timeline{' '}
           {connected ? <span style={{ color: 'var(--color-success)' }}>· live</span> : null}
-        </h2>
+        </Heading>
         <EventTimeline
           events={timeline}
           loading={events.length === 0 && active}
@@ -126,7 +127,7 @@ export function WorkflowRunDetailPage() {
 
       {TERMINAL.has(run.status) ? (
         <Card>
-          <h2 style={{ marginTop: 0, fontSize: '1rem' }}>Result</h2>
+          <Heading level={4}>Result</Heading>
           {run.output ? <CodeBlock code={JSON.stringify(run.output, null, 2)} /> : null}
           {run.error?.message ? (
             <ErrorState message={`${run.error.code ?? 'ERROR'}: ${run.error.message}`} />

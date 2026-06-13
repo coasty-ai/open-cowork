@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Button, Card, ErrorState, Field, Spinner } from '@open-cowork/ui';
+import { Button, Card, ErrorState, Field, Spinner, Heading, Text } from '@open-cowork/ui';
 import { getClient, useAuth } from '../store';
 
 export function SettingsPage() {
@@ -50,13 +50,13 @@ export function SettingsPage() {
 
   return (
     <>
-      <h1 className="page-title">Settings</h1>
+      <Heading level={1}>Settings</Heading>
       <Card>
-        <h2 style={{ marginTop: 0, fontSize: '1rem' }}>Spending</h2>
-        <p style={{ color: 'var(--color-text-muted)' }}>
+        <Heading level={4}>Spending</Heading>
+        <Text variant="muted" as="p">
           This month: ${((spend ?? 0) / 100).toFixed(2)}. Every billable action is checked against
           your per-run budget cap server-side.
-        </p>
+        </Text>
         <Field
           label="Per-run budget cap (cents)"
           hint="Hard ceiling for any single run or workflow"
@@ -81,7 +81,7 @@ export function SettingsPage() {
         </div>
       </Card>
       <Card>
-        <h2 style={{ marginTop: 0, fontSize: '1rem' }}>Appearance</h2>
+        <Heading level={4}>Appearance</Heading>
         <Button
           variant="secondary"
           onClick={() => {

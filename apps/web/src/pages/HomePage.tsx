@@ -16,6 +16,7 @@ import {
   Spinner,
   TaskComposer,
   type RunStatus,
+  Heading,
 } from '@open-cowork/ui';
 import { getClient } from '../store';
 import { formatApiError, type MachineDto, type RunDto } from '../api/client';
@@ -97,7 +98,7 @@ export function HomePage() {
   return (
     <>
       <div className="page-header">
-        <h1 className="page-title">Delegate a task</h1>
+        <Heading level={1}>Delegate a task</Heading>
         {estimateCents !== undefined ? <CostPill cents={estimateCents} variant="estimate" /> : null}
       </div>
 
@@ -124,9 +125,7 @@ export function HomePage() {
         </Card>
       )}
 
-      <h2 className="page-title" style={{ fontSize: '1.05rem' }}>
-        Recent runs
-      </h2>
+      <Heading level={2}>Recent runs</Heading>
       {runs.length === 0 ? (
         <EmptyState
           title="No runs yet"
