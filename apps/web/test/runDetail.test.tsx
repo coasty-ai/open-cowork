@@ -41,7 +41,18 @@ afterEach(() => {
   useAuth.setState({ token: null, user: null });
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
+  delete (window as unknown as { cowork?: unknown }).cowork;
 });
+
+/** Install a fake desktop bridge (window.cowork) for local-run cancel tests. */
+function stubDesktopBridge(): { cancelLocalRun: ReturnType<typeof vi.fn> } {
+  const cancelLocalRun = vi.fn(async () => undefined);
+  (window as unknown as { cowork?: unknown }).cowork = {
+    platform: 'desktop',
+    cancelLocalRun,
+  };
+  return { cancelLocalRun };
+}
 
 describe('RunDetailPage', () => {
   it('renders mapped SSE events in the timeline', async () => {
@@ -147,6 +158,45 @@ describe('RunDetailPage', () => {
     renderRun();
     await userEvent.click(await screen.findByRole('button', { name: /cancel run/i }));
     await waitFor(() => expect(cancelRun).toHaveBeenCalledWith('r1'));
+  });
+
+  it('local run Cancel aborts the desktop loop via the IPC bridge, not just the backend', async () => {
+    // Regression: a local run executes in the desktop main process. Cancelling
+    // it must reach that process (cowork.cancelLocalRun) — the backend /cancel
+    // only records intent for local runs, so without the IPC the agent keeps
+    // driving the real screen while the UI claims "cancelled".
+    stubSse([{ id: 1, event: 'status', data: { status: 'running' } }]);
+    const { cancelLocalRun } = stubDesktopBridge();
+    const cancelRun = vi.fn(async () => makeRun({ kind: 'local', status: 'cancelled' }));
+    setClientForTests(
+      stubClient({
+        getRun: vi.fn(async () =>
+          makeRun({ kind: 'local', machineId: 'my-pc', status: 'running' }),
+        ),
+        cancelRun,
+      }),
+    );
+    renderRun();
+    await userEvent.click(await screen.findByRole('button', { name: /cancel run/i }));
+    await waitFor(() => expect(cancelLocalRun).toHaveBeenCalledTimes(1));
+    // The backend is still told (so every client + the run row reflect cancelled).
+    expect(cancelRun).toHaveBeenCalledWith('r1');
+  });
+
+  it('cloud run Cancel does NOT invoke the local-run IPC bridge', async () => {
+    stubSse([{ id: 1, event: 'status', data: { status: 'running' } }]);
+    const { cancelLocalRun } = stubDesktopBridge(); // bridge present, but run is cloud
+    const cancelRun = vi.fn(async () => makeRun({ status: 'cancelled' }));
+    setClientForTests(
+      stubClient({
+        getRun: vi.fn(async () => makeRun({ kind: 'coasty', status: 'running' })),
+        cancelRun,
+      }),
+    );
+    renderRun();
+    await userEvent.click(await screen.findByRole('button', { name: /cancel run/i }));
+    await waitFor(() => expect(cancelRun).toHaveBeenCalledWith('r1'));
+    expect(cancelLocalRun).not.toHaveBeenCalled();
   });
 
   it('local run: polls the frame channel and shows the live screen (not "waiting")', async () => {

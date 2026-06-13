@@ -54,6 +54,13 @@ export interface LocalRunManagerDeps {
    * of a run always uploads immediately so the screen view fills fast.
    */
   frameMs?: number;
+  /**
+   * How often to poll the backend run status so a cancel issued from ANOTHER
+   * device (a browser, a phone) aborts this machine's loop (default 2000ms;
+   * 0 disables). The desktop window's own Cancel button aborts instantly via
+   * IPC — this is the cross-device safety net.
+   */
+  cancelPollMs?: number;
 }
 
 export interface StartLocalRunInput {
@@ -83,6 +90,8 @@ export class LocalRunManager {
   private flushChain: Promise<void> = Promise.resolve();
   /** Time-throttle for live-frame uploads (0 = upload the next one now). */
   private lastFrameAt = 0;
+  /** Polls backend run status so a cross-device cancel aborts the local loop. */
+  private cancelWatcher: ReturnType<typeof setInterval> | null = null;
 
   constructor(deps: LocalRunManagerDeps) {
     this.deps = deps;
@@ -155,6 +164,9 @@ export class LocalRunManager {
         abort.signal,
       );
       this.active = { runId, abort, completion };
+      // Watch for a cancel issued from any other client (the desktop window's
+      // own Cancel aborts instantly via IPC; this catches phone/browser cancels).
+      this.startCancelWatcher(runId, abort);
       return { runId };
     } catch (err) {
       // Could not even get the loop started. If the run row already exists,
@@ -182,6 +194,49 @@ export class LocalRunManager {
     if (!active) return;
     active.abort.abort();
     await active.completion;
+  }
+
+  // ── cross-device cancel watcher ───────────────────────────────────────────────
+
+  /**
+   * Poll the backend run status; if it flips to `cancelled` (a cancel from
+   * another client), abort this machine's loop so screen control stops too.
+   * Best-effort: a failed poll never disrupts the run, and the first poll is one
+   * interval out (the desktop window's own Cancel aborts instantly via IPC).
+   */
+  private startCancelWatcher(runId: string, abort: AbortController): void {
+    const intervalMs = this.deps.cancelPollMs ?? 2000;
+    this.stopCancelWatcher();
+    if (intervalMs <= 0) return;
+    const timer = setInterval(() => {
+      if (abort.signal.aborted) {
+        this.stopCancelWatcher();
+        return;
+      }
+      void (async () => {
+        try {
+          const run = await this.api<{ status?: string }>(`/api/runs/${runId}`, 'GET');
+          if (run.status === 'cancelled' && !abort.signal.aborted) {
+            abort.abort();
+            this.stopCancelWatcher();
+          }
+        } catch {
+          // A status poll is best-effort — never let it disrupt the run.
+        }
+      })();
+    }, intervalMs);
+    // Never keep the process alive just for the cancel poll.
+    if (typeof timer === 'object' && timer !== null && 'unref' in timer) {
+      (timer as unknown as { unref(): void }).unref();
+    }
+    this.cancelWatcher = timer;
+  }
+
+  private stopCancelWatcher(): void {
+    if (this.cancelWatcher) {
+      clearInterval(this.cancelWatcher);
+      this.cancelWatcher = null;
+    }
   }
 
   // ── the loop (never throws; everything is mirrored + cleaned up) ───────────
@@ -278,6 +333,9 @@ export class LocalRunManager {
         });
       }
     }
+
+    // The loop has ended (done/failed/aborted) — stop watching for cancels.
+    this.stopCancelWatcher();
 
     // Drain everything that is still queued — the 'done' event must land.
     await this.flush(runId).catch(noop);

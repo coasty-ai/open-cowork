@@ -156,6 +156,13 @@ export function RunDetailPage() {
   const cancel = async () => {
     setActionPending(true);
     try {
+      // A local run executes in the desktop main process (LocalRunManager) —
+      // abort the actual agent loop there. The backend /cancel only records
+      // intent for a local run, so without this IPC the agent keeps driving the
+      // real mouse/keyboard while the UI says "cancelled".
+      if (run.kind === 'local' && window.cowork?.cancelLocalRun) {
+        await window.cowork.cancelLocalRun();
+      }
       await client.cancelRun(run.id);
       await refresh();
     } catch (err) {

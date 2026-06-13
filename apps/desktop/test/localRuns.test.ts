@@ -68,6 +68,9 @@ function fakeBackend(opts: FakeBackendOpts = {}) {
     predictResponse({ status: 'done', reasoning: 'task complete' }),
   ];
   let predictCalls = 0;
+  // The backend run-status the cancel watcher polls (a cross-device cancel
+  // flips this to 'cancelled').
+  let runStatus = 'running';
 
   const json = (data: unknown, status = 200) =>
     new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } });
@@ -101,6 +104,8 @@ function fakeBackend(opts: FakeBackendOpts = {}) {
     if (method === 'POST' && path === '/api/local-runs/r_local1/frame') {
       return json({ ok: true });
     }
+    if (method === 'GET' && path === '/api/runs/r_local1')
+      return json({ id: 'r_local1', kind: 'local', status: runStatus });
     if (method === 'PATCH' && path === '/api/local-runs/r_local1')
       return json({ id: 'r_local1', status: body.status });
     if (method === 'DELETE' && path === '/api/proxy/sessions/sess_1')
@@ -118,7 +123,16 @@ function fakeBackend(opts: FakeBackendOpts = {}) {
       .filter((r) => r.method === 'POST' && r.path === '/api/local-runs/r_local1/frame')
       .map((r) => r.body as { base64: string; width: number; height: number });
 
-  return { requests, fetchImpl, mirrored, frames, predictCalls: () => predictCalls };
+  return {
+    requests,
+    fetchImpl,
+    mirrored,
+    frames,
+    predictCalls: () => predictCalls,
+    setRunStatus: (s: string) => {
+      runStatus = s;
+    },
+  };
 }
 
 function makeManager(
@@ -258,6 +272,71 @@ describe('LocalRunManager — cancel', () => {
     expect(state.disposed).toBe(true);
     // cancel again when idle is a no-op
     await expect(manager.cancel()).resolves.toBeUndefined();
+  });
+});
+
+describe('LocalRunManager — cross-device cancel', () => {
+  it('aborts the loop when the run is cancelled from another device', async () => {
+    const { executor, state } = fakeExecutor();
+    // Predict never finishes on its own — only an external cancel ends it.
+    const backend = fakeBackend({
+      predictScript: [predictResponse({ actions: [CLICK], reasoning: 'still going' })],
+    });
+    const manager = makeManager(backend, executor, { settleMs: 10, cancelPollMs: 5 });
+
+    const sawPrediction = new Promise<void>((resolve) => {
+      manager.onEvent((ev: AgentLoopEvent) => {
+        if (ev.type === 'prediction') resolve();
+      });
+    });
+
+    await manager.start({ task: 'cancelled-from-phone', maxSteps: 500 });
+    await sawPrediction;
+    // A browser/phone hits POST /api/runs/:id/cancel → backend marks it cancelled.
+    backend.setRunStatus('cancelled');
+
+    // The watcher must notice and abort the local loop without any IPC call.
+    await manager.whenIdle();
+    expect(manager.runningRunId).toBeNull();
+
+    const events = backend.mirrored();
+    const last = events[events.length - 1]!;
+    expect(last.type).toBe('done');
+    expect(last.data).toMatchObject({ status: 'cancelled', result: { passed: false } });
+    const patch = backend.requests.find((r) => r.method === 'PATCH')!;
+    expect(patch.body.status).toBe('cancelled');
+    // session cleaned up + executor disposed, exactly like a direct cancel
+    expect(backend.requests.some((r) => r.method === 'DELETE')).toBe(true);
+    expect(state.disposed).toBe(true);
+  });
+
+  it('does not abort a healthy run (status stays running)', async () => {
+    const { executor } = fakeExecutor();
+    const backend = fakeBackend(); // default: continue → done
+    const manager = makeManager(backend, executor, { settleMs: 20, cancelPollMs: 5 });
+    await manager.start({ task: 'finishes normally', maxSteps: 5 });
+    await manager.whenIdle();
+    const last = backend.mirrored().at(-1)!;
+    expect(last.data).toMatchObject({ status: 'succeeded' });
+  });
+
+  it('a failing status poll never disrupts the run', async () => {
+    const { executor } = fakeExecutor();
+    const backend = fakeBackend();
+    const base = backend.fetchImpl;
+    const fetchImpl = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const path = String(input).replace(/^https?:\/\/[^/]+/, '');
+      if ((init?.method ?? 'GET') === 'GET' && path === '/api/runs/r_local1') {
+        throw new Error('status poll exploded');
+      }
+      return base(input, init);
+    }) as typeof fetch;
+    const manager = makeManager(backend, executor, { settleMs: 20, cancelPollMs: 5, fetchImpl });
+    await manager.start({ task: 'resilient to poll failures', maxSteps: 5 });
+    await manager.whenIdle();
+    const last = backend.mirrored().at(-1)!;
+    expect(last.type).toBe('done');
+    expect(last.data).toMatchObject({ status: 'succeeded' });
   });
 });
 
