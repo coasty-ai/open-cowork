@@ -5,6 +5,7 @@ import { cx } from '../cx';
 export type IconName =
   | 'delegate'
   | 'runs'
+  | 'history'
   | 'workflows'
   | 'machines'
   | 'settings'
@@ -49,6 +50,15 @@ const PATHS: Record<IconName, ReactNode> = {
       <line x1="3" y1="6" x2="3.01" y2="6" />
       <line x1="3" y1="12" x2="3.01" y2="12" />
       <line x1="3" y1="18" x2="3.01" y2="18" />
+    </>
+  ),
+  // Run history — a clock with a counter-clockwise "rewind" arrow (the
+  // conventional "history" glyph). Used by the Runs nav item.
+  history: (
+    <>
+      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+      <path d="M3 3v5h5" />
+      <path d="M12 7v5l4 2" />
     </>
   ),
   workflows: (

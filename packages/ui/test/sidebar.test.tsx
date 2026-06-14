@@ -58,4 +58,10 @@ describe('Icon', () => {
     render(<Icon name="settings" title="Settings" />);
     expect(screen.getByRole('img', { name: 'Settings' })).toBeInTheDocument();
   });
+
+  it('renders the history (clock) glyph used by the Runs nav', () => {
+    const { container } = render(<Icon name="history" title="Runs" />);
+    // The clock face is a path; the hands/arrow are additional paths.
+    expect(container.querySelectorAll('path').length).toBeGreaterThanOrEqual(2);
+  });
 });
