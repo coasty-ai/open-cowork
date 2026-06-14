@@ -661,4 +661,41 @@ describe('LocalRunManager — BYO provider', () => {
     expect(last.type).toBe('done');
     expect(last.data).toMatchObject({ status: 'failed' });
   });
+
+  it('a cancel during an in-flight predict ends the run as cancelled, not failed', async () => {
+    const { executor } = fakeExecutor();
+    const backend = fakeBackend();
+    // predict hangs until the run is aborted, then rejects the way a real
+    // provider does on a mid-flight abort (mapped to a TIMEOUT error).
+    const provider: InferenceProvider = {
+      kind: 'openai-compatible',
+      model: 'm',
+      async listModels() {
+        return [];
+      },
+      async health() {
+        return { ok: true };
+      },
+      async beginRun() {},
+      predict: (_input, ctx) =>
+        new Promise((_resolve, reject) => {
+          ctx?.signal?.addEventListener('abort', () =>
+            reject(new LlmProviderError('TIMEOUT', 'The provider timed out.')),
+          );
+        }),
+      async endRun() {},
+    };
+    const manager = makeManager(backend, executor, { createProvider: () => provider });
+
+    await manager.start({ task: 'cancel me', maxSteps: 5 });
+    await manager.cancel(); // aborts the in-flight predict and waits for settle
+
+    const last = backend.mirrored().at(-1)!;
+    expect(last.type).toBe('done');
+    // The user cancelled — it must read as cancelled, never "failed: timed out".
+    expect(last.data).toMatchObject({ status: 'cancelled' });
+    expect(JSON.stringify(backend.mirrored())).not.toContain('timed out');
+    const patch = backend.requests.filter((r) => r.method === 'PATCH').at(-1)!;
+    expect(patch.body.status).toBe('cancelled');
+  });
 });

@@ -325,19 +325,39 @@ export class LocalRunManager {
       // The loop only throws on infrastructure failures (screenshot/predict
       // transport). Surface those as a failed run instead of dying silently.
       const message = err instanceof Error ? err.message : String(err);
-      outcome = {
-        status: 'fail',
-        stepsUsed: 0,
-        totalCostCents: accumulatedCostCents,
-        reason: message,
-      };
-      if (!finishedMirrored) {
-        this.emit({ type: 'finished', status: 'fail', stepsUsed: 0, reason: message });
-        this.enqueue(runId, { type: 'error', data: { message } });
-        this.enqueue(runId, {
-          type: 'done',
-          data: { status: 'failed', result: { passed: false, summary: message } },
-        });
+      if (signal.aborted) {
+        // A Cancel (this window's button, or a cross-device cancel) aborted an
+        // in-flight predict/screenshot; the abort surfaces here as a throw. That
+        // is a clean cancellation, NOT a provider failure (e.g. it must never
+        // read as "the provider timed out") — mirror it as cancelled.
+        outcome = {
+          status: 'aborted',
+          stepsUsed: 0,
+          totalCostCents: accumulatedCostCents,
+          reason: 'Cancelled',
+        };
+        if (!finishedMirrored) {
+          this.emit({ type: 'finished', status: 'aborted', stepsUsed: 0, reason: 'Cancelled' });
+          this.enqueue(runId, {
+            type: 'done',
+            data: { status: 'cancelled', result: { passed: false, summary: 'Cancelled' } },
+          });
+        }
+      } else {
+        outcome = {
+          status: 'fail',
+          stepsUsed: 0,
+          totalCostCents: accumulatedCostCents,
+          reason: message,
+        };
+        if (!finishedMirrored) {
+          this.emit({ type: 'finished', status: 'fail', stepsUsed: 0, reason: message });
+          this.enqueue(runId, { type: 'error', data: { message } });
+          this.enqueue(runId, {
+            type: 'done',
+            data: { status: 'failed', result: { passed: false, summary: message } },
+          });
+        }
       }
     }
 

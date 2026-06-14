@@ -43,6 +43,8 @@ describe('parseStoredConfig', () => {
     { kind: 'bogus', model: 'x' },
     { kind: 'openai', model: '' },
     { kind: 'openai' },
+    // Coasty is the implicit default — never a persisted BYO selection.
+    { kind: 'coasty', model: 'v3' },
   ])('rejects %j', (raw) => {
     expect(parseStoredConfig(raw)).toBeNull();
   });
@@ -109,6 +111,29 @@ describe('ProviderStore', () => {
       vision: true,
     });
     expect(store.status()).toMatchObject({ kind: 'openai-compatible', hasKey: false });
+  });
+
+  it('preserves the saved key when re-saving the SAME provider without re-entering it', () => {
+    // The user edits just the model and clicks Save again (no key retyped). The
+    // encrypted key must survive — losing it silently was a real data-loss bug.
+    const store = new ProviderStore(fakeIo());
+    store.save({ kind: 'openrouter', model: 'gpt-4o', vision: true }, 'sk-secret-123456');
+    store.save({ kind: 'openrouter', model: 'gpt-4o-mini', vision: true }); // no key arg
+    const loaded = store.load();
+    expect(loaded!.config.model).toBe('gpt-4o-mini');
+    expect(loaded!.apiKey).toBe('sk-secret-123456');
+    expect(store.status().hasKey).toBe(true);
+  });
+
+  it('does NOT carry a key across a provider kind switch', () => {
+    const store = new ProviderStore(fakeIo());
+    store.save({ kind: 'openrouter', model: 'm', vision: true }, 'sk-or-123456');
+    // Switch to a different provider without a key → the old key must be dropped.
+    store.save({ kind: 'openai', model: 'gpt-4o', vision: true });
+    const loaded = store.load();
+    expect(loaded!.config.kind).toBe('openai');
+    expect(loaded!.apiKey).toBeUndefined();
+    expect(store.status().hasKey).toBe(false);
   });
 
   it('corrupt file → null (degrades to default, never throws)', () => {

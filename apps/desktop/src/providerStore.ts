@@ -57,6 +57,9 @@ export function parseStoredConfig(raw: unknown): StoredProviderConfig | null {
   if (!raw || typeof raw !== 'object') return null;
   const o = raw as Record<string, unknown>;
   if (typeof o.kind !== 'string' || !KINDS.includes(o.kind as ProviderKind)) return null;
+  // Coasty is the implicit default — it is never persisted as a BYO selection.
+  // Rejecting it here keeps the invariant explicit (no config ⇒ Coasty).
+  if (o.kind === 'coasty') return null;
   if (typeof o.model !== 'string' || o.model.trim() === '') return null;
   const vision =
     o.vision === true || o.vision === false || o.vision === 'unknown' ? o.vision : undefined;
@@ -81,16 +84,21 @@ const COASTY_DEFAULT_STATUS: ProviderStatus = {
 export class ProviderStore {
   constructor(private readonly io: ProviderStoreIo) {}
 
-  /** The saved BYO config + decrypted key, or null when none is configured. */
-  load(): { config: StoredProviderConfig; apiKey?: string } | null {
+  /** Raw persisted record (config not yet validated, key still encrypted). */
+  private readRaw(): Persisted | null {
     const raw = this.io.read();
     if (!raw) return null;
-    let parsed: Persisted;
     try {
-      parsed = JSON.parse(raw) as Persisted;
+      return JSON.parse(raw) as Persisted;
     } catch {
       return null;
     }
+  }
+
+  /** The saved BYO config + decrypted key, or null when none is configured. */
+  load(): { config: StoredProviderConfig; apiKey?: string } | null {
+    const parsed = this.readRaw();
+    if (!parsed) return null;
     const config = parseStoredConfig(parsed.config);
     if (!config) return null;
     const apiKey = parsed.keyEnc ? (this.io.decrypt(parsed.keyEnc) ?? undefined) : undefined;
@@ -107,6 +115,16 @@ export class ProviderStore {
       // When secure storage is unavailable we DROP the key rather than persist it
       // in plaintext; the UI surfaces secureStorage=false so the user is informed.
       if (enc) persisted.keyEnc = enc;
+    } else {
+      // No new key supplied — e.g. the user edited only the model. Preserve the
+      // existing encrypted key, but ONLY for the SAME provider kind: a key for
+      // one provider must never silently carry over to another (and editing a
+      // saved provider must not wipe its key).
+      const existing = this.readRaw();
+      const existingKind = existing?.config ? parseStoredConfig(existing.config)?.kind : undefined;
+      if (existing?.keyEnc && existingKind === clean.kind) {
+        persisted.keyEnc = existing.keyEnc;
+      }
     }
     this.io.write(JSON.stringify(persisted));
   }

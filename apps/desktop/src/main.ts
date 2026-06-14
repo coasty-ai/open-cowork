@@ -14,6 +14,7 @@ import { app, BrowserWindow, globalShortcut, ipcMain, safeStorage, screen } from
 import type { Display } from 'electron';
 import { createNativeBridge, LocalExecutor, type ScreenRegion } from '@open-cowork/executor';
 import {
+  LlmProviderError,
   makeProvider,
   mapProviderError,
   type InferenceProvider,
@@ -104,6 +105,16 @@ const providerStore = new ProviderStore({
 function buildActiveProvider(): InferenceProvider {
   const stored = providerStore.load();
   if (stored && stored.config.kind !== 'coasty') {
+    // A hosted provider needs a key. If one was configured but couldn't be
+    // restored (secure storage unavailable, so it was dropped on save), fail
+    // with a clear message instead of a misleading "provider rejected the key".
+    const needsKey = stored.config.kind === 'openai' || stored.config.kind === 'openrouter';
+    if (needsKey && !stored.apiKey) {
+      throw new LlmProviderError(
+        'PROVIDER_AUTH',
+        `No API key is stored for ${stored.config.label ?? stored.config.kind}. Re-add the provider in Settings (secure key storage may be unavailable on this machine), or use a local provider like Ollama.`,
+      );
+    }
     return makeProvider({ ...stored.config, apiKey: stored.apiKey });
   }
   return makeProvider(
@@ -125,6 +136,13 @@ function parseProbeConfig(raw: unknown): ProviderConfig {
   });
   if (!config) throw new Error('Invalid provider config');
   return { ...config, apiKey: typeof o.apiKey === 'string' ? o.apiKey : undefined };
+}
+
+/** Pull the API key out of a raw IPC payload (before validation) so it can be
+ *  redacted from any error, even one thrown while parsing the rest. */
+function rawApiKey(raw: unknown): string | undefined {
+  const o = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
+  return typeof o.apiKey === 'string' ? o.apiKey : undefined;
 }
 
 /** Validate a renderer-supplied config to persist (a real BYO provider). */
@@ -394,12 +412,11 @@ if (!gotLock) {
     return providerStore.status();
   });
   ipcMain.handle('cowork:list-models', async (_event, raw: unknown) => {
-    // Capture the key before the risky calls so the catch can scrub it from any
-    // error (defense-in-depth; providers also redact internally).
-    let apiKey: string | undefined;
+    // Capture the key BEFORE any parse/call so the catch can scrub it from any
+    // error even if validation throws (defense-in-depth; providers also redact).
+    const apiKey = rawApiKey(raw);
     try {
       const config = parseProbeConfig(raw);
-      apiKey = config.apiKey;
       const provider = makeProvider(config, {
         backendUrl: BACKEND_URL,
         getToken: () => sessionToken,
@@ -411,10 +428,9 @@ if (!gotLock) {
     }
   });
   ipcMain.handle('cowork:test-provider', async (_event, raw: unknown) => {
-    let apiKey: string | undefined;
+    const apiKey = rawApiKey(raw);
     try {
       const config = parseProbeConfig(raw);
-      apiKey = config.apiKey;
       const provider = makeProvider(config, {
         backendUrl: BACKEND_URL,
         getToken: () => sessionToken,
