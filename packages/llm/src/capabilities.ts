@@ -72,14 +72,18 @@ export function resolveModelVision(
 }
 
 /**
- * The effective vision decision for a run: an explicit user override wins,
- * otherwise the detected capability; `'unknown'` without an override resolves to
- * `false` so we block rather than send a blind request.
+ * The effective vision decision for a run. A model the provider KNOWS is
+ * text-only (`vision === false`) can never see, so it stays blocked even if an
+ * override is set — an override only rescues the genuinely `'unknown'` case.
+ * Otherwise an explicit override wins, then the detected capability; `'unknown'`
+ * without an override resolves to `false` so we block rather than send a blind
+ * request.
  */
 export function effectiveVision(
   model: { vision?: ModelInfo['vision'] },
   override?: boolean,
 ): boolean {
+  if (model.vision === false) return false; // authoritative: cannot be overridden
   if (override === true) return true;
   if (override === false) return false;
   return model.vision === true;

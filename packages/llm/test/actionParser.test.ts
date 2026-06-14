@@ -79,10 +79,11 @@ describe('toCuaAction — every action type', () => {
       params: { x: 5, y: 6 },
     });
   });
-  it('wait ms / seconds / default', () => {
+  it('wait ms / seconds / default / zero', () => {
     expect(toCuaAction({ type: 'wait', ms: 500 }).params).toEqual({ ms: 500 });
     expect(toCuaAction({ type: 'wait', seconds: 2 }).params).toEqual({ ms: 2000 });
     expect(toCuaAction({ type: 'wait' }).params).toEqual({ ms: 1000 });
+    expect(toCuaAction({ type: 'wait', ms: 0 }).params).toEqual({ ms: 0 }); // zero is valid
   });
   it('done / fail', () => {
     expect(toCuaAction({ type: 'done' })).toEqual({ action_type: 'done', params: {} });
@@ -103,6 +104,12 @@ describe('toCuaAction — invalid → BAD_OUTPUT (no silent no-op)', () => {
     ['key with no keys', { type: 'key' } as ModelAction],
     ['hotkey with empty keys', { type: 'hotkey', keys: [] } as ModelAction],
     ['NaN coordinate', { type: 'click', x: NaN, y: 2 } as ModelAction],
+    ['wait with NaN ms', { type: 'wait', ms: NaN } as ModelAction],
+    ['wait with Infinity ms', { type: 'wait', ms: Infinity } as ModelAction],
+    ['wait with negative seconds', { type: 'wait', seconds: -2 } as ModelAction],
+    ['scroll with Infinity amount', { type: 'scroll', amount: Infinity } as ModelAction],
+    ['scroll with NaN amount', { type: 'scroll', amount: NaN } as ModelAction],
+    ['scroll with NaN x', { type: 'scroll', x: NaN } as ModelAction],
   ])('%s throws BAD_OUTPUT', (_label, action) => {
     expect(() => toCuaAction(action)).toThrowError(LlmProviderError);
     try {
@@ -156,6 +163,25 @@ describe('MODEL_STEP_SCHEMA + coerceModelStep', () => {
   });
 });
 
+describe('coerceModelStep — tolerates the shapes weaker models emit', () => {
+  it('a bare actions array → wrapped as a continue step', () => {
+    const step = coerceModelStep([{ type: 'click', x: 7, y: 8 }]);
+    expect(step.status).toBe('continue');
+    expect(step.actions[0]).toMatchObject({ action_type: 'click', params: { x: 7, y: 8 } });
+  });
+  it('a single bare action object → wrapped', () => {
+    const step = coerceModelStep({ type: 'type', text: 'hello' });
+    expect(step.actions).toEqual([{ action_type: 'type_text', params: { text: 'hello' } }]);
+  });
+  it('a one-key {action:{…}} / {step:{…}} wrapper → unwrapped', () => {
+    expect(coerceModelStep({ action: { type: 'done' } }).actions[0]).toEqual({
+      action_type: 'done',
+      params: {},
+    });
+    expect(coerceModelStep({ step: { status: 'fail', actions: [] } }).status).toBe('fail');
+  });
+});
+
 describe('extractJson — defensive recovery from text', () => {
   it('parses a bare object', () => {
     expect(extractJson('{"status":"done","actions":[]}')).toEqual({ status: 'done', actions: [] });
@@ -180,6 +206,16 @@ describe('extractJson — defensive recovery from text', () => {
   });
   it('handles escaped quotes inside strings', () => {
     expect(extractJson('{"text":"he said \\"hi\\" }"}')).toEqual({ text: 'he said "hi" }' });
+  });
+  it('recovers a top-level JSON array when there is no object', () => {
+    expect(extractJson('Here are the steps: [{"type":"click","x":1,"y":2}]')).toEqual([
+      { type: 'click', x: 1, y: 2 },
+    ]);
+  });
+  it('prefers a JSON object over a stray array earlier in the text', () => {
+    expect(extractJson('options [a, b] then {"status":"done","actions":[]}')).toMatchObject({
+      status: 'done',
+    });
   });
   it.each([
     ['empty', ''],

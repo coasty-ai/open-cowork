@@ -88,6 +88,39 @@ describe('OpenAiCompatibleProvider — predict (structured output)', () => {
     expect(r.actions[0]).toMatchObject({ action_type: 'click', params: { x: 7, y: 8 } });
   });
 
+  it('recovers a bare actions array via structured-output repair (no second call)', async () => {
+    // The model returns a top-level array instead of the wrapper object; the
+    // repair hook reshapes it so generateObject still succeeds in one call.
+    const model = scriptedModel([JSON.stringify([{ type: 'click', x: 7, y: 8 }])]);
+    const spy = vi.spyOn(model, 'doGenerate');
+    const p = new OpenAiCompatibleProvider({ config: VISION_CONFIG, model });
+    const r = await p.predict(input());
+    expect(r.actions[0]).toMatchObject({ action_type: 'click', params: { x: 7, y: 8 } });
+    expect(spy).toHaveBeenCalledTimes(1); // repaired in-place, no fallback round-trip
+  });
+
+  it('escalates prose → JSON-only re-ask → repair turn before giving up', async () => {
+    // 1) generateObject sees prose → fails; 2) the JSON-only re-ask is still prose
+    // → fails; 3) the repair turn finally returns JSON → recovered.
+    const model = scriptedModel([
+      'I will click the search box now.',
+      'Sure, clicking the search box.',
+      JSON.stringify({ status: 'continue', actions: [{ type: 'click', x: 5, y: 6 }] }),
+    ]);
+    const p = new OpenAiCompatibleProvider({ config: VISION_CONFIG, model });
+    const r = await p.predict(input());
+    expect(r.actions[0]).toMatchObject({ action_type: 'click', params: { x: 5, y: 6 } });
+  });
+
+  it('fails with an actionable message when the model never emits JSON', async () => {
+    const model = scriptedModel(['just prose, no braces at all']); // repeats for every call
+    const p = new OpenAiCompatibleProvider({ config: VISION_CONFIG, model });
+    const err = await p.predict(input()).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(LlmProviderError);
+    expect((err as LlmProviderError).code).toBe('BAD_OUTPUT');
+    expect((err as LlmProviderError).message).toMatch(/JSON|vision model/i);
+  });
+
   it('blocks an oversized screenshot BEFORE calling the model', async () => {
     const model = scriptedModel(['{}']);
     const spy = vi.spyOn(model, 'doGenerate');
@@ -197,6 +230,35 @@ describe('OpenAiCompatibleProvider — listModels + health', () => {
     const models = await p.listModels();
     expect(models.find((m) => m.id === 'a/vision')!.vision).toBe(true);
     expect(models.find((m) => m.id === 'b/textonly')!.vision).toBe(false);
+  });
+
+  it('an empty input_modalities array is authoritative (no vision) — not a name guess', async () => {
+    // OpenRouter saying "no input modalities" must NOT fall back to the name
+    // heuristic (which would wrongly mark e.g. claude-3.5 as vision-capable).
+    const p = new OpenAiCompatibleProvider({
+      config: { kind: 'openrouter', model: 'x', apiKey: 'sk-or' },
+      fetchImpl: fetchReturning({
+        data: [{ id: 'anthropic/claude-3.5-sonnet', architecture: { input_modalities: [] } }],
+      }),
+    });
+    const models = await p.listModels();
+    expect(models[0]!.vision).toBe(false);
+  });
+
+  it('falls back to a token-matched modality string when no modalities array', async () => {
+    const p = new OpenAiCompatibleProvider({
+      config: { kind: 'openrouter', model: 'x', apiKey: 'sk-or' },
+      fetchImpl: fetchReturning({
+        data: [
+          { id: 'm/multi', architecture: { modality: 'text,image' } },
+          // 'image-generation' must NOT match the 'image' input token (no substring hit).
+          { id: 'm/imggen', architecture: { modality: 'text,image-generation' } },
+        ],
+      }),
+    });
+    const models = await p.listModels();
+    expect(models.find((m) => m.id === 'm/multi')!.vision).toBe(true);
+    expect(models.find((m) => m.id === 'm/imggen')!.vision).toBe(false);
   });
 
   it('health: ok when models resolve', async () => {

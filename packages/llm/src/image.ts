@@ -18,7 +18,9 @@ export function base64Bytes(base64: string): number {
   let padding = 0;
   if (base64.endsWith('==')) padding = 2;
   else if (base64.endsWith('=')) padding = 1;
-  return Math.floor((len * 3) / 4) - padding;
+  // Clamp: a degenerate padding-only string ('=', '==') would otherwise yield a
+  // negative count that silently passes the size guard.
+  return Math.max(0, Math.floor((len * 3) / 4) - padding);
 }
 
 /** Throw IMAGE_TOO_LARGE if a base64 image exceeds `maxBytes`. */

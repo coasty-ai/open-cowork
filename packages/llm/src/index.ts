@@ -27,6 +27,7 @@ export {
   coerceModelStep,
   coerceFromText,
   extractJson,
+  normalizeStepShape,
 } from './actionParser';
 export type { ModelAction, ModelStep, ParsedStep } from './actionParser';
 export { CoastyProvider } from './coastyProvider';

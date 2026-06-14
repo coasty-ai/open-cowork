@@ -49,9 +49,12 @@ describe('resolveModelVision — provider metadata wins', () => {
 });
 
 describe('effectiveVision — the run gate', () => {
-  it('override true/false wins over detection', () => {
-    expect(effectiveVision({ vision: false }, true)).toBe(true);
-    expect(effectiveVision({ vision: true }, false)).toBe(false);
+  it('override rescues only the unknown case, never a KNOWN-non-vision model', () => {
+    // A model the provider knows is text-only can never see — an override of a
+    // known `false` must NOT let a screenshot run start.
+    expect(effectiveVision({ vision: false }, true)).toBe(false);
+    expect(effectiveVision({ vision: 'unknown' }, true)).toBe(true); // override rescues unknown
+    expect(effectiveVision({ vision: true }, false)).toBe(false); // user can still opt out
   });
   it('without override: only true passes; unknown/undefined/false block', () => {
     expect(effectiveVision({ vision: true })).toBe(true);

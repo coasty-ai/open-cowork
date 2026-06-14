@@ -17,7 +17,14 @@ import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import type { Usage } from '@open-cowork/core';
 import { LlmProviderError, mapProviderError } from './errors';
 import { effectiveVision, resolveModelVision } from './capabilities';
-import { coerceFromText, mapModelStep, MODEL_STEP_SCHEMA, type ParsedStep } from './actionParser';
+import {
+  coerceFromText,
+  extractJson,
+  mapModelStep,
+  MODEL_STEP_SCHEMA,
+  normalizeStepShape,
+  type ParsedStep,
+} from './actionParser';
 import { DEFAULT_MAX_IMAGE_BYTES, guardImageSize } from './image';
 import type {
   BeginRunOptions,
@@ -32,6 +39,18 @@ import type {
 
 const OPENAI_DEFAULT_BASE = 'https://api.openai.com/v1';
 const OPENROUTER_MODELS_URL = 'https://openrouter.ai/api/v1/models';
+/** Per-step reasoning kept in the in-prompt trajectory is capped so a chatty
+ *  (e.g. chain-of-thought) model can't grow the prompt/memory without bound. */
+const MAX_REASONING_CHARS = 500;
+
+const JSON_ONLY_REMINDER =
+  'IMPORTANT: Output ONLY the JSON object — no prose, no explanation, no markdown, no backticks. Your entire reply must start with "{" and end with "}".';
+
+const JSON_REPAIR_SYSTEM =
+  'You convert an assistant message into ONE JSON object for a computer-use agent, with keys "reasoning" (string), "status" ("continue"|"done"|"fail"), and "actions" (array of {type, ...}). Output ONLY the JSON object — no prose, no markdown.';
+
+const JSON_REPAIR_USER =
+  'Convert the following answer into that single JSON object. Output ONLY the JSON.\n\nAnswer to convert:';
 
 export interface OpenAiCompatibleDeps {
   config: ProviderConfig;
@@ -93,6 +112,7 @@ export class OpenAiCompatibleProvider implements InferenceProvider {
     guardImageSize(input.screenshotB64, this.maxImageBytes);
     const system = buildSystemPrompt(input.width, input.height, ctx?.systemPrompt);
     const messages = this.buildMessages(input);
+    const signal = ctx?.signal;
 
     let step: ParsedStep;
     let usage: Usage;
@@ -102,32 +122,75 @@ export class OpenAiCompatibleProvider implements InferenceProvider {
         schema: MODEL_STEP_SCHEMA,
         system,
         messages,
-        abortSignal: ctx?.signal,
+        abortSignal: signal,
+        // Recover JSON the model wrapped in prose / fences / arrays (or emitted as
+        // a bare action) before the SDK gives up — structured output then succeeds
+        // for far more models without a second round-trip.
+        experimental_repairText: async ({ text }) => repairToStepJson(text),
       });
       step = mapModelStep(result.object);
       usage = toUsage(result.usage);
     } catch (err) {
-      if (NoObjectGeneratedError.isInstance(err)) {
-        // The model couldn't emit a clean object — retry as free text and parse.
-        try {
-          const t = await generateText({
-            model: this.languageModel(),
-            system,
-            messages,
-            abortSignal: ctx?.signal,
-          });
-          step = coerceFromText(t.text);
-          usage = toUsage(t.usage);
-        } catch (err2) {
-          throw mapProviderError(err2, this.config.apiKey);
-        }
-      } else {
-        throw mapProviderError(err, this.config.apiKey);
-      }
+      // An abort is a cancellation, not a parse failure — surface immediately.
+      if (signal?.aborted) throw mapProviderError(err, this.config.apiKey);
+      // Fall back to free text when the model gave no clean object OR the endpoint
+      // rejected structured output (common for local / OpenAI-compatible servers).
+      if (!canFallBackToText(err)) throw mapProviderError(err, this.config.apiKey);
+      ({ step, usage } = await this.predictViaText(system, messages, signal));
     }
 
     this.remember(input.stepIndex, step);
     return { status: step.status, actions: step.actions, reasoning: step.reasoning ?? null, usage };
+  }
+
+  /**
+   * Free-text recovery for models that won't (or can't) honor structured output.
+   * Escalates: (1) re-ask with a forceful "JSON only" reminder, then (2) a repair
+   * turn that hands the model its own prose back and asks it to convert it to JSON.
+   * Only if BOTH yield nothing parseable do we fail — with an actionable message.
+   */
+  private async predictViaText(
+    system: string,
+    messages: ReturnType<OpenAiCompatibleProvider['buildMessages']>,
+    signal?: AbortSignal,
+  ): Promise<{ step: ParsedStep; usage: Usage }> {
+    const model = this.languageModel();
+    let lastText = '';
+    // Pass 1 — re-ask, JSON only.
+    try {
+      const t = await generateText({
+        model,
+        system: `${system}\n\n${JSON_ONLY_REMINDER}`,
+        messages,
+        abortSignal: signal,
+      });
+      lastText = t.text;
+      return { step: coerceFromText(t.text), usage: toUsage(t.usage) };
+    } catch (err) {
+      if (signal?.aborted) throw mapProviderError(err, this.config.apiKey);
+      if (!(err instanceof LlmProviderError && err.code === 'BAD_OUTPUT')) {
+        throw mapProviderError(err, this.config.apiKey);
+      }
+    }
+    // Pass 2 — repair turn: resend the model's own answer and demand JSON only.
+    try {
+      const r = await generateText({
+        model,
+        system: JSON_REPAIR_SYSTEM,
+        messages: [{ role: 'user' as const, content: `${JSON_REPAIR_USER}\n\n${lastText}` }],
+        abortSignal: signal,
+      });
+      return { step: coerceFromText(r.text), usage: toUsage(r.usage) };
+    } catch (err) {
+      if (signal?.aborted) throw mapProviderError(err, this.config.apiKey);
+      if (err instanceof LlmProviderError && err.code === 'BAD_OUTPUT') {
+        throw new LlmProviderError(
+          'BAD_OUTPUT',
+          "The model didn't return a usable JSON action after retries — it may not reliably follow JSON instructions. Try a more capable, instruction-tuned vision model (e.g. a 7B+ '-vl' / 'vision' model) or a hosted provider.",
+        );
+      }
+      throw mapProviderError(err, this.config.apiKey);
+    }
   }
 
   async endRun(): Promise<void> {
@@ -184,7 +247,11 @@ export class OpenAiCompatibleProvider implements InferenceProvider {
         : step.status === 'fail'
           ? 'fail'
           : step.actions.map((a) => a.action_type).join(', ') || 'no-op';
-    this.history.push({ step: stepIndex, reasoning: step.reasoning, actions });
+    const reasoning =
+      step.reasoning && step.reasoning.length > MAX_REASONING_CHARS
+        ? step.reasoning.slice(0, MAX_REASONING_CHARS)
+        : step.reasoning;
+    this.history.push({ step: stepIndex, reasoning, actions });
     if (this.history.length > this.trajectoryWindow) {
       this.history.splice(0, this.history.length - this.trajectoryWindow);
     }
@@ -244,12 +311,18 @@ export class OpenAiCompatibleProvider implements InferenceProvider {
       .map((m) => {
         const mods = m.architecture?.input_modalities;
         const modality = m.architecture?.modality ?? '';
-        const vision =
-          Array.isArray(mods) && mods.length > 0
-            ? mods.includes('image')
-            : modality
-              ? modality.includes('image')
-              : resolveModelVision(m.id, undefined);
+        // An `input_modalities` array is authoritative even when empty (the model
+        // explicitly accepts no images → not vision); only fall back to the
+        // modality string (token-matched, not substring) or the name heuristic
+        // when OpenRouter exposes no modalities array at all.
+        const vision = Array.isArray(mods)
+          ? mods.includes('image')
+          : modality
+            ? modality
+                .split(',')
+                .map((s) => s.trim())
+                .includes('image')
+            : resolveModelVision(m.id, undefined);
         return { id: m.id, label: m.name ?? m.id, vision };
       });
   }
@@ -279,6 +352,25 @@ function buildModel(config: ProviderConfig): LanguageModel {
   }
 }
 
+/** True when a structured-output failure is worth retrying as free text. */
+function canFallBackToText(err: unknown): boolean {
+  if (NoObjectGeneratedError.isInstance(err)) return true;
+  if (err instanceof LlmProviderError) return err.code === 'BAD_OUTPUT';
+  const o = err && typeof err === 'object' ? (err as Record<string, unknown>) : {};
+  const status = (o.statusCode ?? o.status) as number | undefined;
+  // 400/422 here usually means the endpoint rejected response_format / tools.
+  return status === 400 || status === 422;
+}
+
+/** Repair hook for generateObject: pull a step-shaped object out of raw text. */
+function repairToStepJson(text: string): string | null {
+  try {
+    return JSON.stringify(normalizeStepShape(extractJson(text)));
+  } catch {
+    return null;
+  }
+}
+
 function toUsage(u: { inputTokens?: number; outputTokens?: number } | undefined): Usage {
   return {
     input_tokens: u?.inputTokens ?? 0,
@@ -293,7 +385,8 @@ function buildSystemPrompt(width: number, height: number, extra?: string): strin
   return [
     "You are a computer-use agent. You see a screenshot of a screen and choose the next GUI action(s) to accomplish the user's task.",
     `The screenshot is ${width}x${height} pixels. All coordinates are PIXELS in that image, origin (0,0) at the TOP-LEFT, x right, y down.`,
-    'Respond ONLY with a JSON object: { "reasoning": string, "status": "continue"|"done"|"fail", "actions": Action[] }.',
+    'Respond with a SINGLE JSON object and NOTHING else — no prose, no explanation, no <think> notes, no markdown code fences. Your entire reply must start with "{" and end with "}".',
+    'Schema: { "reasoning": string, "status": "continue"|"done"|"fail", "actions": Action[] }.',
     'Each Action has a "type" and the fields it needs:',
     '  click|double_click|right_click|middle_click { x, y }',
     '  type { text }            // types text at the current focus',
@@ -304,6 +397,8 @@ function buildSystemPrompt(width: number, height: number, extra?: string): strin
     '  move { x, y }   wait { ms }   done {}   fail { reason }',
     'Set status "done" when the task is complete (no further actions needed), "fail" if it is impossible, otherwise "continue".',
     'Prefer one decisive action per step. Use exact pixel coordinates from the screenshot.',
+    'Example of a valid reply (match this format exactly):',
+    '{"reasoning":"The search box is near the top center.","status":"continue","actions":[{"type":"click","x":640,"y":48}]}',
     extra?.trim() ? `Additional instructions: ${extra.trim()}` : '',
   ]
     .filter(Boolean)

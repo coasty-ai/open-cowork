@@ -6,6 +6,7 @@ import type { LanguageModel } from 'ai';
 import type { CuaVersion } from '@open-cowork/core';
 import { CoastyProvider } from './coastyProvider';
 import { OpenAiCompatibleProvider } from './openaiCompatibleProvider';
+import { LlmProviderError } from './errors';
 import type { InferenceProvider, ProviderConfig } from './types';
 
 export interface MakeProviderDeps {
@@ -25,7 +26,10 @@ export function makeProvider(
 ): InferenceProvider {
   if (config.kind === 'coasty') {
     if (!deps.backendUrl || !deps.getToken) {
-      throw new Error('CoastyProvider needs backendUrl + getToken');
+      throw new LlmProviderError(
+        'PROVIDER_ERROR',
+        'The Coasty provider needs a backend URL and a session-token getter.',
+      );
     }
     return new CoastyProvider({
       backendUrl: deps.backendUrl,

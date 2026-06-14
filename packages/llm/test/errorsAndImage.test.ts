@@ -67,6 +67,10 @@ describe('image size guard', () => {
     expect(base64Bytes(Buffer.from('hello').toString('base64'))).toBe(5);
     expect(base64Bytes(Buffer.from('hi').toString('base64'))).toBe(2);
   });
+  it('base64Bytes never returns negative for degenerate padding-only input', () => {
+    expect(base64Bytes('=')).toBe(0);
+    expect(base64Bytes('==')).toBe(0);
+  });
   it('passes a normal image', () => {
     expect(() => guardImageSize('A'.repeat(1000))).not.toThrow();
   });
