@@ -10,10 +10,13 @@
   <strong>Hand off computer tasks to an AI coworker — watch it work, approve from anywhere.</strong>
 </p>
 <p align="center">
-  An open-source, cross-platform agentic coworker on the
-  <a href="https://coasty.ai/docs">Coasty Computer Use API</a>.
-  It <em>sees a screen and acts on it</em> — your own desktop, a cloud VM, or a browser —
-  streams every step live, pauses for your approval, and keeps spend visible and capped.
+  An open-source, cross-platform agentic coworker that <em>sees a screen and acts on it</em> —
+  your own desktop, a cloud VM, or a browser. It streams every step live, pauses for your
+  approval, and keeps spend visible and capped.
+</p>
+<p align="center">
+  Runs on the <a href="https://coasty.ai/docs">Coasty Computer Use API</a> out of the box —
+  or <strong>bring your own LLM</strong> (OpenRouter · OpenAI · a local model). Your call.
 </p>
 
 <p align="center">
@@ -21,15 +24,17 @@
   <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg">
   <img alt="Platforms" src="https://img.shields.io/badge/platforms-desktop%20%C2%B7%20web%20%C2%B7%20mobile-0aa">
   <img alt="One key" src="https://img.shields.io/badge/setup-one%20key%20(or%20none)-7c3aed">
+  <img alt="BYO LLM (BYOK)" src="https://img.shields.io/badge/BYO%20LLM-OpenRouter%20%C2%B7%20OpenAI%20%C2%B7%20Ollama-ff8c00">
   <img alt="TypeScript strict" src="https://img.shields.io/badge/TypeScript-strict-3178c6">
   <img alt="Tests" src="https://img.shields.io/badge/tests-730%2B%20%C2%B7%205%20E2E-success">
 </p>
 
 <p align="center">
   <a href="#quickstart"><b>Quickstart</b></a> &nbsp;·&nbsp;
+  <a href="#bring-your-own-llm-byok"><b>Bring your own LLM</b></a> &nbsp;·&nbsp;
   <a href="RUN_LOCALLY.md"><b>Automate your PC</b></a> &nbsp;·&nbsp;
   <a href="#what-you-can-do"><b>Features</b></a> &nbsp;·&nbsp;
-  <a href="#how-it-works"><b>How it works</b></a> &nbsp;·&nbsp;
+  <a href="#how-it-works">How it works</a> &nbsp;·&nbsp;
   <a href="#docs">Docs</a>
 </p>
 
@@ -45,33 +50,37 @@ pnpm install      # one install for the whole monorepo
 pnpm desktop      # ← runs the desktop app: starts backend + web, opens the window
 ```
 
-**`pnpm desktop` is the whole thing in one command.** It starts the backend and
-web UI, waits until they're ready, then opens the **desktop app** (Electron) —
-the build that can drive **your own screen**. Closing the window stops
-everything. With **no configuration at all** it runs in **demo mode**: it boots
-the bundled mock Coasty server and uses an ephemeral sandbox key — no account,
-no key, no network calls, no billing. (`pnpm doctor` confirms your setup first.)
+That's it — **one command, zero config.** `pnpm desktop` starts the backend and web
+UI, then opens the **desktop app** (the build that can drive **your own screen**).
+With no key set it runs in **demo mode**: a bundled mock server and a throwaway
+sandbox key — no account, no network, no billing.
 
-In the window: sign in with any email → on the Delegate screen pick **“This
-computer (local screen)”** → type a task → confirm the cost → watch the agent
-work. Add `NEEDS_HUMAN` anywhere in the task to see the approval flow pause and
-resume.
+Then, in the window:
 
-> ⚠️ Local control moves your **real** mouse and keyboard. Stop a run with the
-> **Cancel** button (or close the window). Start with small, low-stakes tasks —
-> full safety notes in **[RUN_LOCALLY.md](RUN_LOCALLY.md)**.
+1. Sign in with any email.
+2. On **Delegate**, pick **“This computer (local screen).”**
+3. Type a task → confirm the cost → watch it work. _(Tip: put `NEEDS_HUMAN` in a task to see the approval flow pause and resume.)_
+
+> 🧠 **Bring your own LLM (BYOK).** Want it to run on _your_ model instead of Coasty?
+> Open **Settings → Model provider** and add OpenRouter, OpenAI, or a local model
+> (Ollama / LM Studio). Coasty stays the default until you switch.
+> [Jump to BYOK ↓](#bring-your-own-llm-byok)
+
+> ⚠️ Local control moves your **real** mouse and keyboard. Stop with **Cancel** (or
+> close the window), and start small — full safety notes in **[RUN_LOCALLY.md](RUN_LOCALLY.md)**.
 
 ### Ways to run
 
-| | Command | Opens | Coasty key | Cost |
-| --- | --- | --- | --- | --- |
-| **Automate your own PC** | `pnpm desktop` | the desktop app + full stack | none, or sandbox | **$0** |
-| **Web app only** | `pnpm dev` then <http://127.0.0.1:5173> | mock + backend + web | none, or sandbox | **$0** |
-| **Your Coasty account** | put `COASTY_API_KEY` in `.env`, then either above | real Coasty API | sandbox `sk-coasty-test-…` | **$0** (real model, never bills) |
+| Goal | How | Model | Cost |
+| --- | --- | --- | --- |
+| **Automate your own PC** | `pnpm desktop` | Coasty _or your own LLM_ | demo **$0** · BYOK = your provider's rate |
+| **Web app only** | `pnpm dev` → <http://127.0.0.1:5173> | Coasty | **$0** |
+| **Your Coasty account** | add `COASTY_API_KEY` to `.env` | Coasty (real model) | sandbox key = **$0** |
+| **Bring your own LLM (BYOK)** | **Settings → Model provider** | OpenRouter · OpenAI · Ollama | your provider's rate · **local = $0** |
 
-The **only** thing you ever configure is `COASTY_API_KEY` — everything else
-(session secret, ports, base URL, DB) has a working default. Step-by-step local
-automation, OS notes, cross-device approval, and troubleshooting live in
+The only thing you ever _have_ to set is `COASTY_API_KEY` — and even that's optional in demo
+mode. Everything else has a working default. Prefer your own model? **That's BYOK** — pick a
+provider in Settings and local runs use it. Full local-automation guide:
 **[RUN_LOCALLY.md](RUN_LOCALLY.md)**.
 
 <details>
@@ -130,8 +139,11 @@ shuts it all down when you close the window.
 
 ## What you can do
 
-- 💬 **Delegate in chat** — *"rename these files and email the report"* — and
+- 💬 **Delegate in chat** — _"rename these files and email the report"_ — and
   watch the agent execute it step by step with a live screen view.
+- 🧠 **Bring your own LLM (BYOK)** — run local screen control on _your_ model:
+  OpenRouter, OpenAI, or a local model (Ollama / LM Studio / vLLM). Coasty is just
+  the default. [Details ↓](#bring-your-own-llm-byok)
 - 📺 **Supervise runs** — dashboard, durable event timeline (SSE with replay),
   cancel / resume / human-takeover from web, desktop, or phone.
 - 🔁 **Build workflows** — a versioned JSON DSL (task · assert · if · loop ·
@@ -139,9 +151,6 @@ shuts it all down when you close the window.
   and hard server-side budget caps.
 - 🖥️ **Manage machines** — provision Coasty cloud VMs, snapshot, stop,
   terminate, with live cost rates at every step.
-- 🧠 **Bring your own model** — point local screen control at OpenRouter, OpenAI,
-  or a local model (Ollama / LM Studio / vLLM) instead of Coasty.
-  [Details ↓](#bring-your-own-model)
 - 📱 **Stay in the loop across devices** — start a run on your laptop; when it
   pauses for approval, the banner pops on your phone. Approve there.
 - 💸 **See cost at all times** — wallet balance, per-run worst-case estimates,
@@ -160,12 +169,13 @@ shuts it all down when you close the window.
 
 ---
 
-## Bring your own model
+## Bring your own LLM (BYOK)
 
-Local screen control defaults to **Coasty's** computer-use model — but you can point it at
-**any OpenAI-dialect LLM** instead. In the desktop app, open **Settings → Model provider**,
-pick a provider, choose a **vision-capable** model, and local runs use it. Coasty stays the
-default; switch back any time with one click. Nothing else in the app changes.
+**Bring your own key, bring your own model.** Local screen control defaults to **Coasty's**
+computer-use model — but you can point it at **any OpenAI-dialect LLM** instead. In the
+desktop app, open **Settings → Model provider**, pick a provider, choose a **vision-capable**
+model, and local runs use it. Coasty stays the default; switch back any time with one click.
+Nothing else in the app changes.
 
 | Provider | API key | Covers |
 | --- | :---: | --- |
@@ -203,7 +213,7 @@ One shared **agent loop** (screenshot → predict → act → repeat) drives any
 screen through a single `Executor` interface — `LocalExecutor` (your desktop),
 `RemoteMachineExecutor` (a cloud VM), or `BrowserExecutor`. The **predict** step
 is its own seam (`@open-cowork/llm`): Coasty is the default implementation, and a
-[BYO model](#bring-your-own-model) is just another one behind the same contract,
+[bring your own LLM](#bring-your-own-llm-byok) is just another one behind the same contract,
 so the loop, executors, and UI don't care which is behind it. Clients never hold
 the Coasty key: they talk to the backend with short-lived session tokens, and
 the backend proxies to Coasty, verifies HMAC-signed webhooks, persists runs, and
