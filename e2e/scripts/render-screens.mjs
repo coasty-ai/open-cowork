@@ -69,8 +69,32 @@ const DONE_SSE =
     'id: 7\nevent: done\ndata: {"status":"succeeded"}',
   ].join('\n\n') + '\n\n';
 
+// A long, chatty run — enough turns to overflow the transcript rail so the
+// hidden-scrollbar / clean-clip behaviour can be reviewed.
+const LONG_SSE = (() => {
+  const lines = ['id: 1\nevent: status\ndata: {"status":"running"}'];
+  let seq = 2;
+  for (let i = 1; i <= 12; i++) {
+    lines.push(
+      `id: ${seq++}\nevent: text\ndata: {"text":"Reviewing invoice #${4470 + i} against PO-${2230 + i} — checking line items, tax, and totals."}`,
+    );
+    lines.push(`id: ${seq++}\nevent: action\ndata: {"action":{"action_type":"click"}}`);
+    lines.push(`id: ${seq++}\nevent: step\ndata: {"steps_completed":${i}}`);
+    if (i % 3 === 0) {
+      lines.push(`id: ${seq++}\nevent: billing\ndata: {"cost_cents":${120 * (i / 3)}}`);
+    }
+  }
+  return lines.join('\n\n') + '\n\n';
+})();
+
 /** Which SSE body each run id streams (others get an empty, well-formed stream). */
-const SSE_BY_RUN = { r1: TIMELINE_SSE, r2: RUNNING_SSE, r3: DONE_SSE, r5: RUNNING_SSE };
+const SSE_BY_RUN = {
+  r1: TIMELINE_SSE,
+  r2: RUNNING_SSE,
+  r3: DONE_SSE,
+  r5: RUNNING_SSE,
+  r6: LONG_SSE,
+};
 
 const run = (over) => ({
   id: 'r1',
@@ -185,6 +209,7 @@ const GET = {
   '/api/runs/r3': RUNS[2],
   '/api/runs/r4': RUNS[3],
   '/api/runs/r5': run({ id: 'r5', status: 'running', costCents: 415, stepsCompleted: 9 }),
+  '/api/runs/r6': run({ id: 'r6', status: 'running', costCents: 480, stepsCompleted: 12 }),
   '/api/machines': { machines: MACHINES },
   '/api/machines/m1/screenshot': { image_b64: '', width: 1280, height: 800, captured_at: ISO },
   // Local-run live frame (the desktop forwards the user's own screen).
@@ -274,6 +299,33 @@ const SCREENS = [
   { name: 'run-chat-local', path: '/runs/r2', theme: 'dark', w: 1280, h: 1080 },
   { name: 'run-chat-mobile', path: '/runs/r1', theme: 'dark', w: 390, h: 900 },
   { name: 'run-chat-zoom', path: '/runs/r5', theme: 'dark', w: 1280, h: 1080, expandScreen: true },
+  // Long transcript that overflows the rail — verify the hidden scrollbar + clean
+  // clip, at the top of the rail and scrolled to the bottom.
+  { name: 'run-split-scroll-top', path: '/runs/r6', theme: 'dark', w: 1280, h: 760 },
+  {
+    name: 'run-split-scroll-mid',
+    path: '/runs/r6',
+    theme: 'dark',
+    w: 1280,
+    h: 760,
+    scrollRail: 'mid',
+  },
+  {
+    name: 'run-split-scroll-bottom',
+    path: '/runs/r6',
+    theme: 'dark',
+    w: 1280,
+    h: 760,
+    scrollRail: true,
+  },
+  {
+    name: 'run-split-scroll-light',
+    path: '/runs/r6',
+    theme: 'light',
+    w: 1280,
+    h: 760,
+    scrollRail: true,
+  },
   // Scrolled to the bottom so the live status dock (below the screen) is shown.
   { name: 'run-chat-running-dock', path: '/runs/r5', theme: 'dark', w: 1280, h: 760, scroll: true },
   { name: 'runs-mobile', path: '/runs', theme: 'dark', w: 390, h: 900 },
@@ -483,6 +535,17 @@ try {
         if (m) m.scrollTop = m.scrollHeight;
       });
     }
+    if (s.scrollRail) {
+      // The run's transcript rail is its own scroller in the side-by-side view.
+      // 'mid' lands halfway (both edge fades visible); otherwise scroll to bottom.
+      await page.waitForTimeout(250);
+      await page.evaluate((mode) => {
+        // eslint-disable-next-line no-undef
+        const r = document.querySelector('.run-split__scroll');
+        if (!r) return;
+        r.scrollTop = mode === 'mid' ? (r.scrollHeight - r.clientHeight) / 2 : r.scrollHeight;
+      }, s.scrollRail);
+    }
     if (s.typeTask) {
       await page.fill('textarea[aria-label="Task"]', s.typeTask).catch(() => {});
     }
@@ -501,9 +564,9 @@ try {
       await page.click('[role="combobox"][aria-label="Screen"]').catch(() => {});
     }
     if (s.expandScreen) {
-      // Let the first live frame land so the expand button is enabled.
+      // Let the first live frame land so the expand button appears.
       await page.waitForTimeout(300);
-      await page.click('.oc-chat__screen-btn').catch(() => {});
+      await page.click('.run-split__stage-btn').catch(() => {});
     }
     await page.waitForTimeout(350);
     await page.screenshot({ path: path.join(OUT, `${s.name}.png`), fullPage: !s.scroll });

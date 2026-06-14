@@ -77,33 +77,38 @@
   color: var(--color-warning);
   font-size: var(--font-size-sm);
 }
-/* Run detail as a chat: a centred ~46rem column that fills the main height so
-   the dock sits at the bottom on short runs and scrolls naturally on long ones.
-   .app-main stays the single scroll container — no nested scroller. */
-.run-chat-page {
+/* Run detail as a side-by-side control room: the conversation rail on the left
+   (its own scroll, with the status dock pinned to the foot) and the machine's
+   live screen on the right, always in view. The split is locked to the main
+   viewport height so neither column drives the page scroll; below 900px it
+   collapses to a single scrolling column (screen first) — see the media query. */
+.run-split {
   flex: 1;
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
   width: 100%;
-  max-width: 46rem;
-  margin: 0 auto;
   min-height: 0;
 }
-.run-chat-page__header {
-  position: sticky;
-  top: 0;
-  z-index: 5;
+/* The split owns its own scrollers, so the main column must NOT also scroll —
+   lock it to the viewport and let the transcript rail handle overflow. */
+.app-main:has(.run-split) {
+  overflow: hidden;
+}
+.app-main__inner:has(.run-split) {
+  flex: 1;
+  min-height: 0;
+}
+.run-split__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
   flex-wrap: wrap;
-  padding: var(--space-2) 0 var(--space-3);
-  background: var(--color-bg);
+  padding-bottom: var(--space-3);
   border-bottom: 1px solid var(--color-border);
 }
-.run-chat-page__id {
+.run-split__meta {
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -111,21 +116,178 @@
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);
 }
-.run-chat-page__id-machine {
+.run-split__machine {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
 }
-.run-chat-page__steps {
+.run-split__steps {
   font-variant-numeric: tabular-nums;
 }
-/* The transcript grows so the dock is pushed to the bottom edge when short. */
-.run-chat-page__body {
+/* The two columns. The transcript keeps a comfortable reading measure; the
+   screen takes the larger share so a landscape frame stays legible. */
+.run-split__body {
   flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
+  gap: var(--space-5);
+  align-items: stretch;
 }
-/* The dock keeps its intrinsic height — it must never collapse under the body. */
-.run-chat-page__dock {
+/* LEFT — conversation rail: a column that owns its own scroll, with the dock
+   pinned to the bottom edge so controls never scroll out of reach. */
+.run-split__transcript {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  gap: var(--space-4);
+}
+/* Positioned wrapper so the soft edge fades can pin to the rail's viewport
+   edges (the scroller itself can't host them — pseudo-elements would scroll
+   away with the content). */
+.run-split__rail {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.run-split__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  /* Hide the scrollbar entirely (macOS overlay style): the rail still scrolls by
+     wheel, trackpad, touch and keyboard, but no chrome clutters the calm column.
+     Content clips at a crisp line just under the header and above the dock. */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* legacy Edge */
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+.run-split__scroll::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  background: transparent;
+}
+/* The rail is focusable (it's the scroller, and with the bar gone there may be
+   no other focusable element inside) so keyboard / AT users can scroll the
+   history with arrows / PageUp-Down / Space / Home-End. */
+.run-split__scroll:focus-visible {
+  outline: var(--focus-ring-width) solid var(--ring);
+  outline-offset: -2px;
+  border-radius: var(--radius-md);
+}
+/* Soft top/bottom edge fades — the only cue, now the scrollbar is hidden, that
+   there's more to read. Pointer-events:none overlays (not a mask) so the
+   summary card and task bubble borders are never eaten; each shows only when
+   content is actually hidden in that direction (toggled on scroll), so nothing
+   is faded at rest at the very top or very bottom. */
+.run-split__rail::before,
+.run-split__rail::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: var(--space-6);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--oc-duration) var(--oc-ease);
+  z-index: 2;
+}
+.run-split__rail::before {
+  top: 0;
+  background: linear-gradient(to bottom, var(--color-bg), transparent);
+}
+.run-split__rail::after {
+  bottom: 0;
+  background: linear-gradient(to top, var(--color-bg), transparent);
+}
+.run-split__rail[data-scroll-up='true']::before {
+  opacity: 1;
+}
+.run-split__rail[data-scroll-down='true']::after {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .run-split__rail::before,
+  .run-split__rail::after {
+    transition: none;
+  }
+}
+.run-split__dock {
   flex-shrink: 0;
+}
+/* RIGHT — the live screen stage: a calm framed panel that fills the column
+   height and centres the frame, so the screenshot is the hero and never crops. */
+.run-split__stage {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  gap: var(--space-2);
+}
+.run-split__stage-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+.run-split__stage-title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.run-split__stage-frame {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.run-split__stage-btn {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  border-radius: var(--radius-md);
+  cursor: zoom-in;
+}
+.run-split__stage-btn:focus-visible {
+  outline: var(--focus-ring-width) solid var(--ring);
+  outline-offset: var(--focus-ring-offset);
+}
+.run-split__stage-frame .oc-screen-view {
+  width: 100%;
+}
+/* The screenshot fills the column width at its native aspect and is pinned to
+   the top of the stage (its top edge lines up with the first message), so the
+   border hugs the frame instead of floating it in a letterbox. A viewport cap
+   keeps an unusually tall frame from overrunning the column. */
+.run-split__stage-frame .oc-screen-view__frame {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: calc(100dvh - 14rem);
+  object-fit: contain;
+}
+/* Terminal run with no captured frame — a calm note, never an empty void. */
+.run-split__stage-empty {
+  margin: auto;
+  padding: var(--space-6);
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-raised);
+  width: 100%;
+}
+.run-split__stage-note {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
 }
 /* Visually hidden but available to assistive tech (page title, etc.). */
 .sr-only {
@@ -357,6 +519,51 @@
 @media (max-width: 980px) {
   .run-detail-grid {
     grid-template-columns: 1fr;
+  }
+}
+/* Below this the two run columns can't both breathe — collapse to a single
+   scrolling column. The page scroll returns (the rail no longer owns it), the
+   screen sits on top (capped height) and the conversation flows beneath it. */
+@media (max-width: 900px) {
+  /* Stacked, the page scrolls again — keep its scrollbar hidden too so the run
+     stays chrome-free at every width. */
+  .app-main:has(.run-split) {
+    overflow-y: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .app-main:has(.run-split)::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    background: transparent;
+  }
+  .app-main__inner:has(.run-split) {
+    flex: 1 0 auto;
+  }
+  .run-split__body {
+    grid-template-columns: 1fr;
+    gap: var(--space-4);
+  }
+  .run-split__stage {
+    order: -1;
+  }
+  /* Stacked, the page scrolls — the rail is no longer its own scroller, so drop
+     the edge fades (nothing is hidden inside it) and let it size to content. */
+  .run-split__rail {
+    flex: none;
+  }
+  .run-split__scroll {
+    flex: none;
+    min-height: 0;
+    overflow: visible;
+  }
+  .run-split__rail::before,
+  .run-split__rail::after {
+    content: none;
+  }
+  /* Stacked, the screen leads — keep it a glanceable strip, not a full screen. */
+  .run-split__stage-frame .oc-screen-view__frame {
+    max-height: 22rem;
   }
 }
 @media (max-width: 800px) {

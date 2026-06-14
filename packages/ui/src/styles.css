@@ -1547,50 +1547,9 @@ textarea {
   width: 100%;
 }
 
-/* The agent "sharing its screen" — one live frame, the tail of the thread. */
-.oc-chat__screen {
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  width: 100%;
-}
-
-.oc-chat__screen-head {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
-}
-
-.oc-chat__screen-btn {
-  display: block;
-  width: 100%;
-  padding: 0;
-  border: none;
-  background: none;
-  border-radius: var(--radius-md);
-  cursor: zoom-in;
-}
-
-.oc-chat__screen-btn:focus-visible {
-  outline: var(--focus-ring-width) solid var(--ring);
-  outline-offset: var(--focus-ring-offset);
-}
-
-/* No frame captured yet — the preview can't be zoomed. */
-.oc-chat__screen-btn:disabled {
-  cursor: not-allowed;
-}
-
-/* Cap the inline preview so the screen never dominates the calm column — the
-   frame stays a glanceable "what it's looking at", and click-to-zoom opens the
-   full-resolution frame in a wide modal. */
-.oc-chat__screen .oc-screen-view__frame {
-  max-height: 20rem;
-  object-fit: contain;
-}
+/* The live screen now lives in the run page's right-hand stage (.run-split), not
+   inline in the transcript — so only the reconnect note, the zoom modal, and the
+   zoomed frame remain here (the page still feeds the chat its tail via children). */
 
 /* The zoom modal is wider than the default dialog so a desktop frame is legible. */
 .oc-chat__screen-modal {
