@@ -1,0 +1,33 @@
+import { describe, expect, it } from 'vitest';
+import { makeProvider } from '../src/factory';
+import { CoastyProvider } from '../src/coastyProvider';
+import { OpenAiCompatibleProvider } from '../src/openaiCompatibleProvider';
+
+describe('makeProvider', () => {
+  it('builds a CoastyProvider for kind=coasty with backend deps', () => {
+    const p = makeProvider(
+      { kind: 'coasty', model: 'v3' },
+      { backendUrl: 'http://b', getToken: () => 't' },
+    );
+    expect(p).toBeInstanceOf(CoastyProvider);
+    expect(p.kind).toBe('coasty');
+  });
+
+  it('throws if Coasty deps are missing', () => {
+    expect(() => makeProvider({ kind: 'coasty', model: 'v3' }, {})).toThrow(/backendUrl/);
+  });
+
+  it.each(['openai', 'openai-compatible', 'openrouter'] as const)(
+    'builds an OpenAiCompatibleProvider for kind=%s',
+    (kind) => {
+      const p = makeProvider({ kind, model: 'm', baseUrl: 'http://x/v1' });
+      expect(p).toBeInstanceOf(OpenAiCompatibleProvider);
+      expect(p.kind).toBe(kind);
+    },
+  );
+
+  it('passes an injected model through to the BYO provider', () => {
+    const p = makeProvider({ kind: 'openai-compatible', model: 'm', baseUrl: 'http://x/v1' });
+    expect(p.model).toBe('m');
+  });
+});

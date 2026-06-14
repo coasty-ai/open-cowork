@@ -1,0 +1,32 @@
+{
+  "name": "@open-cowork/llm",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Bring-your-own-LLM provider abstraction: one InferenceProvider contract over Coasty CUA and any OpenAI-compatible/OpenRouter/Ollama model (Vercel AI SDK). Maps a screenshot+instruction to CuaAction[] so the agent loop is provider-agnostic.",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "test": "vitest run --passWithNoTests",
+    "test:coverage": "vitest run --coverage --passWithNoTests",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@open-cowork/core": "workspace:*",
+    "ai": "^6.0.0",
+    "@ai-sdk/openai": "^3.0.0",
+    "@ai-sdk/openai-compatible": "^2.0.0",
+    "@openrouter/ai-sdk-provider": "^2.9.0",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}
