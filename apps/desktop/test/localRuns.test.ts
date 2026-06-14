@@ -1,6 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { AgentLoopEvent, CuaAction, SessionPredictResponse } from '@open-cowork/core';
+import type {
+  AgentLoopEvent,
+  CuaAction,
+  PredictStepResult,
+  SessionPredictResponse,
+} from '@open-cowork/core';
 import type { Executor } from '@open-cowork/executor';
+import { LlmProviderError, type InferenceProvider } from '@open-cowork/llm';
 import { LocalRunManager, type BackendRunEvent } from '../src/localRuns';
 
 // ── fakes ─────────────────────────────────────────────────────────────────────
@@ -567,5 +573,92 @@ describe('LocalRunManager — screen region', () => {
     await manager.whenIdle();
     expect(received).not.toBe('unset');
     expect((received as { region?: unknown }).region).toBeUndefined();
+  });
+});
+
+function fakeProvider(steps: PredictStepResult[]): {
+  provider: InferenceProvider;
+  calls: { beginRun: number; predicts: number; endRun: number };
+} {
+  const calls = { beginRun: 0, predicts: 0, endRun: 0 };
+  let i = 0;
+  const provider: InferenceProvider = {
+    kind: 'openai-compatible',
+    model: 'm',
+    async listModels() {
+      return [];
+    },
+    async health() {
+      return { ok: true };
+    },
+    async beginRun() {
+      calls.beginRun++;
+    },
+    async predict() {
+      const s = steps[Math.min(i, steps.length - 1)]!;
+      i++;
+      calls.predicts++;
+      return s;
+    },
+    async endRun() {
+      calls.endRun++;
+    },
+  };
+  return { provider, calls };
+}
+
+describe('LocalRunManager — BYO provider', () => {
+  it('uses an injected provider instead of the Coasty proxy', async () => {
+    const { executor, executed } = fakeExecutor();
+    const backend = fakeBackend();
+    const { provider, calls } = fakeProvider([
+      { status: 'continue', actions: [CLICK], usage: { credits_charged: 0, cost_cents: 0 } },
+      { status: 'done', actions: [{ action_type: 'done', params: {} }], reasoning: 'all set' },
+    ]);
+    const manager = makeManager(backend, executor, { createProvider: () => provider });
+
+    await manager.start({ task: 'byo task', maxSteps: 5 });
+    await manager.whenIdle();
+
+    expect(calls.beginRun).toBe(1);
+    expect(calls.predicts).toBeGreaterThanOrEqual(1);
+    expect(calls.endRun).toBe(1);
+    expect(executed).toEqual(['click']);
+    // The BYO provider does NOT touch the Coasty inference proxy.
+    expect(backend.requests.some((r) => r.path.startsWith('/api/proxy/sessions'))).toBe(false);
+    // The run is still registered + mirrored like any other run.
+    expect(backend.requests[0]!.path).toBe('/api/local-runs');
+    const last = backend.mirrored().at(-1)!;
+    expect(last.type).toBe('done');
+    expect(last.data).toMatchObject({ status: 'succeeded' });
+  });
+
+  it('a provider that blocks (NO_VISION) fails the run cleanly with the message', async () => {
+    const { executor } = fakeExecutor();
+    const backend = fakeBackend();
+    const provider: InferenceProvider = {
+      kind: 'openai-compatible',
+      model: 'gpt-3.5-turbo',
+      async listModels() {
+        return [];
+      },
+      async health() {
+        return { ok: true };
+      },
+      async beginRun() {
+        throw new LlmProviderError('NO_VISION', "gpt-3.5-turbo can't see images");
+      },
+      async predict() {
+        throw new Error('predict must not be called when beginRun blocks');
+      },
+      async endRun() {},
+    };
+    const manager = makeManager(backend, executor, { createProvider: () => provider });
+
+    await expect(manager.start({ task: 'x', maxSteps: 3 })).rejects.toThrow(/can't see images/);
+    // The run row was registered then closed out as failed — no ghost 'running'.
+    const last = backend.mirrored().at(-1)!;
+    expect(last.type).toBe('done');
+    expect(last.data).toMatchObject({ status: 'failed' });
   });
 });

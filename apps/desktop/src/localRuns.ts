@@ -16,16 +16,9 @@
  * in batches (every ~500ms or once 10 are queued) and the final `done` event
  * is always the last one appended.
  */
-import {
-  runAgentLoop,
-  type AgentLoopEvent,
-  type AgentLoopOutcome,
-  type CreateSessionResponse,
-  type PredictStepInput,
-  type PredictStepResult,
-  type SessionPredictResponse,
-} from '@open-cowork/core';
+import { runAgentLoop, type AgentLoopEvent, type AgentLoopOutcome } from '@open-cowork/core';
 import type { Executor, ScreenRegion } from '@open-cowork/executor';
+import { CoastyProvider, type InferenceProvider } from '@open-cowork/llm';
 
 /** One event row appended to the backend's run timeline. */
 export interface BackendRunEvent {
@@ -43,6 +36,12 @@ export interface LocalRunManagerDeps {
    * screen region so the run drives the monitor the user picked, not the primary.
    */
   createExecutor: (opts?: { region?: ScreenRegion }) => Executor;
+  /**
+   * The inference provider for the run (the model behind predict). Defaults to a
+   * {@link CoastyProvider} over the backend proxy — i.e. today's behaviour. The
+   * desktop swaps in a BYO provider when the user configured one.
+   */
+  createProvider?: () => InferenceProvider;
   fetchImpl?: typeof fetch;
   /** Pause between agent steps (default 500ms; tests pass 0). */
   settleMs?: number;
@@ -144,6 +143,7 @@ export class LocalRunManager {
     }
 
     const executor = this.deps.createExecutor({ region: input.region });
+    const provider = this.deps.createProvider ? this.deps.createProvider() : this.defaultProvider();
     let runId: string | null = null;
     try {
       const run = await this.api<{ id: string }>('/api/local-runs', 'POST', {
@@ -154,20 +154,12 @@ export class LocalRunManager {
       runId = run.id;
 
       const dims = await executor.dimensions();
-      const session = await this.api<CreateSessionResponse>('/api/proxy/sessions', 'POST', {
-        screenWidth: dims.width,
-        screenHeight: dims.height,
-      });
+      // Provider setup (Coasty opens a session; a BYO provider validates vision
+      // and throws NO_VISION here, which we surface as a clean failed run below).
+      await provider.beginRun({ task, width: dims.width, height: dims.height });
 
       const abort = new AbortController();
-      const completion = this.runLoop(
-        runId,
-        session.session_id,
-        executor,
-        task,
-        maxSteps,
-        abort.signal,
-      );
+      const completion = this.runLoop(runId, provider, executor, task, maxSteps, abort.signal);
       this.active = { runId, abort, completion };
       // Watch for a cancel issued from any other client (the desktop window's
       // own Cancel aborts instantly via IPC; this catches phone/browser cancels).
@@ -188,9 +180,19 @@ export class LocalRunManager {
           costCents: 0,
         }).catch(noop);
       }
+      await provider.endRun().catch(noop);
       await executor.dispose().catch(noop);
       throw err;
     }
+  }
+
+  /** Default provider: Coasty over the backend proxy — today's behaviour. */
+  private defaultProvider(): InferenceProvider {
+    return new CoastyProvider({
+      backendUrl: this.backendUrl,
+      getToken: this.deps.getToken,
+      fetchImpl: this.fetchImpl,
+    });
   }
 
   /** Abort the in-flight run (loop settles as 'aborted' → mirrored as 'cancelled'). */
@@ -248,7 +250,7 @@ export class LocalRunManager {
 
   private async runLoop(
     runId: string,
-    sessionId: string,
+    provider: InferenceProvider,
     executor: Executor,
     task: string,
     maxSteps: number,
@@ -312,7 +314,7 @@ export class LocalRunManager {
     try {
       outcome = await runAgentLoop({
         screen: executor,
-        predictStep: (input) => this.predict(sessionId, input),
+        predictStep: (input) => provider.predict(input, { signal }),
         task,
         maxSteps,
         settleMs: this.deps.settleMs ?? 500,
@@ -348,7 +350,7 @@ export class LocalRunManager {
       status: mapOutcomeStatus(outcome.status),
       costCents: accumulatedCostCents,
     }).catch(noop);
-    await this.api(`/api/proxy/sessions/${sessionId}`, 'DELETE').catch(noop);
+    await provider.endRun().catch(noop);
     await executor.dispose().catch(noop);
     this.active = null;
   }
@@ -365,18 +367,6 @@ export class LocalRunManager {
     } catch {
       // Live preview is best-effort; a dropped frame must never affect the run.
     }
-  }
-
-  private async predict(sessionId: string, input: PredictStepInput): Promise<PredictStepResult> {
-    const res = await this.api<SessionPredictResponse>(
-      `/api/proxy/sessions/${sessionId}/predict`,
-      'POST',
-      {
-        screenshot: input.screenshotB64,
-        instruction: input.instruction,
-      },
-    );
-    return { status: res.status, actions: res.actions, reasoning: res.reasoning, usage: res.usage };
   }
 
   // ── event batching ──────────────────────────────────────────────────────────

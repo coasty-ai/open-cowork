@@ -9,14 +9,21 @@
  */
 import path from 'node:path';
 import os from 'node:os';
-import { existsSync } from 'node:fs';
-import { app, BrowserWindow, globalShortcut, ipcMain, screen } from 'electron';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { app, BrowserWindow, globalShortcut, ipcMain, safeStorage, screen } from 'electron';
 import type { Display } from 'electron';
 import { createNativeBridge, LocalExecutor, type ScreenRegion } from '@open-cowork/executor';
+import {
+  makeProvider,
+  mapProviderError,
+  type InferenceProvider,
+  type ProviderConfig,
+} from '@open-cowork/llm';
 import { LocalRunManager } from './localRuns';
 import { ensureOnScreen, resolveWindowBounds, type DisplayLike } from './windowBounds';
 import { loadWindowState, saveWindowState } from './windowState';
 import { WindowGuard } from './windowGuard';
+import { ProviderStore, parseStoredConfig, type StoredProviderConfig } from './providerStore';
 
 const BACKEND_URL = process.env.COWORK_BACKEND_URL ?? 'http://127.0.0.1:4000';
 const WEB_URL = process.env.COWORK_WEB_URL ?? 'http://127.0.0.1:5173';
@@ -39,6 +46,97 @@ const guard = new WindowGuard({
  */
 let sessionToken: string | null = null;
 
+// ── BYO LLM provider config (Coasty stays the default) ───────────────────────
+// Non-secret config in userData/provider.json; the API key is encrypted with the
+// OS keychain via safeStorage. Resolved lazily (app paths/safeStorage need ready).
+let providerFile: string | null = null;
+function providerFilePath(): string {
+  if (!providerFile) providerFile = path.join(app.getPath('userData'), 'provider.json');
+  return providerFile;
+}
+const providerStore = new ProviderStore({
+  read: () => {
+    try {
+      return readFileSync(providerFilePath(), 'utf8');
+    } catch {
+      return null;
+    }
+  },
+  write: (data) => {
+    mkdirSync(path.dirname(providerFilePath()), { recursive: true });
+    writeFileSync(providerFilePath(), data, 'utf8');
+  },
+  remove: () => {
+    try {
+      rmSync(providerFilePath());
+    } catch {
+      /* already gone */
+    }
+  },
+  encrypt: (plain) => {
+    try {
+      return safeStorage.isEncryptionAvailable()
+        ? safeStorage.encryptString(plain).toString('base64')
+        : null;
+    } catch {
+      return null;
+    }
+  },
+  decrypt: (cipherB64) => {
+    try {
+      return safeStorage.isEncryptionAvailable()
+        ? safeStorage.decryptString(Buffer.from(cipherB64, 'base64'))
+        : null;
+    } catch {
+      return null;
+    }
+  },
+  secureStorageAvailable: () => {
+    try {
+      return safeStorage.isEncryptionAvailable();
+    } catch {
+      return false;
+    }
+  },
+});
+
+/** Build the provider for a run: the configured BYO provider, else Coasty. */
+function buildActiveProvider(): InferenceProvider {
+  const stored = providerStore.load();
+  if (stored && stored.config.kind !== 'coasty') {
+    return makeProvider({ ...stored.config, apiKey: stored.apiKey });
+  }
+  return makeProvider(
+    { kind: 'coasty', model: 'v3' },
+    { backendUrl: BACKEND_URL, getToken: () => sessionToken },
+  );
+}
+
+/** Validate a renderer-supplied config for listModels/health probes (model optional). */
+function parseProbeConfig(raw: unknown): ProviderConfig {
+  const o = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  const config = parseStoredConfig({
+    kind: o.kind,
+    model: typeof o.model === 'string' && o.model.trim() ? o.model : 'probe',
+    baseUrl: o.baseUrl,
+    vision: o.vision,
+    visionOverride: o.visionOverride,
+    label: o.label,
+  });
+  if (!config) throw new Error('Invalid provider config');
+  return { ...config, apiKey: typeof o.apiKey === 'string' ? o.apiKey : undefined };
+}
+
+/** Validate a renderer-supplied config to persist (a real BYO provider). */
+function parseSetProvider(raw: unknown): { config: StoredProviderConfig; apiKey?: string } {
+  const o = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  const config = parseStoredConfig(o);
+  if (!config || config.kind === 'coasty') {
+    throw new Error('A BYO provider (kind + model) is required; use clear-provider for Coasty.');
+  }
+  return { config, apiKey: typeof o.apiKey === 'string' ? o.apiKey : undefined };
+}
+
 const manager = new LocalRunManager({
   backendUrl: BACKEND_URL,
   getToken: () => sessionToken,
@@ -46,6 +144,9 @@ const manager = new LocalRunManager({
   // drives that screen instead of always the primary one.
   createExecutor: (opts) =>
     new LocalExecutor({ bridge: createNativeBridge(process.platform, { region: opts?.region }) }),
+  // The active inference provider (Coasty default, or a user-configured BYO LLM),
+  // re-read each run so switching providers applies to the next run.
+  createProvider: () => buildActiveProvider(),
   machineLabel: os.hostname() || 'local',
 });
 
@@ -279,6 +380,50 @@ if (!gotLock) {
 
   ipcMain.handle('cowork:cancel-local-run', async () => {
     await manager.cancel();
+  });
+
+  // ── BYO LLM provider config (secret-free over IPC; key stays in safeStorage) ──
+  ipcMain.handle('cowork:get-provider', () => providerStore.status());
+  ipcMain.handle('cowork:set-provider', (_event, raw: unknown) => {
+    const { config, apiKey } = parseSetProvider(raw);
+    providerStore.save(config, apiKey);
+    return providerStore.status();
+  });
+  ipcMain.handle('cowork:clear-provider', () => {
+    providerStore.clear();
+    return providerStore.status();
+  });
+  ipcMain.handle('cowork:list-models', async (_event, raw: unknown) => {
+    // Capture the key before the risky calls so the catch can scrub it from any
+    // error (defense-in-depth; providers also redact internally).
+    let apiKey: string | undefined;
+    try {
+      const config = parseProbeConfig(raw);
+      apiKey = config.apiKey;
+      const provider = makeProvider(config, {
+        backendUrl: BACKEND_URL,
+        getToken: () => sessionToken,
+      });
+      return { ok: true as const, models: await provider.listModels() };
+    } catch (err) {
+      const e = mapProviderError(err, apiKey);
+      return { ok: false as const, code: e.code, message: e.message };
+    }
+  });
+  ipcMain.handle('cowork:test-provider', async (_event, raw: unknown) => {
+    let apiKey: string | undefined;
+    try {
+      const config = parseProbeConfig(raw);
+      apiKey = config.apiKey;
+      const provider = makeProvider(config, {
+        backendUrl: BACKEND_URL,
+        getToken: () => sessionToken,
+      });
+      return await provider.health();
+    } catch (err) {
+      const e = mapProviderError(err, apiKey);
+      return { ok: false, code: e.code, detail: e.message };
+    }
   });
 
   void app.whenReady().then(() => {

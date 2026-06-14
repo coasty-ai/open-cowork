@@ -15,7 +15,8 @@
   },
   "dependencies": {
     "@open-cowork/core": "workspace:*",
-    "@open-cowork/executor": "workspace:*"
+    "@open-cowork/executor": "workspace:*",
+    "@open-cowork/llm": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:",

@@ -48,4 +48,19 @@ contextBridge.exposeInMainWorld('cowork', {
     ipcRenderer.invoke('cowork:list-screens') as Promise<
       { id: number; label: string; primary: boolean; current: boolean }[]
     >,
+
+  // ── BYO LLM provider (Coasty is the default; secret-free over IPC) ──
+  /** Current provider status (secret-free; never the key value). */
+  getProvider: (): Promise<unknown> => ipcRenderer.invoke('cowork:get-provider'),
+  /** Save a BYO provider (key encrypted via OS keychain in main). Returns status. */
+  setProvider: (input: unknown): Promise<unknown> =>
+    ipcRenderer.invoke('cowork:set-provider', input),
+  /** Clear the BYO provider → revert to Coasty. Returns status. */
+  clearProvider: (): Promise<unknown> => ipcRenderer.invoke('cowork:clear-provider'),
+  /** List a provider's models (+ vision capability) for the picker. */
+  listProviderModels: (input: unknown): Promise<unknown> =>
+    ipcRenderer.invoke('cowork:list-models', input),
+  /** Probe a provider's reachability + auth (the "Test connection" button). */
+  testProvider: (input: unknown): Promise<unknown> =>
+    ipcRenderer.invoke('cowork:test-provider', input),
 });
