@@ -38,6 +38,13 @@
   <a href="#docs">Docs</a>
 </p>
 
+<p align="center">
+  <img src="public/demo.gif" alt="open-cowork driving Chrome on a cloud machine: a task is delegated, the agent opens Chrome and searches Google Flights step by step while the transcript streams live on the left, then returns a summary of the best options" width="100%">
+</p>
+<p align="center">
+  <sub><em>Delegate a task → watch your coworker drive a browser, step by step → get the result. Runs with zero setup in <a href="#quickstart">demo mode</a>.</em></sub>
+</p>
+
 ---
 
 ## Quickstart
