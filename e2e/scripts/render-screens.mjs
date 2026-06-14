@@ -365,6 +365,48 @@ const SCREENS = [
   },
   { name: 'home-no-machine', path: '/', theme: 'dark', w: 1280, h: 900, noMachines: true },
   { name: 'home-mobile', path: '/', theme: 'dark', w: 390, h: 760 },
+  // "Ready to start?" confirm dialog — settable step limit, no cost shown.
+  {
+    name: 'confirm-run',
+    path: '/',
+    theme: 'dark',
+    w: 1280,
+    h: 900,
+    typeTask: 'Reconcile the June vendor invoices and email me a summary',
+    selectMachine: /invoice-bot/,
+    openConfirm: true,
+  },
+  {
+    name: 'confirm-run-light',
+    path: '/',
+    theme: 'light',
+    w: 1280,
+    h: 900,
+    typeTask: 'Reconcile the June vendor invoices and email me a summary',
+    selectMachine: /invoice-bot/,
+    openConfirm: true,
+  },
+  {
+    name: 'confirm-run-mobile',
+    path: '/',
+    theme: 'dark',
+    w: 390,
+    h: 850,
+    typeTask: 'Reconcile the June vendor invoices and email me a summary',
+    selectMachine: /invoice-bot/,
+    openConfirm: true,
+  },
+  {
+    name: 'confirm-run-desktop',
+    path: '/',
+    theme: 'dark',
+    w: 1280,
+    h: 900,
+    desktop: true,
+    selectLocal: true,
+    typeTask: 'Tidy my Downloads folder by file type',
+    openConfirm: true,
+  },
   // Desktop (Electron) variant — different subtitle + a local run target.
   { name: 'home-desktop', path: '/', theme: 'dark', w: 1280, h: 900, desktop: true },
   // Desktop multi-monitor: pick "This computer" → the Screen selector appears.
@@ -567,6 +609,22 @@ try {
       // Let the first live frame land so the expand button appears.
       await page.waitForTimeout(300);
       await page.click('.run-split__stage-btn').catch(() => {});
+    }
+    if (s.selectMachine) {
+      await page.click('[role="combobox"][aria-label="Machine"]').catch(() => {});
+      await page
+        .getByRole('option', { name: s.selectMachine })
+        .first()
+        .click()
+        .catch(() => {});
+    }
+    if (s.openConfirm) {
+      // Task + target are set above; open the "Ready to start?" confirm dialog.
+      await page.click('[aria-label="Send"]').catch(() => {});
+      await page
+        .getByRole('dialog')
+        .waitFor({ timeout: 2000 })
+        .catch(() => {});
     }
     await page.waitForTimeout(350);
     await page.screenshot({ path: path.join(OUT, `${s.name}.png`), fullPage: !s.scroll });

@@ -1,14 +1,15 @@
 /**
- * Delegate a task: a clean, centered single-focus composer. Compose → see the
- * server-computed worst-case estimate → explicitly confirm the cost → run starts
- * → jump to the live run view. On desktop, a "This computer" target runs the
- * LocalExecutor loop instead.
+ * Delegate a task: a clean, centered single-focus composer. Compose → a friendly
+ * "ready to start?" confirm where you can set how many steps the agent may take →
+ * run starts → jump to the live run view. On desktop, a "This computer" target
+ * runs the LocalExecutor loop instead. The confirm step still echoes the
+ * server's worst-case estimate back to the backend (the anti-surprise handshake)
+ * but never puts a price in front of you.
  */
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Button,
-  CostPill,
   EmptyState,
   ErrorState,
   Icon,
@@ -18,9 +19,22 @@ import {
   TaskComposer,
 } from '@open-cowork/ui';
 import { getClient } from '../store';
-import { formatApiError, type CoworkProviderStatus, type MachineDto } from '../api/client';
+import {
+  ApiError,
+  formatApiError,
+  type CoworkProviderStatus,
+  type MachineDto,
+} from '../api/client';
 
 const LOCAL_TARGET_ID = '__local__';
+const STEP_DEFAULT = 25;
+const STEP_MIN = 1;
+const STEP_MAX = 1000;
+const STEP_NUDGE = 5;
+
+/** Keep a typed/nudged step count inside the range the backend accepts. */
+const clampSteps = (n: number) =>
+  Math.max(STEP_MIN, Math.min(STEP_MAX, Math.round(Number.isFinite(n) ? n : STEP_DEFAULT)));
 
 export function HomePage() {
   const client = getClient();
@@ -36,7 +50,7 @@ export function HomePage() {
     machineId: string;
     screenId?: string;
   } | null>(null);
-  const [estimateCents, setEstimateCents] = useState<number | undefined>(undefined);
+  const [maxSteps, setMaxSteps] = useState(STEP_DEFAULT);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -47,12 +61,8 @@ export function HomePage() {
   const load = async () => {
     setLoadError(null);
     try {
-      const [machineRes, estimate] = await Promise.all([
-        client.listMachines(),
-        client.estimate({ kind: 'run', maxSteps: 25 }),
-      ]);
+      const machineRes = await client.listMachines();
       setMachines(machineRes.machines);
-      setEstimateCents(estimate.cents);
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : 'Failed to load');
     }
@@ -107,22 +117,36 @@ export function HomePage() {
         if (!window.cowork?.startLocalRun) throw new Error('Local runs need the desktop app');
         const { runId } = await window.cowork.startLocalRun({
           task: pendingTask.task,
-          maxSteps: 25,
+          maxSteps,
           // The screen the user picked (undefined → the app window's screen).
           displayId: pendingTask.screenId ? Number(pendingTask.screenId) : undefined,
         });
         navigate(`/runs/${runId}`);
         return;
       }
+      // The backend requires confirmCostCents to echo its current worst-case for
+      // this step count (anti-surprise handshake) — compute it, but never show it.
+      const estimate = await client.estimate({ kind: 'run', maxSteps });
       const run = await client.createRun({
         machineId: pendingTask.machineId,
         task: pendingTask.task,
-        maxSteps: 25,
-        confirmCostCents: estimateCents ?? 0,
+        maxSteps,
+        confirmCostCents: estimate.cents,
       });
       navigate(`/runs/${run.id}`);
     } catch (err) {
-      setSubmitError(formatApiError(err));
+      // Too many steps for this account → a cost-free, actionable nudge.
+      if (err instanceof ApiError && err.code === 'BUDGET_EXCEEDED') {
+        const suggested = (err.details as { suggestedMaxSteps?: number } | undefined)
+          ?.suggestedMaxSteps;
+        setSubmitError(
+          suggested
+            ? `That's more steps than your account allows for one run — try ${suggested} or fewer.`
+            : "That's more steps than your account allows for one run — try fewer.",
+        );
+      } else {
+        setSubmitError(formatApiError(err));
+      }
     } finally {
       setSubmitting(false);
     }
@@ -142,6 +166,8 @@ export function HomePage() {
         <Spinner aria-label="Loading" />
       </div>
     );
+
+  const isLocalPending = pendingTask?.machineId === LOCAL_TARGET_ID;
 
   return (
     <>
@@ -191,19 +217,55 @@ export function HomePage() {
       <Modal
         open={pendingTask !== null}
         onClose={() => setPendingTask(null)}
-        title="Confirm cost before starting"
+        title="Ready to start?"
       >
-        <div className="stack">
-          <p>
-            This run is capped at <strong>25 steps</strong>. Worst-case cost:{' '}
-            {estimateCents !== undefined ? (
-              <CostPill cents={estimateCents} variant="estimate" />
-            ) : (
-              '…'
-            )}
-            . You only pay for steps that actually execute.
+        <div className="stack run-confirm">
+          <p className="run-confirm__lede">
+            I’ll work through this {isLocalPending ? 'on this computer ' : ''}step by step and pause
+            for you whenever I need a decision.
           </p>
-          {pendingTask?.machineId === LOCAL_TARGET_ID ? (
+
+          <div className="run-confirm__steps">
+            <div className="run-confirm__steps-head">
+              <span className="run-confirm__steps-label">Step limit</span>
+              <span className="run-confirm__steps-hint">
+                I’ll stop automatically when I reach it
+              </span>
+            </div>
+            <div className="oc-stepper">
+              <button
+                type="button"
+                className="oc-stepper__btn"
+                aria-label="Fewer steps"
+                onClick={() => setMaxSteps((n) => clampSteps(n - STEP_NUDGE))}
+                disabled={submitting || maxSteps <= STEP_MIN}
+              >
+                −
+              </button>
+              <input
+                className="oc-stepper__input"
+                type="number"
+                inputMode="numeric"
+                min={STEP_MIN}
+                max={STEP_MAX}
+                aria-label="Maximum steps"
+                value={maxSteps}
+                onChange={(e) => setMaxSteps(clampSteps(Number(e.target.value)))}
+                disabled={submitting}
+              />
+              <button
+                type="button"
+                className="oc-stepper__btn"
+                aria-label="More steps"
+                onClick={() => setMaxSteps((n) => clampSteps(n + STEP_NUDGE))}
+                disabled={submitting || maxSteps >= STEP_MAX}
+              >
+                +
+              </button>
+            </div>
+          </div>
+
+          {isLocalPending ? (
             <p className="notice notice--warning">
               <Icon name="alertTriangle" size={16} className="notice__icon" />
               <span className="notice__body">
@@ -212,7 +274,7 @@ export function HomePage() {
               </span>
             </p>
           ) : null}
-          {pendingTask?.machineId === LOCAL_TARGET_ID && provider && !provider.isDefault ? (
+          {isLocalPending && provider && !provider.isDefault ? (
             <p className="notice notice--warning">
               <Icon name="alertTriangle" size={16} className="notice__icon" />
               <span className="notice__body">

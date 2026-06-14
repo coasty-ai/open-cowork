@@ -156,32 +156,60 @@ function renderHome() {
 }
 
 describe('HomePage (delegate flow)', () => {
-  it('requires an explicit cost confirmation before starting a run', async () => {
+  it('confirms in a cost-free dialog and starts the run, echoing the server estimate', async () => {
     const client = stubClient();
     setClientForTests(client);
     renderHome();
 
-    // Loads machines + estimate, shows the composer.
     const taskBox = await screen.findByLabelText(/task/i);
     await userEvent.type(taskBox, 'Download the invoices');
     await userEvent.click(screen.getByRole('combobox'));
     await userEvent.click(await screen.findByRole('option', { name: /worker-1/ }));
     await userEvent.click(screen.getByRole('button', { name: /delegate|run|start|submit|send/i }));
 
-    // Confirm modal: nothing started yet.
+    // Confirm modal: nothing started yet, and no price is shown.
     expect(client.createRun).not.toHaveBeenCalled();
-    const dialog = await screen.findByRole('dialog', { name: /confirm cost/i });
-    expect(dialog).toHaveTextContent('$1.25'); // 125¢ estimate surfaced
+    const dialog = await screen.findByRole('dialog', { name: /ready to start/i });
+    expect(dialog).not.toHaveTextContent('$');
+    // The step limit is settable and defaults to 25.
+    expect(screen.getByLabelText(/maximum steps/i)).toHaveValue(25);
 
     await userEvent.click(screen.getByRole('button', { name: /start run/i }));
     await waitFor(() => expect(client.createRun).toHaveBeenCalledTimes(1));
     const call = (client.createRun as ReturnType<typeof vi.fn>).mock.calls[0]![0] as {
       confirmCostCents: number;
       machineId: string;
+      maxSteps: number;
     };
-    expect(call.confirmCostCents).toBe(125); // echoes the server estimate
+    // Echoes the server estimate as the anti-surprise handshake — never displayed.
+    expect(call.confirmCostCents).toBe(125);
     expect(call.machineId).toBe('m1');
+    expect(call.maxSteps).toBe(25);
     expect(await screen.findByText('run page')).toBeInTheDocument();
+  });
+
+  it('lets you change the step limit and passes the chosen value through', async () => {
+    const client = stubClient();
+    setClientForTests(client);
+    renderHome();
+
+    await userEvent.type(await screen.findByLabelText(/task/i), 'a longer job');
+    await userEvent.click(screen.getByRole('combobox'));
+    await userEvent.click(await screen.findByRole('option', { name: /worker-1/ }));
+    await userEvent.click(screen.getByRole('button', { name: /delegate|run|start|submit|send/i }));
+
+    await screen.findByRole('dialog', { name: /ready to start/i });
+    await userEvent.click(screen.getByRole('button', { name: /more steps/i })); // 25 → 30
+    expect(screen.getByLabelText(/maximum steps/i)).toHaveValue(30);
+
+    await userEvent.click(screen.getByRole('button', { name: /start run/i }));
+    await waitFor(() => expect(client.createRun).toHaveBeenCalledTimes(1));
+    const call = (client.createRun as ReturnType<typeof vi.fn>).mock.calls[0]![0] as {
+      maxSteps: number;
+    };
+    expect(call.maxSteps).toBe(30);
+    // The handshake estimate is computed for the chosen step count.
+    expect(client.estimate).toHaveBeenCalledWith(expect.objectContaining({ maxSteps: 30 }));
   });
 
   it('surfaces backend budget errors in the confirm dialog', async () => {
@@ -199,7 +227,7 @@ describe('HomePage (delegate flow)', () => {
     await userEvent.click(await screen.findByRole('option', { name: /worker-1/ }));
     await userEvent.click(screen.getByRole('button', { name: /delegate|run|start|submit|send/i }));
     await userEvent.click(await screen.findByRole('button', { name: /start run/i }));
-    expect(await screen.findByText(/exceeds the budget cap/)).toBeInTheDocument();
+    expect(await screen.findByText(/more steps than your account allows/i)).toBeInTheDocument();
   });
 
   it('shows an empty state when no machine is running', async () => {
