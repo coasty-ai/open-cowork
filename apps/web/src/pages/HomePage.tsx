@@ -212,6 +212,15 @@ export function HomePage() {
               </span>
             </p>
           ) : null}
+          {pendingTask?.machineId === LOCAL_TARGET_ID && provider && !provider.isDefault ? (
+            <p className="notice notice--warning">
+              <Icon name="alertTriangle" size={16} className="notice__icon" />
+              <span className="notice__body">
+                This run uses <strong>{provider.label ?? provider.kind}</strong> — a third-party
+                LLM, not Coasty. Your screenshots and prompts are sent to that provider.
+              </span>
+            </p>
+          ) : null}
           {submitError ? <ErrorState message={submitError} /> : null}
           <div className="row">
             <Button onClick={() => void confirmAndStart()} loading={submitting}>

@@ -64,6 +64,9 @@ export function ProviderSettings() {
   // Bumped whenever the draft changes — discards stale in-flight model loads so
   // switching provider mid-request can't populate the wrong provider's models.
   const loadSeq = useRef(0);
+  // Same idea for the "Test connection" probe: a slow result must not surface
+  // against a provider the user has since switched away from.
+  const testSeq = useRef(0);
 
   const kindOption = KINDS.find((k) => k.value === kind)!;
   const selectedModel = models?.find((m) => m.id === model);
@@ -93,8 +96,10 @@ export function ProviderSettings() {
 
   const resetDraft = () => {
     loadSeq.current += 1; // invalidate any in-flight model load
+    testSeq.current += 1; // ...and any in-flight connection test
     setModels(null);
     setModel('');
+    setApiKey(''); // a key typed for one provider must not leak to the next
     setVisionOverride(false);
     setTest(null);
     setSaved(false);
@@ -137,6 +142,7 @@ export function ProviderSettings() {
   };
 
   const testConnection = async () => {
+    const seq = (testSeq.current += 1);
     setBusy('test');
     setTest(null);
     try {
@@ -145,14 +151,16 @@ export function ProviderSettings() {
         baseUrl: baseUrl || undefined,
         apiKey: apiKey || undefined,
       });
+      if (seq !== testSeq.current) return; // a newer test/change superseded this
       setTest({
         ok: res.ok,
         text: res.ok ? (res.detail ?? 'Connected.') : (res.detail ?? 'Failed.'),
       });
     } catch (err) {
+      if (seq !== testSeq.current) return;
       setTest({ ok: false, text: err instanceof Error ? err.message : 'Failed.' });
     } finally {
-      setBusy(null);
+      if (seq === testSeq.current) setBusy(null);
     }
   };
 

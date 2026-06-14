@@ -157,6 +157,19 @@ describe('ProviderSettings', () => {
     await waitFor(() => expect(bridge.clearProvider).toHaveBeenCalled());
   });
 
+  it('clears a typed API key when the provider kind is switched', async () => {
+    installBridge();
+    render(<ProviderSettings />);
+    await screen.findByText('Coasty (default)');
+    const keyInput = screen.getByLabelText(/API key/i) as HTMLInputElement;
+    await userEvent.type(keyInput, 'sk-or-secret');
+    expect(keyInput.value).toBe('sk-or-secret');
+    // Switch provider → a key typed for the previous provider must not linger
+    // (and must never be sent to the newly-selected one).
+    await userEvent.selectOptions(screen.getByLabelText('Provider'), 'openai');
+    expect((screen.getByLabelText(/API key/i) as HTMLInputElement).value).toBe('');
+  });
+
   it('surfaces a listModels error', async () => {
     installBridge({
       listProviderModels: vi.fn(
