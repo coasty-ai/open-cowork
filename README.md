@@ -139,6 +139,9 @@ shuts it all down when you close the window.
   and hard server-side budget caps.
 - 🖥️ **Manage machines** — provision Coasty cloud VMs, snapshot, stop,
   terminate, with live cost rates at every step.
+- 🧠 **Bring your own model** — point local screen control at OpenRouter, OpenAI,
+  or a local model (Ollama / LM Studio / vLLM) instead of Coasty.
+  [Details ↓](#bring-your-own-model)
 - 📱 **Stay in the loop across devices** — start a run on your laptop; when it
   pauses for approval, the banner pops on your phone. Approve there.
 - 💸 **See cost at all times** — wallet balance, per-run worst-case estimates,
@@ -157,6 +160,35 @@ shuts it all down when you close the window.
 
 ---
 
+## Bring your own model
+
+Local screen control defaults to **Coasty's** computer-use model — but you can point it at
+**any OpenAI-dialect LLM** instead. In the desktop app, open **Settings → Model provider**,
+pick a provider, choose a **vision-capable** model, and local runs use it. Coasty stays the
+default; switch back any time with one click. Nothing else in the app changes.
+
+| Provider | API key | Covers |
+| --- | :---: | --- |
+| **OpenRouter** | required | hundreds of models; vision read from OpenRouter's own modality metadata |
+| **OpenAI** | required | `gpt-4o`, `gpt-4.1`, … |
+| **OpenAI-compatible** | optional | **Ollama**, LM Studio, vLLM, Together, Groq — any `…/v1` base URL |
+
+- 👁️ **Vision is required.** Computer use is screenshot-driven, so a model that can't see
+  images is flagged and **blocked** with a clear message — never a blind, wasted run.
+- 🏠 **Local-first.** A local model (e.g. Ollama at `http://localhost:11434/v1`) runs entirely
+  on your machine — no key, no cloud, no spend.
+- 🔑 **Your key stays yours.** BYO keys are encrypted with your **OS keychain** (Electron
+  `safeStorage` — DPAPI / Keychain / libsecret), live only in the desktop process, are
+  scrubbed from every error message, and **never** reach the web or mobile bundle.
+- 👀 **No surprise data egress.** With a third-party model, your screenshots and prompts go to
+  that provider — the app says so right in the confirm-the-cost dialog before a run starts.
+- ☁️ **Cloud-machine runs always use Coasty.** BYO drives local (desktop) runs today; cloud
+  BYO is a documented follow-up.
+
+> Built on the [Vercel AI SDK](https://sdk.vercel.ai): rate-limit (429) and transient errors
+> retry with backoff, and if a model ignores structured output the response is recovered with
+> a defensive JSON parse — so even smaller local models can drive the loop.
+
 ## How it works
 
 ```text
@@ -169,7 +201,10 @@ shuts it all down when you close the window.
 
 One shared **agent loop** (screenshot → predict → act → repeat) drives any
 screen through a single `Executor` interface — `LocalExecutor` (your desktop),
-`RemoteMachineExecutor` (a cloud VM), or `BrowserExecutor`. Clients never hold
+`RemoteMachineExecutor` (a cloud VM), or `BrowserExecutor`. The **predict** step
+is its own seam (`@open-cowork/llm`): Coasty is the default implementation, and a
+[BYO model](#bring-your-own-model) is just another one behind the same contract,
+so the loop, executors, and UI don't care which is behind it. Clients never hold
 the Coasty key: they talk to the backend with short-lived session tokens, and
 the backend proxies to Coasty, verifies HMAC-signed webhooks, persists runs, and
 fans events out over SSE. Full design in
@@ -181,9 +216,12 @@ fans events out over SSE. Full design in
 Electron renderers, and the mobile app authenticate with short-lived session
 tokens and never see the key — enforced by tests that scan every client bundle
 and a runtime E2E assertion that watches every browser request for secret
-material. Coasty webhooks are verified with per-run HMAC secrets (constant-time
-compare, ±5-minute replay window) before they can touch any state. Threat notes
-in **[SECURITY.md](SECURITY.md)**.
+material. **Bring-your-own-LLM keys** follow the same rule: encrypted with the OS
+keychain (`safeStorage`), held only in the desktop process, scrubbed from every
+error, and kept out of the web/mobile bundles (the AI SDK is desktop-only).
+Coasty webhooks are verified with per-run HMAC secrets (constant-time compare,
+±5-minute replay window) before they can touch any state. Threat notes in
+**[SECURITY.md](SECURITY.md)**.
 
 ---
 
@@ -203,6 +241,7 @@ in **[SECURITY.md](SECURITY.md)**.
 ```text
 packages/core       Coasty client, agent loop, workflow DSL, cost estimator, HMAC — isomorphic, zero deps
 packages/executor   Executor abstraction: LocalExecutor (native), RemoteMachineExecutor (VM), BrowserExecutor
+packages/llm        BYO LLM provider seam: Coasty + OpenAI/OpenRouter/Ollama via the Vercel AI SDK (desktop-only)
 packages/ui         Shared React design system + domain components
 apps/backend        Fastify: auth, Coasty proxy (sole key holder), webhooks, SQLite, SSE fan-out, budgets
 apps/web            Vite + React SPA (also hosted by the desktop shell)
