@@ -75,6 +75,24 @@ describe('LocalExecutor', () => {
     expect(calls).toContain('click(1280,720,left,1)');
   });
 
+  it('clamps an out-of-range coordinate into the screen (no off-screen click)', async () => {
+    // A model returns coords past the right/bottom edge (or for a wrongly-assumed
+    // resolution); the click must land at the boundary, not off-screen.
+    const { bridge, calls } = fakeBridge({ captureSize: { width: 1280, height: 720 } });
+    const ex = new LocalExecutor({ bridge });
+    await ex.screenshot();
+    await ex.execute({ action_type: 'click', params: { x: 5000, y: 4000 } });
+    expect(calls).toContain('click(1279,719,left,1)');
+  });
+
+  it('clamps a negative coordinate to zero', async () => {
+    const { bridge, calls } = fakeBridge({ captureSize: { width: 800, height: 600 } });
+    const ex = new LocalExecutor({ bridge });
+    await ex.screenshot();
+    await ex.execute({ action_type: 'move', params: { x: -50, y: -10 } });
+    expect(calls).toContain('move(0,0)');
+  });
+
   it('scales drag endpoints too', async () => {
     const { bridge, calls } = fakeBridge({
       captureSize: { width: 1000, height: 500 },

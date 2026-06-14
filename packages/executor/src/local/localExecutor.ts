@@ -9,6 +9,11 @@ import { normalizeAction, type CuaAction } from '@open-cowork/core';
 import { UnsupportedActionError, type Executor, type Screenshot } from '../executor';
 import type { NativeBridge } from './bridge';
 
+/** Clamp `v` into the inclusive range [lo, hi]. */
+function clamp(v: number, lo: number, hi: number): number {
+  return v < lo ? lo : v > hi ? hi : v;
+}
+
 export interface LocalExecutorOptions {
   bridge: NativeBridge;
   /** Injectable sleep for `wait` actions (tests). */
@@ -37,14 +42,22 @@ export class LocalExecutor implements Executor {
     return this.bridge.screenSize();
   }
 
-  /** Map model-space coordinates (screenshot pixels) to input-space pixels. */
+  /**
+   * Map model-space coordinates (screenshot pixels) to input-space pixels, then
+   * clamp into the target screen. Clamping is defensive: if a model returns a
+   * coordinate slightly past an edge (or for a wrongly-assumed resolution) the
+   * click lands at the boundary instead of off-screen or on the wrong monitor.
+   */
   private async scalePoint(x: number, y: number): Promise<{ x: number; y: number }> {
     const capture = this.captureDims ?? (await this.bridge.capture());
     if (!this.captureDims) this.captureDims = { width: capture.width, height: capture.height };
     const screen = await this.bridge.screenSize();
     const sx = screen.width / this.captureDims.width;
     const sy = screen.height / this.captureDims.height;
-    return { x: Math.round(x * sx), y: Math.round(y * sy) };
+    return {
+      x: clamp(Math.round(x * sx), 0, screen.width - 1),
+      y: clamp(Math.round(y * sy), 0, screen.height - 1),
+    };
   }
 
   async execute(action: CuaAction): Promise<void> {

@@ -232,7 +232,7 @@ export class OpenAiCompatibleProvider implements InferenceProvider {
         content: [
           {
             type: 'text' as const,
-            text: `Task: ${input.instruction}\n\n${historyText}\n\nCurrent screenshot (step ${input.stepIndex + 1}). Decide the next action(s) and respond with the JSON object.`,
+            text: `Task: ${input.instruction}\n\n${historyText}\n\nCurrent screenshot (step ${input.stepIndex + 1}) — ${input.width}x${input.height} px. Choose the next action(s); give coordinates as absolute pixels within THIS image. Respond with the JSON object.`,
           },
           { type: 'image' as const, image: `data:image/png;base64,${input.screenshotB64}` },
         ],
@@ -384,7 +384,8 @@ function toUsage(u: { inputTokens?: number; outputTokens?: number } | undefined)
 function buildSystemPrompt(width: number, height: number, extra?: string): string {
   return [
     "You are a computer-use agent. You see a screenshot of a screen and choose the next GUI action(s) to accomplish the user's task.",
-    `The screenshot is ${width}x${height} pixels. All coordinates are PIXELS in that image, origin (0,0) at the TOP-LEFT, x right, y down.`,
+    `The screenshot is EXACTLY ${width}x${height} pixels.`,
+    `Coordinates are ABSOLUTE INTEGER PIXELS in that image: x in [0, ${width - 1}], y in [0, ${height - 1}], origin (0,0) at the TOP-LEFT (x increases right, y increases down). Do NOT output normalized (0-1), percentage, or 0-1000-scaled coordinates, and do NOT assume any other resolution. Target the CENTER of the element you want to act on.`,
     'Respond with a SINGLE JSON object and NOTHING else — no prose, no explanation, no <think> notes, no markdown code fences. Your entire reply must start with "{" and end with "}".',
     'Schema: { "reasoning": string, "status": "continue"|"done"|"fail", "actions": Action[] }.',
     'Each Action has a "type" and the fields it needs:',
