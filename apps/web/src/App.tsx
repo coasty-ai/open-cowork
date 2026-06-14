@@ -57,7 +57,7 @@ const NAV_SECTIONS: ReadonlyArray<{ label: string; items: ReadonlyArray<NavItem>
   {
     label: 'Workspace',
     items: [
-      { to: '/', end: true, icon: 'delegate', label: 'Delegate' },
+      { to: '/', end: true, icon: 'plus', label: 'Delegate' },
       { to: '/runs', icon: 'history', label: 'Runs' },
       { to: '/workflows', icon: 'workflows', label: 'Workflows' },
     ],
