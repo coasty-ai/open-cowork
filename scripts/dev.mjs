@@ -16,7 +16,7 @@
  *
  * No dependencies; works on Windows + macOS + Linux.
  */
-import { spawn } from 'node:child_process';
+import { spawn, execSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -53,7 +53,10 @@ const wantDesktop = process.argv.includes('--desktop');
 // The desktop shell hosts the web UI, so web is always on in desktop mode.
 const wantWeb = wantDesktop || !process.argv.includes('--no-web');
 const backendPort = (env.COWORK_PORT ?? '4000').toString().trim() || '4000';
-const WEB_URL = 'http://127.0.0.1:5173';
+// Mirror tools/mock-coasty/src/cli.ts: PORT ?? MOCK_PORT ?? 4010.
+const mockPort = (env.PORT ?? env.MOCK_PORT ?? '4010').toString().trim() || '4010';
+const WEB_PORT = '5173'; // apps/web/vite.config: strictPort, so a stale holder is fatal
+const WEB_URL = `http://127.0.0.1:${WEB_PORT}`;
 const BACKEND_URL = `http://127.0.0.1:${backendPort}`;
 
 const procs = [];
@@ -118,6 +121,66 @@ async function waitForHttp(url, timeoutMs = 90_000) {
   return false;
 }
 
+/**
+ * PIDs holding a LISTEN socket on `port` (our own pid excluded). Returns [] if
+ * nothing is listening or the lookup tool is unavailable — never throws.
+ */
+function listenersOnPort(port) {
+  const mine = String(process.pid);
+  try {
+    if (isWin) {
+      const out = execSync('netstat -ano -p tcp', { encoding: 'utf8', windowsHide: true });
+      const tail = new RegExp(`:${port}$`); // local address ends with :PORT (incl. [::1]:PORT)
+      const pids = new Set();
+      for (const line of out.split('\n')) {
+        if (!/\bLISTENING\b/i.test(line)) continue; // ignore client/ESTABLISHED/TIME_WAIT rows
+        const parts = line.trim().split(/\s+/);
+        const local = parts[1] ?? '';
+        const pid = parts[parts.length - 1] ?? '';
+        if (tail.test(local) && /^\d+$/.test(pid) && pid !== '0' && pid !== mine) pids.add(pid);
+      }
+      return [...pids];
+    }
+    const out = execSync(`lsof -nP -iTCP:${port} -sTCP:LISTEN -t`, { encoding: 'utf8' });
+    return [...new Set(out.split(/\s+/).filter((p) => p && p !== mine))];
+  } catch {
+    return []; // nothing listening, or netstat/lsof missing
+  }
+}
+
+/** Force-kill a PID (and its child tree on Windows). Best-effort; never throws. */
+function killPid(pid) {
+  try {
+    if (isWin) execSync(`taskkill /F /T /PID ${pid}`, { stdio: 'ignore', windowsHide: true });
+    else process.kill(Number(pid), 'SIGKILL');
+  } catch {
+    /* already gone or not permitted */
+  }
+}
+
+/**
+ * Free the ports this stack is about to bind, so a stale process from a previous
+ * run (e.g. a vite/backend that didn't shut down) can't fail the launch — the
+ * web dev server uses strictPort, so a held :5173 is otherwise fatal. Only the
+ * LISTENER on each port is killed; we then wait until it's actually released.
+ */
+async function freePorts(specs) {
+  for (const { port, label } of specs) {
+    let pids = listenersOnPort(port);
+    if (pids.length === 0) continue;
+    process.stdout.write(`  freeing :${port} (${label}) — stopping stale PID ${pids.join(', ')}\n`);
+    for (const pid of pids) killPid(pid);
+    const deadline = Date.now() + 4000;
+    while (Date.now() < deadline) {
+      pids = listenersOnPort(port);
+      if (pids.length === 0) break;
+      await new Promise((res) => setTimeout(res, 150));
+    }
+    if (pids.length)
+      process.stdout.write(`  ⚠ :${port} still in use after kill — starting anyway\n`);
+  }
+}
+
 console.log('open-cowork dev stack:');
 console.log(
   `  mock Coasty : ${usesMock ? 'YES (demo / local base URL)' : 'no (using your real Coasty key)'}`,
@@ -148,12 +211,21 @@ if (!usesMock) {
   );
 }
 
-if (usesMock) run('mock', next(), ['--filter', '@open-cowork/mock-coasty', 'dev']);
-run('backend', next(), ['--filter', '@open-cowork/backend', 'dev']);
-if (wantWeb) run('web', next(), ['--filter', '@open-cowork/web', 'dev']);
+void (async () => {
+  // Reclaim the ports we're about to bind so a leftover process from a previous
+  // run starts cleanly instead of failing (web's strictPort makes a held :5173
+  // fatal). Only ports this run will actually use are touched.
+  const ports = [{ port: backendPort, label: 'backend' }];
+  if (wantWeb) ports.push({ port: WEB_PORT, label: 'web' });
+  if (usesMock) ports.push({ port: mockPort, label: 'mock' });
+  await freePorts(ports);
+  if (shuttingDown) return;
 
-if (wantDesktop) {
-  void (async () => {
+  if (usesMock) run('mock', next(), ['--filter', '@open-cowork/mock-coasty', 'dev']);
+  run('backend', next(), ['--filter', '@open-cowork/backend', 'dev']);
+  if (wantWeb) run('web', next(), ['--filter', '@open-cowork/web', 'dev']);
+
+  if (wantDesktop) {
     process.stdout.write('\n[desktop] waiting for backend + web to be ready…\n');
     const ok = (await waitForHttp(`${BACKEND_URL}/health`)) && (await waitForHttp(WEB_URL));
     if (shuttingDown) return;
@@ -174,5 +246,5 @@ if (wantDesktop) {
       // Node and never opens a window. Strip it for the desktop child.
       ELECTRON_RUN_AS_NODE: undefined,
     });
-  })();
-}
+  }
+})();
