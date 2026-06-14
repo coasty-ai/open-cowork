@@ -13,6 +13,7 @@ import {
 import { getClient, useAuth } from '../store';
 import { formatApiError } from '../api/client';
 import { useCoastyKey } from '../coastyKey';
+import { ProviderSettings } from '../components/ProviderSettings';
 
 export function SettingsPage() {
   const client = getClient();
@@ -197,6 +198,7 @@ export function SettingsPage() {
           ) : null}
         </div>
       </Card>
+      <ProviderSettings />
     </>
   );
 }

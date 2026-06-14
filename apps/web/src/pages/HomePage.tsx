@@ -18,7 +18,7 @@ import {
   TaskComposer,
 } from '@open-cowork/ui';
 import { getClient } from '../store';
-import { formatApiError, type MachineDto } from '../api/client';
+import { formatApiError, type CoworkProviderStatus, type MachineDto } from '../api/client';
 
 const LOCAL_TARGET_ID = '__local__';
 
@@ -30,6 +30,7 @@ export function HomePage() {
   const [screens, setScreens] = useState<
     { id: number; label: string; primary: boolean; current: boolean }[]
   >([]);
+  const [provider, setProvider] = useState<CoworkProviderStatus | null>(null);
   const [pendingTask, setPendingTask] = useState<{
     task: string;
     machineId: string;
@@ -68,6 +69,15 @@ export function HomePage() {
       .listScreens()
       .then(setScreens)
       .catch(() => setScreens([]));
+  }, [isDesktop]);
+
+  // Desktop: which LLM local runs use (Coasty default, or a configured BYO model).
+  useEffect(() => {
+    if (!isDesktop || !window.cowork?.getProvider) return;
+    void window.cowork
+      .getProvider()
+      .then(setProvider)
+      .catch(() => setProvider(null));
   }, [isDesktop]);
 
   const options = useMemo(() => {
@@ -167,6 +177,14 @@ export function HomePage() {
               }
             />
           )}
+
+          {isDesktop && provider && !provider.isDefault ? (
+            <p className="delegate__provider" role="status">
+              <Icon name="alertTriangle" size={14} className="notice__icon" />
+              Local runs use <strong>{provider.label ?? provider.kind}</strong> — a third-party LLM,
+              not Coasty.
+            </p>
+          ) : null}
         </div>
       </div>
 

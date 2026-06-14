@@ -68,6 +68,15 @@
   font-size: var(--font-size-md);
   line-height: 1.5;
 }
+/* "You're on a third-party LLM" notice under the composer (BYO provider active). */
+.delegate__provider {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0;
+  color: var(--color-warning);
+  font-size: var(--font-size-sm);
+}
 /* Run detail as a chat: a centred ~46rem column that fills the main height so
    the dock sits at the bottom on short runs and scrolls naturally on long ones.
    .app-main stays the single scroll container — no nested scroller. */

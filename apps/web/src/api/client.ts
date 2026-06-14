@@ -166,6 +166,59 @@ export interface BackendClientOptions {
   onUnauthorized?: () => void;
 }
 
+/** BYO-LLM provider kinds the desktop supports (mirrors @open-cowork/llm). */
+export type ProviderKind = 'coasty' | 'openai' | 'openai-compatible' | 'openrouter';
+
+/** Secret-free provider status from the desktop (never carries the key value). */
+export interface CoworkProviderStatus {
+  kind: ProviderKind;
+  model: string | null;
+  baseUrl?: string;
+  label?: string;
+  vision?: boolean | 'unknown';
+  hasKey: boolean;
+  /** True when no BYO provider is configured → Coasty default. */
+  isDefault: boolean;
+  /** Whether OS-backed key encryption is available on this machine. */
+  secureStorage: boolean;
+}
+
+export interface CoworkModelInfo {
+  id: string;
+  label: string;
+  vision: boolean | 'unknown';
+  tools?: boolean;
+}
+
+/** Config for listing models / testing a provider before saving it. */
+export interface CoworkProviderProbe {
+  kind: ProviderKind;
+  model?: string;
+  baseUrl?: string;
+  apiKey?: string;
+}
+
+/** Config to persist a BYO provider. */
+export interface CoworkSetProvider {
+  kind: ProviderKind;
+  model: string;
+  baseUrl?: string;
+  vision?: boolean | 'unknown';
+  visionOverride?: boolean;
+  label?: string;
+  apiKey?: string;
+}
+
+export type CoworkListModelsResult =
+  | { ok: true; models: CoworkModelInfo[] }
+  | { ok: false; code: string; message: string };
+
+export interface CoworkHealthResult {
+  ok: boolean;
+  detail?: string;
+  code?: string;
+}
+
 declare global {
   interface Window {
     cowork?: {
@@ -182,6 +235,12 @@ declare global {
       listScreens?: () => Promise<
         { id: number; label: string; primary: boolean; current: boolean }[]
       >;
+      // ── BYO LLM provider (desktop only) ──
+      getProvider?: () => Promise<CoworkProviderStatus>;
+      setProvider?: (input: CoworkSetProvider) => Promise<CoworkProviderStatus>;
+      clearProvider?: () => Promise<CoworkProviderStatus>;
+      listProviderModels?: (input: CoworkProviderProbe) => Promise<CoworkListModelsResult>;
+      testProvider?: (input: CoworkProviderProbe) => Promise<CoworkHealthResult>;
     };
   }
 }
