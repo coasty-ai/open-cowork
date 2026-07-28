@@ -20,6 +20,7 @@
     "desktop": "node scripts/dev.mjs --desktop",
     "dev": "node scripts/dev.mjs",
     "doctor": "node scripts/doctor.mjs",
+    "fix:electron": "node scripts/ensure-electron.mjs",
     "build": "turbo run build",
     "test": "turbo run test",
     "test:coverage": "turbo run test:coverage",

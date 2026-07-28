@@ -4,11 +4,16 @@
  * with nothing but (optionally) a Coasty key. Prints a clear, actionable
  * report and exits non-zero if anything would block `pnpm dev`.
  *
- *   pnpm doctor
+ *   pnpm run doctor
+ *
+ * The `run` is required: `doctor` is also a built-in pnpm command, and bare
+ * `pnpm doctor` runs pnpm's own checker instead of this script (silently — it
+ * exits 0 and prints nothing but a config warning).
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { inspectElectron } from './ensure-electron.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const OK = '\x1b[32m✓\x1b[0m';
@@ -79,11 +84,28 @@ if (existsSync(join(ROOT, 'node_modules', '.pnpm'))) {
   blocking++;
 }
 
+// Electron's binary is fetched by a postinstall and lives outside the lockfile,
+// so it can be missing while pnpm reports "Already up to date". Only `pnpm
+// desktop` needs it, so this warns rather than blocks.
+const electron = inspectElectron();
+if (electron.ok) {
+  line(OK, `${electron.detail} — \`pnpm desktop\` can launch`);
+} else if (electron.status === 'unsupported-platform') {
+  line(WARN, `${electron.detail} — \`pnpm desktop\` is unavailable here; \`pnpm dev\` still works`);
+} else {
+  line(
+    WARN,
+    `Electron not runnable (${electron.detail}) — run \`pnpm fix:electron\`; \`pnpm dev\` still works`,
+  );
+}
+
 console.log('');
 if (blocking === 0) {
   console.log('Ready. Run `pnpm dev` to start everything (Ctrl+C stops it).');
-  process.exit(0);
 } else {
-  console.log(`${blocking} blocking issue(s) above. Fix them, then re-run \`pnpm doctor\`.`);
-  process.exit(1);
+  console.log(`${blocking} blocking issue(s) above. Fix them, then re-run \`pnpm run doctor\`.`);
 }
+// Set the code and let Node exit naturally. `process.exit()` can tear the
+// process down before stdout drains, since writes to a pipe (as opposed to a
+// TTY) are asynchronous — which would truncate the report above.
+process.exitCode = blocking === 0 ? 0 : 1;

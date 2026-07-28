@@ -273,7 +273,8 @@ e2e                 Playwright end-to-end flows (web + desktop)
 | Command | What |
 | --- | --- |
 | `pnpm dev` | mock + backend + web, wired together (`--no-web` for API only) |
-| `pnpm doctor` | preflight: Node, deps, key shape |
+| `pnpm run doctor` | preflight: Node, deps, key shape, Electron binary (needs `run` — `pnpm doctor` is a pnpm built-in) |
+| `pnpm fix:electron` | re-install Electron's binary if `pnpm desktop` says it "failed to install correctly" |
 | `pnpm test` | every unit + integration suite (offline, no spend) |
 | `pnpm typecheck` · `pnpm lint` · `pnpm format` | strict static checks |
 | `pnpm e2e` | Playwright: web + desktop journeys vs the mock |

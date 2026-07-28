@@ -20,6 +20,7 @@ import { spawn, execSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { ensureElectron } from './ensure-electron.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const isWin = process.platform === 'win32';
@@ -212,6 +213,22 @@ if (!usesMock) {
 }
 
 void (async () => {
+  // Electron's real binary lives outside the lockfile's view, so `pnpm install`
+  // can report "Already up to date" while `electron .` is broken. Verify (and
+  // self-repair) BEFORE anything else: otherwise backend + web boot, the
+  // backend talks to Coasty on a possibly LIVE key, and only then does the
+  // desktop child die with "Electron failed to install correctly".
+  if (wantDesktop && !ensureElectron()) {
+    process.stderr.write(
+      '\n[desktop] Electron is not runnable — stopping before the stack starts.\n' +
+        '[desktop] `pnpm dev` (web only, no local screen control) still works.\n',
+    );
+    // Return rather than process.exit() so the message above actually drains;
+    // nothing has been spawned yet, so there is nothing to tear down.
+    process.exitCode = 1;
+    return;
+  }
+
   // Reclaim the ports we're about to bind so a leftover process from a previous
   // run starts cleanly instead of failing (web's strictPort makes a held :5173
   // fatal). Only ports this run will actually use are touched.
