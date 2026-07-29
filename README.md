@@ -92,8 +92,8 @@ chose. Works the same with `OPENAI_API_KEY`, Gemini, xAI, Mistral, Groq, or Open
 with **Ollama / LM Studio** for a model running entirely on your machine, no key and no cloud.
 
 Because computer use is screenshot-driven, open-cowork verifies the model can actually **see**
-before spending anything, using a bundled capability catalog of **5,811 models across 174
-providers** plus each provider's own metadata. A model that can't see images is blocked with a
+before spending anything, using a bundled capability catalog of **1,105 vision-capable models**
+distilled from two open databases, plus each provider's own metadata. A model that can't see images is blocked with a
 clear message rather than sent a blind screenshot.
 
 **→ Full guide: [BYOK.md](BYOK.md)** — every provider, local setup, capability resolution, and
