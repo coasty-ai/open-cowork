@@ -84,18 +84,26 @@ test('desktop shell boots, exposes window.cowork, and offers the local target', 
     // Sign in inside the desktop shell.
     await page.getByLabel(/email/i).fill(`desktop-${Date.now()}@example.com`);
     await page.getByRole('button', { name: /sign in/i }).click();
-    await expect(page.getByRole('heading', { name: /delegate a task/i })).toBeVisible();
+    // See web.spec.ts: there is no "Delegate a task" heading; the signed-in
+    // shell is what proves the session. On desktop the composer DOES render
+    // without a cloud machine, because "This computer" is always an option.
+    await expect(page.getByRole('button', { name: /sign out/i })).toBeVisible();
 
-    // The local screen target is first-class on desktop.
-    const machineSelect = page.getByRole('combobox');
-    await expect(machineSelect.locator('option', { hasText: /this computer/i })).toHaveCount(1);
+    // The local screen target is first-class on desktop. The composer's machine
+    // picker is an in-house combobox (a button that opens a role="listbox"
+    // popover), not a native <select>, so selectOption() does not apply and the
+    // options exist only while the popover is open — open it, assert, click.
+    const machineSelect = page.getByRole('combobox', { name: 'Machine' });
+    await machineSelect.click();
+    const localOption = page.getByRole('option', { name: /this computer/i });
+    await expect(localOption).toHaveCount(1);
+    await localOption.click();
 
     // Selecting it and submitting surfaces the local-control warning in the
     // confirm dialog — then we cancel instead of starting (real input safety).
     await page.getByLabel(/task/i).fill('organize my downloads folder');
-    await machineSelect.selectOption({ label: 'This computer (local screen)' });
-    await page.getByRole('button', { name: /delegate|run task|start|submit/i }).click();
-    const confirm = page.getByRole('dialog', { name: /confirm cost/i });
+    await page.getByRole('button', { name: 'Send' }).click();
+    const confirm = page.getByRole('dialog', { name: /ready to start/i });
     await expect(confirm).toContainText(/your own mouse and keyboard/i);
     await confirm.getByRole('button', { name: /^cancel$/i }).click();
     await expect(confirm).toBeHidden();

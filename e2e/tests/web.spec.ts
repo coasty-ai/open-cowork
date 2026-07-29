@@ -32,7 +32,25 @@ async function login(page: Page): Promise<void> {
   await page.goto('/login');
   await page.getByLabel(/email/i).fill(email);
   await page.getByRole('button', { name: /sign in/i }).click();
-  await expect(page.getByRole('heading', { name: /delegate a task/i })).toBeVisible();
+  // Assert the authenticated shell, not the composer: the Delegate page has no
+  // "Delegate a task" heading (it is a logo + caption + composer), and with no
+  // machine yet it renders the "No machine to run on" empty state instead of
+  // the composer at all. "Sign out" is what actually proves a session exists.
+  await expect(page.getByRole('button', { name: /sign out/i })).toBeVisible();
+}
+
+/**
+ * Pick a target in the composer's machine selector.
+ *
+ * It is an in-house combobox — a `<button role="combobox">` that opens a
+ * `<ul role="listbox">` popover — not a native `<select>`, so `selectOption()`
+ * throws "Element is not a <select> element". The options only exist in the DOM
+ * while the popover is open, so open it first, then click. Scoped by accessible
+ * name because a second "Screen" combobox appears once a local target is chosen.
+ */
+async function selectMachine(page: Page, name?: RegExp): Promise<void> {
+  await page.getByRole('combobox', { name: 'Machine' }).click();
+  await (name ? page.getByRole('option', { name }) : page.getByRole('option').first()).click();
 }
 
 async function ensureMachine(page: Page): Promise<void> {
@@ -64,13 +82,19 @@ test.describe('full delegate → watch → approve → complete journey', () => 
     // Delegate a task that pauses for a human.
     await page.getByRole('link', { name: /delegate/i }).click();
     await page.getByLabel(/task/i).fill('Sort the inbox NEEDS_HUMAN then archive the rest');
-    await page.getByRole('combobox').selectOption({ index: 1 }); // first real machine
-    await page.getByRole('button', { name: /delegate|run task|start|submit/i }).click();
+    await selectMachine(page); // first (and only) provisioned machine
+    await page.getByRole('button', { name: 'Send' }).click();
 
-    // Explicit cost confirmation before anything billable.
-    const confirm = page.getByRole('dialog', { name: /confirm cost/i });
+    // Explicit confirmation before anything billable. The dialog deliberately
+    // shows no dollar figure any more (c1a7373, "friendlier run-confirm with a
+    // settable step limit, no cost shown"), so asserting "$1.25" here would be
+    // pinning UI that was removed on purpose. What the gate still guarantees is
+    // what we check: it interrupts the flow, and the worst case is bounded by a
+    // visible, settable step limit. The server-side cost handshake is enforced
+    // independently — the budget-safety test below covers that.
+    const confirm = page.getByRole('dialog', { name: /ready to start/i });
     await expect(confirm).toBeVisible();
-    await expect(confirm).toContainText('$1.25'); // 25 steps × $0.05 worst case
+    await expect(confirm.getByLabel(/maximum steps/i)).toHaveValue('25');
     await confirm.getByRole('button', { name: /start run/i }).click();
 
     // Live run view: timeline events stream in.
@@ -79,7 +103,7 @@ test.describe('full delegate → watch → approve → complete journey', () => 
     await expect(page.getByText(/step \d+ completed/i).first()).toBeVisible({ timeout: 20_000 });
 
     // Live screen frames from the machine appear.
-    await expect(page.getByAltText(/remote machine screen/i)).toHaveAttribute(
+    await expect(page.getByAltText(/machine screen/i)).toHaveAttribute(
       'src',
       /data:image\/png;base64,/,
       { timeout: 20_000 },

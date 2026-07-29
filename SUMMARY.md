@@ -64,8 +64,9 @@ This is enforced in code (`apps/backend/src/config.ts`) and proven three ways:
 `config.test.ts` (12 cases pinning every branch), `bootstrap.test.ts` (boots
 the real in-process server from an EMPTY env and runs a full flow), and
 `e2e/bootstrap-smoke.mjs` (spawns the actual `main.ts` + mock CLI with no key
-and drives login→provision→run→succeeded over real HTTP). `pnpm doctor` is a
-preflight check; `pnpm dev` is the one-command runner.
+and drives login→provision→run→succeeded over real HTTP). `pnpm run doctor` is a
+preflight check (the `run` is required — `pnpm doctor` is a pnpm built-in that
+shadows the script); `pnpm dev` is the one-command runner.
 
 ## Verification status
 
