@@ -31,12 +31,28 @@ beforeAll(async () => {
   const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
   // The whole point: NOTHING configured. loadConfig must produce a working
   // demo setup that targets the mock on 4010.
-  const config = loadConfig({});
+  //
+  // COWORK_DB_PATH is the ONE thing pinned, and it is not a cheat: the default
+  // (./data/cowork.sqlite) is the DEVELOPER'S REAL DATABASE. A runtime Coasty
+  // key persisted there outranks demo mode in resolveBootCredentials AND flips
+  // the base URL to live coasty.ai — so on any machine where someone has saved
+  // a key through the UI, this "zero-config demo" test silently provisioned
+  // REAL, BILLABLE machines against their account. Every other backend test
+  // already isolates the database exactly this way.
+  const config = loadConfig({ COWORK_DB_PATH: ':memory:' });
   warn.mockRestore();
   expect(config.demoMode).toBe(true);
   expect(config.coastyBaseUrl).toBe(MOCK_BASE_URL);
 
   built = buildServer({ config });
+  // Assert what the Coasty client will ACTUALLY use, not just what loadConfig
+  // returned. The two assertions above both passed while the shared client was
+  // pointed at live coasty.ai with a billable key, because resolveBootCredentials
+  // overrides the config's base URL when it finds a persisted runtime key. This
+  // is the assertion that would have caught it.
+  expect(built.credentials.source).toBe('demo');
+  expect(built.credentials.demoMode).toBe(true);
+  expect(built.credentials.baseUrl).toBe(MOCK_BASE_URL);
   await built.app.listen({ port: 0, host: '127.0.0.1' });
   backendUrl = `http://127.0.0.1:${(built.app.server.address() as { port: number }).port}`;
 });
