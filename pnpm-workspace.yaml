@@ -4,33 +4,71 @@ packages:
   - tools/*
   - e2e
 
-# Dependencies that are allowed to run postinstall build scripts (pnpm 10 blocks by default)
+catalog:
+  '@fastify/cors': ^10.0.1
+  '@playwright/test': ^1.49.1
+  '@testing-library/jest-dom': ^6.6.3
+  '@testing-library/react': ^16.1.0
+  '@testing-library/user-event': ^14.5.2
+  '@types/node': ^22.10.2
+  '@types/react': ^19.0.2
+  '@types/react-dom': ^19.0.2
+  '@vitejs/plugin-react': ^4.3.4
+  '@vitest/coverage-v8': ^3.0.5
+  electron: ^43.2.0
+  esbuild: ^0.28.1
+  fastify: ^5.2.0
+  jsdom: ^25.0.1
+  playwright-core: ^1.49.1
+  react: 19.0.0
+  react-dom: 19.0.0
+  react-router-dom: ^7.18.0
+  tsx: ^4.23.1
+  typescript: ^5.7.2
+  vite: ^6.4.3
+  vitest: ^3.0.5
+  zod: ^3.24.1
+  zustand: ^5.0.2
+
 onlyBuiltDependencies:
   - electron
   - esbuild
 
-catalog:
-  typescript: ^5.7.2
-  tsx: ^4.19.2
-  vitest: ^3.0.5
-  '@vitest/coverage-v8': ^3.0.5
-  '@types/node': ^22.10.2
-  fastify: ^5.2.0
-  '@fastify/cors': ^10.0.1
-  zod: ^3.24.1
-  react: 19.0.0
-  react-dom: 19.0.0
-  '@types/react': ^19.0.2
-  '@types/react-dom': ^19.0.2
-  vite: ^6.0.7
-  '@vitejs/plugin-react': ^4.3.4
-  jsdom: ^25.0.1
-  '@testing-library/react': ^16.1.0
-  '@testing-library/user-event': ^14.5.2
-  '@testing-library/jest-dom': ^6.6.3
-  zustand: ^5.0.2
-  react-router-dom: ^7.1.1
-  electron: ^33.2.1
-  esbuild: ^0.24.2
-  '@playwright/test': ^1.49.1
-  playwright-core: ^1.49.1
+# Security patches for TRANSITIVE dependencies we do not declare ourselves.
+# Every entry stays inside the dependency's existing major and inside every
+# consumer's declared range, so no package gets a version it was not built
+# against. Re-check with `pnpm audit`; drop an entry once upstream ships a
+# range that already excludes the vulnerable versions.
+# NOTE: pnpm rewrites this file (sorting keys, dropping comments) whenever it
+# updates the catalog — re-read it after `pnpm update`.
+overrides:
+  # Per-major, NOT a single global pin. brace-expansion v5 changed its export
+  # shape: minimatch 9 calls it as `brace_expansion_1.default(...)` (CJS default
+  # interop) and a global `^5.0.8` override makes every glob throw
+  # "(0 , brace_expansion_1.default) is not a function" — caught by
+  # `pnpm test:coverage`, which globs for untested files. So each major gets the
+  # highest patch inside its own line. Consequence: the GHSA whose range is
+  # `<= 5.0.7` (it spans every major) still matches the 1.x and 2.x instances,
+  # and cannot be cleared without breaking minimatch. Those are eslint's and
+  # vitest's dev-time glob paths on developer-controlled patterns.
+  brace-expansion@1: ^1.1.16
+  brace-expansion@2: ^2.1.2
+  brace-expansion@5: ^5.0.8
+  # esbuild advisory covers >=0.27.3 <0.28.1. Only vitest's bundled vite and
+  # tsx land in that range. tsx already allows the fix (`~0.28.0`); vite 7.3.5
+  # declares `esbuild: ^0.27.0` but 7.3.6 widened it to `^0.27.0 || ^0.28.0`,
+  # confirming 0.28 is compatible with that same vite code.
+  # Deliberately NOT overriding vite itself: a `vite@7` override also rewrites
+  # @vitejs/plugin-react's PEER range, which then reports vite 6.4.3 (what the
+  # web app builds with) as unmet. vite 6 keeps esbuild 0.25.x, which this
+  # advisory does not cover, so it is untouched either way.
+  'esbuild@>=0.27.3 <0.28.1': ^0.28.1
+  fast-uri: ^3.1.4
+  find-my-way: ^9.7.0
+  form-data: ^4.0.6
+  js-yaml@3: ^3.15.0
+  js-yaml@4: ^4.3.0
+  postcss: ^8.5.18
+  shell-quote: ^1.9.0
+  tar: ^7.5.21
+  undici: ^6.27.0
