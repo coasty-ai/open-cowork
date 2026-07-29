@@ -29,18 +29,26 @@ const DEFAULT_REFRESH_TIMEOUT_MS = 8_000;
 
 /**
  * Normalize a model id so one catalog entry matches every spelling of the same
- * model: OpenRouter prefixes the vendor (`anthropic/claude-sonnet-5`), Ollama
- * suffixes a tag (`qwen2.5-vl:7b`), and casing varies by provider.
+ * model. Providers disagree about how much path to put in front of a name:
  *
- * Kept identical to the normalization in `scripts/update-model-catalog.mjs` —
- * if the two ever diverge, every lookup silently misses.
+ *   anthropic/claude-sonnet-5                              (OpenRouter)
+ *   accounts/fireworks/models/llama-v3p2-11b-vision-instruct (Fireworks)
+ *   bedrock/anthropic.claude-3-opus-20240229-v1            (Bedrock via gateway)
+ *   qwen2.5-vl:7b                                          (Ollama, tagged)
+ *
+ * Keeping only the LAST path segment collapses all of them. Stripping just the
+ * first segment (an earlier version of this) left `fireworks/models/llama-…`
+ * intact and therefore never matched.
+ *
+ * Kept identical to `normalizeId` in `scripts/update-model-catalog.mjs` — if the
+ * two ever diverge, every lookup silently misses.
  */
 export function normalizeModelId(id: string): string {
-  return String(id ?? '')
+  const raw = String(id ?? '')
     .trim()
-    .toLowerCase()
-    .replace(/^[^/]+\//, '')
-    .replace(/:[^:]*$/, '');
+    .toLowerCase();
+  const last = raw.split('/').pop() ?? '';
+  return last.replace(/:[^:]*$/, '');
 }
 
 // Live additions layered over the generated snapshot. Kept separate so a

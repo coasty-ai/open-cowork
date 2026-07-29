@@ -18,6 +18,29 @@ import type { ModelInfo } from './types';
  * ticked an override. Matching a range means a new minor/major in an
  * all-vision family keeps working with no code change.
  */
+/**
+ * Names that state multimodality outright. These are checked BEFORE the catalog
+ * (see {@link resolveModelVision}) because the catalog's majority vote can be
+ * dragged to the wrong answer by providers that under-report modalities.
+ *
+ * The case that forced this: `phi-4-multimodal-instruct` is listed by three
+ * providers on models.dev and only one of them declares image input, so the
+ * majority says "text-only" about a model whose name is literally
+ * "multimodal" — and because a catalog `false` is authoritative, the user could
+ * not even override it. A name containing "vision", "multimodal", a `-vl`
+ * segment or "vlm" is stronger evidence than that vote.
+ *
+ * Deliberately narrow: each pattern requires the marker to be its own segment,
+ * so a model merely *named* after something is not swept up.
+ */
+const STRONG_VISION_MARKERS: RegExp[] = [
+  /(^|[-_.])vision([-_.]|$)/i, // moonshot-v1-128k-vision-preview
+  /multimodal/i, // phi-4-multimodal-instruct
+  /(^|[-_.])vlm?\d*([-_.]|$)/i, // mimo-vl-7b, deepseek-vl2, …-vlm
+  /(^|[-_.])omni([-_.]|$)/i, // qwen2.5-omni
+  /(^|[-_.])qvq([-_.]|$)/i, // Qwen QVQ visual reasoning
+];
+
 const VISION_PATTERNS: RegExp[] = [
   /gpt-4o/i,
   /gpt-4\.\d/i,
@@ -29,7 +52,12 @@ const VISION_PATTERNS: RegExp[] = [
   /claude-[3-9]/i,
   /claude-(opus|sonnet|haiku|fable)-[3-9]/i,
   /gemini/i,
-  /grok-[2-9]/i, // Grok 2 vision onward; the whole 4 line is multimodal
+  // Grok is NOT uniformly multimodal, so this is enumerated rather than ranged:
+  // every models.dev listing of plain `grok-3` (poe, helicone, github-models)
+  // says text-only. A `grok-[2-9]` range claimed otherwise and would have sent a
+  // blind screenshot. Vision arrives via the explicit `-vision` builds and the 4
+  // line onward.
+  /grok-[4-9]/i,
   /grok-(\d+-)?vision/i,
 
   // ── open-weight / local families ─────────────────────────────────────────
@@ -37,7 +65,12 @@ const VISION_PATTERNS: RegExp[] = [
   // running a finetune through Ollama (`my-qwen2.5-vl-tune:q4_K_M`) has an id
   // no database will ever list, so the family name is all we have.
   /llama-?3\.2-?(11b|90b)?-?vision/i,
-  /llama-?[4-9]/i,
+  // Llama 4+ is multimodal, but the version digit must not be confused with a
+  // PARAMETER COUNT. A bare `llama-?[4-9]` matched the "llama-7" inside
+  // `codellama-70b` and reported a code model as vision-capable. Requiring a
+  // separator (or end of id) after the version keeps `llama-4-scout` while
+  // rejecting `llama-70b` / `llama-8b`.
+  /llama-?[4-9](\.\d+)?([-_.]|$)/i,
   /llava/i,
   /qwen.*-?vl/i, // qwen2-vl, qwen2.5-vl, qwen3-vl, qwen-vl-max…
   /pixtral/i,
@@ -46,7 +79,7 @@ const VISION_PATTERNS: RegExp[] = [
   /magistral/i,
   /devstral/i,
   /moondream/i,
-  /minicpm-?v/i,
+  /minicpm-?[vo]/i, // MiniCPM-V and the omni-modal MiniCPM-O
   /internvl/i,
   /intern-?s1/i,
   /phi-?[34](\.\d+)?-?(vision|multimodal)/i,
@@ -85,14 +118,26 @@ const VISION_PATTERNS: RegExp[] = [
   /holo-?\d/i,
 ];
 
-/** Families that are explicitly text-only (so we can say "no" rather than "unknown"). */
+/**
+ * Families that are explicitly text-only, so we can say "no" rather than
+ * "unknown". Every entry here must be evidence of a MODALITY, because a "no"
+ * from this list is authoritative — {@link effectiveVision} refuses to let a
+ * user override `vision === false`, on the grounds that a model which cannot see
+ * cannot be talked into it.
+ *
+ * That makes a sloppy pattern here worse than no pattern at all. `-instruct$`
+ * used to be on this list, which is a NAMING CONVENTION and not a modality:
+ * `qwen2.5-vl-72b-instruct`, `llama-3.2-90b-vision-instruct` and
+ * `phi-4-multimodal-instruct` are all instruct-tuned VLMs. They happened to be
+ * rescued by matching a vision pattern first, but any vision model whose family
+ * this file does not recognise was being hard-blocked with no way out. Removed.
+ */
 const TEXT_ONLY_PATTERNS: RegExp[] = [
   /text-embedding/i,
   /embed/i,
   /whisper/i,
-  /tts/i,
+  /(^|[-_.])tts([-_.]|$)/i,
   /^gpt-3\.5/i,
-  /-instruct$/i,
   /codellama/i,
   /deepseek-coder/i,
 ];
@@ -104,9 +149,20 @@ const TEXT_ONLY_PATTERNS: RegExp[] = [
  */
 export function detectVisionFromName(modelId: string): boolean | 'unknown' {
   const id = modelId.trim();
+  if (hasStrongVisionMarker(id)) return true;
   if (VISION_PATTERNS.some((re) => re.test(id))) return true;
   if (TEXT_ONLY_PATTERNS.some((re) => re.test(id))) return false;
   return 'unknown';
+}
+
+/**
+ * Does the id state multimodality outright? Used to outrank a catalog "no" —
+ * see {@link STRONG_VISION_MARKERS} for the case that made this necessary.
+ */
+export function hasStrongVisionMarker(modelId: string): boolean {
+  const id = String(modelId ?? '').trim();
+  if (!id) return false;
+  return STRONG_VISION_MARKERS.some((re) => re.test(id));
 }
 
 /**
@@ -114,21 +170,31 @@ export function detectVisionFromName(modelId: string): boolean | 'unknown' {
  * source available:
  *
  *   1. the live provider's own modality metadata — it knows its own models;
- *   2. the models.dev catalog (bundled snapshot + optional live refresh) —
- *      recorded capability for ~6k models rather than a guess from a name;
- *   3. the name heuristic below — for local and finetuned models no catalog
+ *   2. an UNAMBIGUOUS name marker ("vision", "multimodal", a `-vl` segment) —
+ *      see below for why this sits above the catalog rather than below it;
+ *   3. the models.dev + LiteLLM catalog (bundled snapshot + optional live
+ *      refresh) — recorded capability for ~6k models rather than a name guess;
+ *   4. the family name heuristics — for local and finetuned models no catalog
  *      lists (`my-qwen2.5-vl-finetune:q4`);
- *   4. `'unknown'`, which the UI resolves with an explicit user override.
+ *   5. `'unknown'`, which the UI resolves with an explicit user override.
  *
- * Layer 2 exists because layer 3 is guesswork that rots: the heuristic list
- * once enumerated Claude versions and stopped at 4, so every Claude 5 model
- * became 'unknown' and was blocked at the run gate.
+ * Layer 3 exists because name guessing rots: the heuristic list once enumerated
+ * Claude versions and stopped at 4, so every Claude 5 model became 'unknown' and
+ * was blocked at the run gate.
+ *
+ * Layer 2 exists because layer 3 is a VOTE, and votes can lose for bad reasons.
+ * `phi-4-multimodal-instruct` appears on models.dev under three providers, only
+ * one of which declares image input — so the majority reports "text-only" for a
+ * model named "multimodal", and a catalog `false` cannot be overridden by the
+ * user. Ordering an explicit name claim above the vote fixes that class without
+ * weakening the vote everywhere else.
  */
 export function resolveModelVision(
   modelId: string,
   providerVision: boolean | 'unknown' | undefined,
 ): boolean | 'unknown' {
   if (providerVision === true || providerVision === false) return providerVision;
+  if (hasStrongVisionMarker(modelId)) return true;
   const fromCatalog = catalogVision(modelId);
   if (fromCatalog !== 'unknown') return fromCatalog;
   return detectVisionFromName(modelId);

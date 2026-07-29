@@ -14,7 +14,7 @@ pnpm desktop
 That's it. On startup the desktop detects the key, picks a vision-capable model, and prints
 what it chose:
 
-```
+```text
 [provider] Using Anthropic (Claude) · claude-sonnet-5 · ANTHROPIC_API_KEY=set (from the environment)
 ```
 
@@ -74,21 +74,59 @@ enumerated `claude-3`/`3.5`/`3.7`/`4` and stopped, so every Claude 5 model silen
 
 Capability is resolved in layers, most authoritative first:
 
-1. **The provider's own metadata** — OpenRouter modalities, Ollama capabilities.
-2. **A bundled catalog** distilled from [models.dev](https://models.dev), an open,
-   community-maintained database of model specifications — **5,811 models across 174
-   providers**, of which ~3,000 accept image input. Committed to the repo, so it is correct
-   offline and on first run.
-3. **Name heuristics** — for local finetunes no database will ever list
-   (`my-qwen2.5-vl-tune:q4_K_M`), covering LLaVA, Qwen-VL, InternVL, Molmo, MiniCPM-V,
-   Gemma 3, Phi-4-multimodal, SmolVLM, Idefics, CogVLM, GLM-4V, Pixtral, and the GUI-agent
-   VLMs (UI-TARS, ShowUI, OS-Atlas, Aguvis).
-4. **`unknown`** — surfaced honestly, resolvable by an explicit user override.
+1. **The provider's own metadata** — OpenRouter modalities, Ollama capabilities. It knows its
+   own models.
+2. **An unambiguous name** — an id containing `vision`, `multimodal`, a `-vl` segment, `vlm`,
+   `omni` or `qvq`. See below for why this outranks the catalog rather than sitting under it.
+3. **A bundled catalog** of **1,105 vision-capable ids**, distilled from two open databases and
+   committed to the repo so it is correct offline and on first run.
+4. **Family heuristics** — for local finetunes no database will ever list
+   (`my-qwen2.5-vl-tune:q4_K_M`), covering LLaVA, Qwen-VL, InternVL, Molmo, MiniCPM-V/O,
+   Gemma 3, Phi-4-multimodal, SmolVLM, Idefics, CogVLM, GLM-4V, Pixtral, Florence-2, and the
+   GUI-agent VLMs (UI-TARS, ShowUI, OS-Atlas, Aguvis).
+5. **`unknown`** — surfaced honestly, resolvable by an explicit user override.
+
+### Two databases, deliberately asymmetric
+
+- **[models.dev](https://models.dev)** (primary) — 5,813 models across 174 providers.
+  Contributes both "yes" and "no".
+- **[LiteLLM's model catalog](https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json)**
+  (secondary) — contributes **"yes" only**, and only for ids models.dev has no opinion about.
+
+The asymmetry is not caution for its own sake. LiteLLM's `supports_vision` has documented false
+negatives ([litellm#7592](https://github.com/BerriAI/litellm/issues/7592) — Gemini models
+reporting `false` despite accepting images), so its *silence* means nothing and must never
+become a "no". Its positive claims, though, cover ground models.dev misses: the **AWS Bedrock
+and Vertex regional ids** you actually pass on those platforms
+(`anthropic.claude-3-5-sonnet-20241022-v2`, `apac.amazon.nova-pro-v1`). That is 167 ids
+models.dev lists only under bare vendor names, if at all.
+
+### Why a majority vote, and why a name can beat it
 
 The catalog is **majority-voted across providers**, which matters more than it sounds: one
 gateway lists `gpt-3.5-turbo` as image-capable against eight that say otherwise, and
 `gpt-oss-120b` gets a single image vote against 42. An "any provider says vision" rule would
 have marked both usable and sent a blind screenshot to a text-only model.
+
+But a vote can also lose for bad reasons. `phi-4-multimodal-instruct` appears under three
+providers and only one declares image input — so the majority reports *text-only* for a model
+named "multimodal", and because a catalog `false` is treated as authoritative, the user could
+not even override it. Ordering an explicit name claim above the vote fixes that class of error
+without weakening the vote everywhere else.
+
+The reverse mistake is just as real, so both directions are gated by tests:
+
+- `grok-3` is text-only in every models.dev listing. A tidy-looking `grok-[2-9]` range claimed
+  otherwise, which would have sent a blind screenshot.
+- `codellama-70b` was reported as multimodal because `llama-?[4-9]` matched the "llama-7"
+  inside its **parameter count**.
+- `-instruct` was once on the text-only list. It is a tuning convention, not a modality —
+  `qwen2.5-vl-72b-instruct` and `llama-3.2-90b-vision-instruct` are instruct-tuned VLMs — so it
+  hard-blocked any vision model whose family wasn't separately recognised.
+
+[`packages/llm/test/visionCoverage.test.ts`](packages/llm/test/visionCoverage.test.ts) asserts
+a census of ~80 real model ids across every vendor and open-weight family in both directions:
+each must resolve to vision-capable, and a list of known text-only models must never be.
 
 Refresh the snapshot when new models ship:
 
