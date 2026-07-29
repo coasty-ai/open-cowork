@@ -8,9 +8,7 @@
  * All I/O + crypto is injected so the logic is unit-testable without Electron;
  * `main.ts` wires the real `safeStorage` + `fs`.
  */
-import type { ProviderKind } from '@open-cowork/llm';
-
-const KINDS: ProviderKind[] = ['coasty', 'openai', 'openai-compatible', 'openrouter'];
+import { isProviderKind, type ProviderKind } from '@open-cowork/core';
 
 export interface StoredProviderConfig {
   kind: ProviderKind;
@@ -56,7 +54,7 @@ interface Persisted {
 export function parseStoredConfig(raw: unknown): StoredProviderConfig | null {
   if (!raw || typeof raw !== 'object') return null;
   const o = raw as Record<string, unknown>;
-  if (typeof o.kind !== 'string' || !KINDS.includes(o.kind as ProviderKind)) return null;
+  if (!isProviderKind(o.kind)) return null;
   // Coasty is the implicit default — it is never persisted as a BYO selection.
   // Rejecting it here keeps the invariant explicit (no config ⇒ Coasty).
   if (o.kind === 'coasty') return null;

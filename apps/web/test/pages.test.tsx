@@ -104,6 +104,16 @@ afterEach(() => {
   delete (window as unknown as { cowork?: unknown }).cowork;
 });
 
+/** The machine shape `stubClient` serves, reused by the polling tests. */
+const MACHINE = {
+  id: 'm1',
+  display_name: 'worker-1',
+  status: 'running',
+  os_type: 'linux',
+  is_test: true,
+  created_at: '',
+} as const;
+
 describe('LoginPage', () => {
   it('logs in and stores the session', async () => {
     useAuth.setState({ token: null, user: null });
@@ -234,6 +244,51 @@ describe('HomePage (delegate flow)', () => {
     setClientForTests(stubClient({ listMachines: vi.fn(async () => ({ machines: [] })) }));
     renderHome();
     expect(await screen.findByText(/no machine to run on/i)).toBeInTheDocument();
+  });
+
+  it('picks up a machine that finishes provisioning after the page loaded', async () => {
+    // Regression: this list was fetched exactly once on mount and filtered to
+    // `status === 'running'`. Arriving from the Machines page a moment before
+    // the VM flipped to running pinned the empty state until a manual reload —
+    // and made the e2e journey intermittently fail on slow CI runners.
+    vi.useFakeTimers();
+    try {
+      let call = 0;
+      const listMachines = vi.fn(async () => {
+        call += 1;
+        return call === 1
+          ? { machines: [{ ...MACHINE, status: 'creating' }] }
+          : { machines: [MACHINE] };
+      });
+      setClientForTests(stubClient({ listMachines }));
+      renderHome();
+
+      await vi.waitFor(() => expect(screen.getByText(/no machine to run on/i)).toBeInTheDocument());
+
+      await vi.advanceTimersByTimeAsync(3100);
+      await vi.waitFor(() =>
+        expect(screen.queryByText(/no machine to run on/i)).not.toBeInTheDocument(),
+      );
+      expect(listMachines.mock.calls.length).toBeGreaterThan(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('stops polling once a machine is runnable', async () => {
+    vi.useFakeTimers();
+    try {
+      const listMachines = vi.fn(async () => ({ machines: [MACHINE] }));
+      setClientForTests(stubClient({ listMachines }));
+      renderHome();
+      await vi.waitFor(() => expect(listMachines).toHaveBeenCalled());
+      const afterLoad = listMachines.mock.calls.length;
+      await vi.advanceTimersByTimeAsync(10_000);
+      // A healthy page must not sit there re-polling forever.
+      expect(listMachines.mock.calls.length).toBe(afterLoad);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('shows the error state when loading fails', async () => {

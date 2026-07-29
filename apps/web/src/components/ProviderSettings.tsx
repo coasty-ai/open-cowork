@@ -1,12 +1,18 @@
 /**
  * Model-provider settings (desktop only). Lets the user keep Coasty (default) or
- * bring their own LLM — OpenRouter, OpenAI, or any OpenAI-compatible endpoint
- * (Ollama / LM Studio / vLLM). The API key never reaches this code beyond the
- * input box: it's sent to the desktop main over IPC, encrypted with the OS
- * keychain, and never returned. Non-vision models are flagged and blocked
- * (computer-use needs sight). On the web (no desktop bridge) it shows a note.
+ * bring their own LLM — Anthropic, OpenAI, Google Gemini, OpenRouter, or any
+ * OpenAI-compatible endpoint (Ollama / LM Studio / vLLM). The API key never
+ * reaches this code beyond the input box: it's sent to the desktop main over
+ * IPC, encrypted with the OS keychain, and never returned. Non-vision models are
+ * flagged and blocked (computer-use needs sight). On the web (no desktop bridge)
+ * it shows a note.
+ *
+ * The provider list is NOT written out here — it comes from `BYO_PROVIDERS` in
+ * `@open-cowork/core`, the same table the desktop and the env bootstrap read, so
+ * adding a vendor never requires touching this file.
  */
 import { useEffect, useRef, useState } from 'react';
+import { BYO_PROVIDERS } from '@open-cowork/core';
 import { Badge, Button, Card, ErrorState, Field, Heading, Icon, Text } from '@open-cowork/ui';
 import type { CoworkModelInfo, CoworkProviderStatus, ProviderKind } from '../api/client';
 
@@ -16,31 +22,19 @@ interface KindOption {
   needsKey: boolean;
   defaultBaseUrl: string;
   baseHint: string;
+  docsUrl: string;
+  suggestedModel?: string;
 }
 
-const KINDS: KindOption[] = [
-  {
-    value: 'openrouter',
-    label: 'OpenRouter',
-    needsKey: true,
-    defaultBaseUrl: '',
-    baseHint: 'Uses https://openrouter.ai by default — leave blank.',
-  },
-  {
-    value: 'openai',
-    label: 'OpenAI',
-    needsKey: true,
-    defaultBaseUrl: '',
-    baseHint: 'Uses https://api.openai.com/v1 by default — leave blank.',
-  },
-  {
-    value: 'openai-compatible',
-    label: 'OpenAI-compatible (Ollama, LM Studio, vLLM…)',
-    needsKey: false,
-    defaultBaseUrl: 'http://localhost:11434/v1',
-    baseHint: 'The /v1 endpoint, e.g. Ollama http://localhost:11434/v1',
-  },
-];
+const KINDS: KindOption[] = BYO_PROVIDERS.map((p) => ({
+  value: p.kind,
+  label: p.label,
+  needsKey: p.needsKey,
+  defaultBaseUrl: p.defaultBaseUrl,
+  baseHint: p.baseUrlHint,
+  docsUrl: p.docsUrl,
+  suggestedModel: p.suggestedModel,
+}));
 
 function visionLabel(v: CoworkModelInfo['vision']): string {
   return v === true ? 'vision ✓' : v === false ? 'no vision' : 'vision?';
@@ -51,7 +45,7 @@ export function ProviderSettings() {
   const cowork = typeof window !== 'undefined' ? window.cowork : undefined;
   const supported = Boolean(cowork?.getProvider);
   const [status, setStatus] = useState<CoworkProviderStatus | null>(null);
-  const [kind, setKind] = useState<ProviderKind>('openrouter');
+  const [kind, setKind] = useState<ProviderKind>(KINDS[0]!.value);
   const [baseUrl, setBaseUrl] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [models, setModels] = useState<CoworkModelInfo[] | null>(null);

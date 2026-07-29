@@ -1,17 +1,35 @@
 /**
- * BYO LLM provider over the Vercel AI SDK. One implementation drives every
- * OpenAI-dialect endpoint — OpenAI, OpenRouter, and any OpenAI-compatible base
- * URL (Ollama `/v1`, LM Studio, vLLM, Together, Groq…). It turns a screenshot +
- * instruction into `CuaAction[]` by asking the model for a structured step
- * (`generateObject`), with a free-text JSON fallback for models that ignore
- * structured output. Provider quirks (image format, model construction, usage
- * shape, error envelope) are isolated here; the loop sees only `PredictStepResult`.
+ * BYO LLM provider over the Vercel AI SDK. ONE implementation drives every
+ * supported vendor — Anthropic, OpenAI, Google Gemini, xAI Grok, Mistral, Groq,
+ * OpenRouter, and any OpenAI-compatible base URL (Ollama `/v1`, LM Studio,
+ * vLLM, Together, Fireworks…). It turns a screenshot + instruction into
+ * `CuaAction[]` by asking the model for a structured step (`generateObject`),
+ * with a free-text JSON fallback for models that ignore structured output.
+ *
+ * Only two things are vendor-specific: `buildModel` (which AI-SDK factory to
+ * call) and the `listModels` endpoint shape. Everything else — prompt, image
+ * handling, trajectory, repair passes, usage, error scrubbing — is shared, so
+ * the agent loop never learns which vendor is behind it.
+ *
+ * WHY THESE ARE SEPARATE KINDS. Anthropic and Gemini are not OpenAI-dialect at
+ * all: Anthropic uses `x-api-key` + a dated `anthropic-version` header, Gemini
+ * uses `?key=` against generativelanguage.googleapis.com, so pointing the
+ * OpenAI dialect at either fails at the transport layer. xAI, Mistral and Groq
+ * are closer — their `GET /models` is OpenAI-shaped, which is why they share
+ * `listOpenAiModels` — but their chat calls still differ enough that each ships
+ * its own AI-SDK factory, and giving them real kinds means the Settings UI can
+ * name them and the env bootstrap knows their key variables.
  *
  * SECURITY: the API key lives only on this in-memory instance, is sent only to
  * the configured provider, and is scrubbed from any error via `mapProviderError`.
  */
 import { generateObject, generateText, NoObjectGeneratedError, type LanguageModel } from 'ai';
+import { createAnthropic } from '@ai-sdk/anthropic';
+import { createGoogleGenerativeAI } from '@ai-sdk/google';
+import { createGroq } from '@ai-sdk/groq';
+import { createMistral } from '@ai-sdk/mistral';
 import { createOpenAI } from '@ai-sdk/openai';
+import { createXai } from '@ai-sdk/xai';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import type { Usage } from '@open-cowork/core';
@@ -26,6 +44,7 @@ import {
   type ParsedStep,
 } from './actionParser';
 import { DEFAULT_MAX_IMAGE_BYTES, guardImageSize } from './image';
+import type { ProviderKind } from '@open-cowork/core';
 import type {
   BeginRunOptions,
   HealthResult,
@@ -38,7 +57,22 @@ import type {
 } from './types';
 
 const OPENAI_DEFAULT_BASE = 'https://api.openai.com/v1';
+/**
+ * xAI, Mistral and Groq all expose an OpenAI-shaped `GET /models`, so they
+ * reuse `listOpenAiModels` — only the default host differs. They still need
+ * their own AI-SDK factory for the chat call itself (auth and request quirks
+ * differ), which is why they are distinct kinds rather than base-URL presets.
+ */
+const MODELS_BASE_BY_KIND: Partial<Record<ProviderKind, string>> = {
+  xai: 'https://api.x.ai/v1',
+  mistral: 'https://api.mistral.ai/v1',
+  groq: 'https://api.groq.com/openai/v1',
+};
 const OPENROUTER_MODELS_URL = 'https://openrouter.ai/api/v1/models';
+const ANTHROPIC_DEFAULT_BASE = 'https://api.anthropic.com';
+/** Anthropic requires a dated API version header on every request. */
+const ANTHROPIC_VERSION = '2023-06-01';
+const GOOGLE_DEFAULT_BASE = 'https://generativelanguage.googleapis.com/v1beta';
 /** Per-step reasoning kept in the in-prompt trajectory is capped so a chatty
  *  (e.g. chain-of-thought) model can't grow the prompt/memory without bound. */
 const MAX_REASONING_CHARS = 500;
@@ -199,8 +233,16 @@ export class OpenAiCompatibleProvider implements InferenceProvider {
 
   async listModels(): Promise<ModelInfo[]> {
     try {
-      if (this.config.kind === 'openrouter') return await this.listOpenRouterModels();
-      return await this.listOpenAiModels();
+      switch (this.config.kind) {
+        case 'openrouter':
+          return await this.listOpenRouterModels();
+        case 'anthropic':
+          return await this.listAnthropicModels();
+        case 'google':
+          return await this.listGoogleModels();
+        default:
+          return await this.listOpenAiModels();
+      }
     } catch (err) {
       throw mapProviderError(err, this.config.apiKey);
     }
@@ -258,7 +300,8 @@ export class OpenAiCompatibleProvider implements InferenceProvider {
   }
 
   private modelsBaseUrl(): string {
-    const base = (this.config.baseUrl ?? OPENAI_DEFAULT_BASE).replace(/\/+$/, '');
+    const fallback = MODELS_BASE_BY_KIND[this.config.kind] ?? OPENAI_DEFAULT_BASE;
+    const base = (this.config.baseUrl?.trim() || fallback).replace(/\/+$/, '');
     return `${base}/models`;
   }
 
@@ -274,6 +317,70 @@ export class OpenAiCompatibleProvider implements InferenceProvider {
     } catch {
       throw new LlmProviderError('BAD_OUTPUT', 'The provider returned a non-JSON response.');
     }
+  }
+
+  /**
+   * `GET https://api.anthropic.com/v1/models`. Anthropic does NOT use bearer
+   * auth: it wants `x-api-key` plus a dated `anthropic-version` header, and
+   * returns `{ data: [{ id, display_name }] }`.
+   *
+   * Every currently listed Claude model accepts images, and the response
+   * carries no modality field, so we resolve through the name heuristic rather
+   * than asserting `true` — a future text-only Claude then degrades to
+   * 'unknown' (user-overridable) instead of a confident wrong answer.
+   */
+  private async listAnthropicModels(): Promise<ModelInfo[]> {
+    const base = (this.config.baseUrl?.trim() || ANTHROPIC_DEFAULT_BASE).replace(/\/+$/, '');
+    const res = await this.fetchImpl(`${base}/v1/models?limit=1000`, {
+      headers: {
+        'x-api-key': this.config.apiKey ?? '',
+        'anthropic-version': ANTHROPIC_VERSION,
+      },
+    });
+    if (!res.ok) throw mapProviderError({ statusCode: res.status, message: `HTTP ${res.status}` });
+    const body = (await res.json().catch(() => {
+      throw new LlmProviderError('BAD_OUTPUT', 'Anthropic returned a non-JSON response.');
+    })) as { data?: { id?: string; display_name?: string }[] };
+    const data = Array.isArray(body.data) ? body.data : [];
+    return data
+      .filter((m): m is { id: string; display_name?: string } => typeof m.id === 'string')
+      .map((m) => ({
+        id: m.id,
+        label: m.display_name ?? m.id,
+        vision: resolveModelVision(m.id, undefined),
+      }));
+  }
+
+  /**
+   * `GET https://generativelanguage.googleapis.com/v1beta/models?key=…`.
+   * Gemini authenticates with a query parameter, and reports capability through
+   * `supportedGenerationMethods` — a model that cannot `generateContent` is
+   * unusable here (embeddings etc.), so those are filtered out entirely.
+   * Ids come back prefixed (`models/gemini-…`); the SDK wants them bare.
+   */
+  private async listGoogleModels(): Promise<ModelInfo[]> {
+    const base = (this.config.baseUrl?.trim() || GOOGLE_DEFAULT_BASE).replace(/\/+$/, '');
+    const url = `${base}/models?pageSize=1000&key=${encodeURIComponent(this.config.apiKey ?? '')}`;
+    const res = await this.fetchImpl(url);
+    if (!res.ok) throw mapProviderError({ statusCode: res.status, message: `HTTP ${res.status}` });
+    const body = (await res.json().catch(() => {
+      throw new LlmProviderError('BAD_OUTPUT', 'Google returned a non-JSON response.');
+    })) as {
+      models?: { name?: string; displayName?: string; supportedGenerationMethods?: string[] }[];
+    };
+    const models = Array.isArray(body.models) ? body.models : [];
+    return models
+      .filter(
+        (m): m is { name: string; displayName?: string; supportedGenerationMethods?: string[] } =>
+          typeof m.name === 'string',
+      )
+      .filter((m) =>
+        (m.supportedGenerationMethods ?? ['generateContent']).includes('generateContent'),
+      )
+      .map((m) => {
+        const id = m.name.replace(/^models\//, '');
+        return { id, label: m.displayName ?? id, vision: resolveModelVision(id, undefined) };
+      });
   }
 
   private async listOpenAiModels(): Promise<ModelInfo[]> {
@@ -328,25 +435,53 @@ export class OpenAiCompatibleProvider implements InferenceProvider {
   }
 }
 
-/** Build the AI-SDK language model for a config. */
+/**
+ * Build the AI-SDK language model for a config. The ONLY vendor-specific
+ * construction point — everything downstream is shared.
+ *
+ * `baseUrl: undefined` is passed deliberately rather than `''`: each SDK
+ * falls back to its own official endpoint when the option is absent, so an
+ * empty string from a cleared UI field must not become a real (broken) URL.
+ */
 function buildModel(config: ProviderConfig): LanguageModel {
+  const baseURL = config.baseUrl?.trim() ? config.baseUrl.trim() : undefined;
   switch (config.kind) {
+    case 'anthropic':
+      // Anthropic needs a real key even for a 400 — fail with our own message
+      // rather than letting the SDK send an unauthenticated request.
+      if (!config.apiKey?.trim()) {
+        throw new LlmProviderError(
+          'PROVIDER_AUTH',
+          'Anthropic needs an API key. Set ANTHROPIC_API_KEY or paste one in Settings.',
+        );
+      }
+      return createAnthropic({ apiKey: config.apiKey, baseURL })(config.model);
+    case 'google':
+      if (!config.apiKey?.trim()) {
+        throw new LlmProviderError(
+          'PROVIDER_AUTH',
+          'Google Gemini needs an API key. Set GOOGLE_GENERATIVE_AI_API_KEY or paste one in Settings.',
+        );
+      }
+      return createGoogleGenerativeAI({ apiKey: config.apiKey, baseURL })(config.model);
     case 'openai':
-      return createOpenAI({ apiKey: config.apiKey, baseURL: config.baseUrl }).chat(config.model);
+      return createOpenAI({ apiKey: config.apiKey, baseURL }).chat(config.model);
+    case 'xai':
+      return createXai({ apiKey: config.apiKey ?? '', baseURL })(config.model);
+    case 'mistral':
+      return createMistral({ apiKey: config.apiKey ?? '', baseURL })(config.model);
+    case 'groq':
+      return createGroq({ apiKey: config.apiKey ?? '', baseURL })(config.model);
     case 'openrouter':
       return createOpenRouter({ apiKey: config.apiKey ?? '' }).chat(config.model);
     case 'openai-compatible':
-      if (!config.baseUrl) {
+      if (!baseURL) {
         throw new LlmProviderError(
           'PROVIDER_ERROR',
-          'An OpenAI-compatible provider needs a base URL.',
+          'An OpenAI-compatible provider needs a base URL (e.g. http://localhost:11434/v1).',
         );
       }
-      return createOpenAICompatible({
-        name: 'byo',
-        baseURL: config.baseUrl,
-        apiKey: config.apiKey,
-      })(config.model);
+      return createOpenAICompatible({ name: 'byo', baseURL, apiKey: config.apiKey })(config.model);
     case 'coasty':
       throw new LlmProviderError('PROVIDER_ERROR', 'Coasty is not an AI-SDK provider.');
   }

@@ -63,3 +63,32 @@ describe('effectiveVision — the run gate', () => {
     expect(effectiveVision({})).toBe(false);
   });
 });
+
+describe('vision detection is forward-compatible', () => {
+  // Regression: the pattern list used to enumerate claude-3/3.5/3.7/4, so every
+  // Claude 5 model resolved to 'unknown' and was blocked at the run gate.
+  it.each([
+    'claude-sonnet-5',
+    'claude-opus-5',
+    'claude-haiku-4-5-20251001',
+    'anthropic/claude-sonnet-5',
+    'claude-4-5-sonnet',
+    'gpt-5',
+    'gpt-6-turbo',
+    'gpt-4.5-preview',
+    'gemini-3.0-pro',
+  ])('%s → vision true', (id) => {
+    expect(detectVisionFromName(id)).toBe(true);
+  });
+
+  it('does not over-match older text-only OpenAI models', () => {
+    // The broadened GPT range must not swallow gpt-3.5.
+    expect(detectVisionFromName('gpt-3.5-turbo')).toBe(false);
+    expect(detectVisionFromName('gpt-3.5-turbo-instruct')).toBe(false);
+  });
+
+  it('still returns unknown for genuinely unknown families', () => {
+    expect(detectVisionFromName('mistral-7b')).toBe('unknown');
+    expect(detectVisionFromName('some-random-model')).toBe('unknown');
+  });
+});

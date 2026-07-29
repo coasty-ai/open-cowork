@@ -166,8 +166,16 @@ export interface BackendClientOptions {
   onUnauthorized?: () => void;
 }
 
-/** BYO-LLM provider kinds the desktop supports (mirrors @open-cowork/llm). */
-export type ProviderKind = 'coasty' | 'openai' | 'openai-compatible' | 'openrouter';
+/**
+ * BYO-LLM provider kinds the desktop supports.
+ *
+ * Re-exported from `@open-cowork/core` rather than re-declared: this used to be
+ * a hand-written copy that silently drifted from the real list. core has zero
+ * dependencies, so importing it here does NOT pull the AI SDK into the web
+ * bundle — that constraint is why the duplicate existed in the first place.
+ */
+import type { ProviderKind } from '@open-cowork/core';
+export type { ProviderKind };
 
 /** Secret-free provider status from the desktop (never carries the key value). */
 export interface CoworkProviderStatus {

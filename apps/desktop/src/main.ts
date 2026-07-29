@@ -14,9 +14,13 @@ import { app, BrowserWindow, globalShortcut, ipcMain, safeStorage, screen } from
 import type { Display } from 'electron';
 import { createNativeBridge, LocalExecutor, type ScreenRegion } from '@open-cowork/executor';
 import {
+  describeEnvConfig,
   LlmProviderError,
   makeProvider,
   mapProviderError,
+  pickVisionModel,
+  providerMeta,
+  resolveProviderFromEnv,
   type InferenceProvider,
   type ProviderConfig,
 } from '@open-cowork/llm';
@@ -101,22 +105,83 @@ const providerStore = new ProviderStore({
   },
 });
 
-/** Build the provider for a run: the configured BYO provider, else Coasty. */
+/**
+ * A provider configured purely from the environment (ANTHROPIC_API_KEY,
+ * OPENAI_API_KEY, …), resolved once at startup. Null when the environment names
+ * no BYO provider, which is the normal case.
+ */
+let envProviderConfig: ProviderConfig | null = null;
+
+/**
+ * Resolve the environment-configured provider, filling in a model when the user
+ * did not name one. Runs once at boot: picking a model requires a `listModels`
+ * round-trip, and `buildActiveProvider` must stay synchronous for the run path.
+ *
+ * Never throws — a bad or unreachable env provider must not stop the app from
+ * starting; it degrades to Coasty/Settings and explains itself on stdout.
+ */
+async function initEnvProvider(env: NodeJS.ProcessEnv = process.env): Promise<void> {
+  const resolved = resolveProviderFromEnv(env);
+  if (!resolved.config) {
+    if (resolved.note) console.warn(`[provider] ${resolved.note}`);
+    return;
+  }
+  const config = resolved.config;
+  if (resolved.note) console.log(`[provider] ${resolved.note}`);
+
+  if (!config.model) {
+    try {
+      const models = await makeProvider(config).listModels();
+      const meta = providerMeta(config.kind);
+      const { model, note } = pickVisionModel(models, meta?.suggestedModel);
+      if (!model) {
+        console.warn(`[provider] ${note ?? 'No usable model found.'} Ignoring the env provider.`);
+        return;
+      }
+      if (note) console.warn(`[provider] ${note}`);
+      config.model = model;
+      // Trust the provider's own capability report over the name heuristic.
+      config.vision = models.find((m) => m.id === model)?.vision ?? config.vision;
+    } catch (err) {
+      const e = mapProviderError(err, config.apiKey);
+      console.warn(`[provider] Could not list models (${e.code}): ${e.message}`);
+      console.warn('[provider] Set COWORK_LLM_MODEL to skip auto-selection. Ignoring for now.');
+      return;
+    }
+  }
+  envProviderConfig = config;
+  console.log(`[provider] Using ${describeEnvConfig(config)} (from the environment)`);
+}
+
+/**
+ * Build the provider for a run. Precedence, most explicit first:
+ *   1. a provider saved in Settings (a deliberate user action wins),
+ *   2. one configured by environment variables,
+ *   3. Coasty.
+ */
 function buildActiveProvider(): InferenceProvider {
   const stored = providerStore.load();
   if (stored && stored.config.kind !== 'coasty') {
     // A hosted provider needs a key. If one was configured but couldn't be
     // restored (secure storage unavailable, so it was dropped on save), fail
     // with a clear message instead of a misleading "provider rejected the key".
-    const needsKey = stored.config.kind === 'openai' || stored.config.kind === 'openrouter';
-    if (needsKey && !stored.apiKey) {
+    // Driven by the shared registry so a new vendor is covered automatically —
+    // this used to be a hard-coded `openai || openrouter` check that silently
+    // skipped the guard for every provider added after it was written.
+    const meta = providerMeta(stored.config.kind);
+    if (meta?.needsKey && !stored.apiKey) {
+      const envFallback = meta.envVar ? process.env[meta.envVar]?.trim() : undefined;
+      if (envFallback) {
+        return makeProvider({ ...stored.config, apiKey: envFallback });
+      }
       throw new LlmProviderError(
         'PROVIDER_AUTH',
-        `No API key is stored for ${stored.config.label ?? stored.config.kind}. Re-add the provider in Settings (secure key storage may be unavailable on this machine), or use a local provider like Ollama.`,
+        `No API key is stored for ${stored.config.label ?? stored.config.kind}. Re-add the provider in Settings (secure key storage may be unavailable on this machine), set ${meta.envVar} in the environment, or use a local provider like Ollama.`,
       );
     }
     return makeProvider({ ...stored.config, apiKey: stored.apiKey });
   }
+  if (envProviderConfig) return makeProvider(envProviderConfig);
   return makeProvider(
     { kind: 'coasty', model: 'v3' },
     { backendUrl: BACKEND_URL, getToken: () => sessionToken },
@@ -444,6 +509,11 @@ if (!gotLock) {
 
   void app.whenReady().then(() => {
     createWindow();
+
+    // Resolve any env-configured provider in the background: it may need a
+    // listModels round-trip, and the window must not wait on the network.
+    // initEnvProvider never rejects, so a failure here cannot break startup.
+    void initEnvProvider();
 
     // Keep every window reachable when the display arrangement changes at
     // runtime (a monitor is unplugged, or resolution/scale/work-area changes):

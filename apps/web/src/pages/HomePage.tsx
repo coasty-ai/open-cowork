@@ -26,6 +26,9 @@ import {
   type MachineDto,
 } from '../api/client';
 
+/** How often to re-check for a machine while none is runnable yet. */
+const MACHINE_POLL_MS = 3000;
+
 const LOCAL_TARGET_ID = '__local__';
 const STEP_DEFAULT = 25;
 const STEP_MIN = 1;
@@ -98,6 +101,18 @@ export function HomePage() {
       ? [{ id: LOCAL_TARGET_ID, label: 'This computer (local screen)', local: true }, ...cloud]
       : cloud;
   }, [machines, isDesktop]);
+
+  // A machine provisioned on the Machines page is `creating` for a while before
+  // it is `running`, and the list above is otherwise fetched exactly once on
+  // mount. Without this, arriving here a moment too early pins the "No machine
+  // to run on" empty state until the user manually reloads — the machine is
+  // ready, the page just never asks again. Poll only while nothing is runnable,
+  // and stop the moment something is.
+  useEffect(() => {
+    if (machines === null || options.length > 0) return;
+    const timer = setInterval(() => void load(), MACHINE_POLL_MS);
+    return () => clearInterval(timer);
+  }, [machines, options.length]);
 
   const screenOptions = useMemo(
     () => screens.map((s) => ({ id: String(s.id), label: s.label })),
