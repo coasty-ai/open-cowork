@@ -206,10 +206,47 @@ your back.
 | Provider | Env var | API key | Covers |
 | --- | --- | :---: | --- |
 | **Anthropic** | `ANTHROPIC_API_KEY` | required | Claude Sonnet / Opus / Haiku |
-| **OpenAI** | `OPENAI_API_KEY` | required | `gpt-4o`, `gpt-4.1`, `gpt-5`, … |
+| **OpenAI** | `OPENAI_API_KEY` | required | `gpt-4o`, `gpt-4.1`, `gpt-5`, o-series |
 | **Google Gemini** | `GOOGLE_GENERATIVE_AI_API_KEY` | required | Gemini Pro / Flash |
+| **xAI** | `XAI_API_KEY` | required | Grok (the whole 4 line is multimodal) |
+| **Mistral** | `MISTRAL_API_KEY` | required | Pixtral, Mistral Medium/Small 3 |
+| **Groq** | `GROQ_API_KEY` | required | fast inference for Llama vision models |
 | **OpenRouter** | `OPENROUTER_API_KEY` | required | hundreds of models; vision read from OpenRouter's own modality metadata |
-| **OpenAI-compatible** | `COWORK_LLM_API_KEY` | optional | **Ollama**, LM Studio, vLLM, Together, Groq — any `…/v1` base URL |
+| **OpenAI-compatible** | `COWORK_LLM_API_KEY` | optional | **Ollama**, LM Studio, vLLM, Together, Fireworks — any `…/v1` base URL |
+
+### Knowing which models can actually see
+
+Computer use is screenshot-driven, so before a run we must know whether the chosen model
+accepts images. Guessing from the model name is how that goes wrong: the old heuristic list
+enumerated `claude-3`/`3.5`/`3.7`/`4` and stopped, so every Claude 5 model silently became
+"unknown" and was blocked behind an override checkbox.
+
+Capability is now resolved in layers, most authoritative first:
+
+1. **the provider's own metadata** — OpenRouter modalities, Ollama capabilities;
+2. **a bundled catalog** distilled from [models.dev](https://models.dev), an open,
+   community-maintained database of model specifications — **5,811 models across 174
+   providers**, of which ~3,000 accept image input. Committed to the repo, so it is correct
+   offline and on first run;
+3. **name heuristics** — for local finetunes no database will ever list
+   (`my-qwen2.5-vl-tune:q4_K_M`), covering LLaVA, Qwen-VL, InternVL, Molmo, MiniCPM-V,
+   Gemma 3, Phi-4-multimodal, SmolVLM, Idefics, CogVLM, GLM-4V, Pixtral, and the
+   GUI-agent VLMs (UI-TARS, ShowUI, OS-Atlas, Aguvis);
+4. **`unknown`** — surfaced honestly, resolvable by an explicit user override.
+
+The catalog is **majority-voted across providers**, which matters more than it sounds: one
+gateway lists `gpt-3.5-turbo` as image-capable against eight that say otherwise, and
+`gpt-oss-120b` gets a single image vote against 42. An "any provider says vision" rule would
+have marked both usable and sent a blind screenshot to a text-only model.
+
+Refresh the snapshot when new models ship:
+
+```bash
+pnpm update:models   # re-distills packages/llm/src/modelCatalog.generated.ts
+```
+
+The desktop can also refresh it at runtime, so a model released after your last `git pull`
+still resolves correctly.
 
 Anthropic and Gemini are **first-class**, not base-URL tricks: neither speaks the OpenAI
 dialect (Anthropic uses `x-api-key` + a dated version header, Gemini authenticates by query

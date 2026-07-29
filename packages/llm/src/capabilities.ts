@@ -5,6 +5,7 @@
  * name-pattern map, and ultimately to `'unknown'` (which the UI resolves with a
  * user override).
  */
+import { catalogVision } from './modelCatalog';
 import type { ModelInfo } from './types';
 
 /**
@@ -28,18 +29,60 @@ const VISION_PATTERNS: RegExp[] = [
   /claude-[3-9]/i,
   /claude-(opus|sonnet|haiku|fable)-[3-9]/i,
   /gemini/i,
+  /grok-[2-9]/i, // Grok 2 vision onward; the whole 4 line is multimodal
+  /grok-(\d+-)?vision/i,
+
+  // ── open-weight / local families ─────────────────────────────────────────
+  // These matter most: the catalog covers hosted APIs well, but someone
+  // running a finetune through Ollama (`my-qwen2.5-vl-tune:q4_K_M`) has an id
+  // no database will ever list, so the family name is all we have.
   /llama-?3\.2-?(11b|90b)?-?vision/i,
-  /llama-?4/i,
+  /llama-?[4-9]/i,
   /llava/i,
-  /qwen.*-vl/i,
-  /qwen2\.5-?vl/i,
+  /qwen.*-?vl/i, // qwen2-vl, qwen2.5-vl, qwen3-vl, qwen-vl-max…
   /pixtral/i,
   /mistral-?small-?3\.\d+/i,
+  /mistral-?medium-?3/i,
+  /magistral/i,
+  /devstral/i,
   /moondream/i,
   /minicpm-?v/i,
   /internvl/i,
-  /phi-?3\.5-?vision/i,
-  /grok-(2-)?vision/i,
+  /intern-?s1/i,
+  /phi-?[34](\.\d+)?-?(vision|multimodal)/i,
+  /phi-?4-?multimodal/i,
+  /gemma-?3/i, // Gemma 3 (4B+) is multimodal
+  /molmo/i,
+  /aria/i,
+  /cogvlm/i,
+  /cogagent/i,
+  /yi-?vl/i,
+  /deepseek-?vl/i,
+  /glm-?4(\.\d+)?v/i,
+  /glm-?4v/i,
+  /ovis/i,
+  /idefics/i,
+  /smolvlm/i,
+  /nvlm/i,
+  /florence-?2/i,
+  /kimi-?vl/i,
+  /step-?1o?-?v/i,
+  /ernie.*-?vl/i,
+  /marco-?vl/i,
+  /paligemma/i,
+  /fuyu/i,
+  /bakllava/i,
+  /obsidian/i,
+  /granite.*vision/i,
+  /pali-?gemma/i,
+  /dots\.ocr/i,
+  /got-?ocr/i,
+  /ui-?tars/i, // purpose-built GUI-agent VLMs — exactly this use case
+  /showui/i,
+  /cogagent/i,
+  /os-?atlas/i,
+  /aguvis/i,
+  /holo-?\d/i,
 ];
 
 /** Families that are explicitly text-only (so we can say "no" rather than "unknown"). */
@@ -67,15 +110,27 @@ export function detectVisionFromName(modelId: string): boolean | 'unknown' {
 }
 
 /**
- * Merge provider-reported modality (authoritative when present) with the
- * name heuristic. Provider `true`/`false` always wins; only when the provider is
- * silent do we consult the name.
+ * Decide whether a model accepts image input, from the most authoritative
+ * source available:
+ *
+ *   1. the live provider's own modality metadata — it knows its own models;
+ *   2. the models.dev catalog (bundled snapshot + optional live refresh) —
+ *      recorded capability for ~6k models rather than a guess from a name;
+ *   3. the name heuristic below — for local and finetuned models no catalog
+ *      lists (`my-qwen2.5-vl-finetune:q4`);
+ *   4. `'unknown'`, which the UI resolves with an explicit user override.
+ *
+ * Layer 2 exists because layer 3 is guesswork that rots: the heuristic list
+ * once enumerated Claude versions and stopped at 4, so every Claude 5 model
+ * became 'unknown' and was blocked at the run gate.
  */
 export function resolveModelVision(
   modelId: string,
   providerVision: boolean | 'unknown' | undefined,
 ): boolean | 'unknown' {
   if (providerVision === true || providerVision === false) return providerVision;
+  const fromCatalog = catalogVision(modelId);
+  if (fromCatalog !== 'unknown') return fromCatalog;
   return detectVisionFromName(modelId);
 }
 

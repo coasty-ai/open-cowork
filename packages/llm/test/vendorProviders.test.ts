@@ -219,3 +219,42 @@ describe('vendor-agnostic behaviour still holds', () => {
     expect(String(fetchImpl.mock.calls[0]![0])).toContain('https://api.anthropic.com');
   });
 });
+
+// ────────────────────────────────── xAI / Mistral / Groq (OpenAI-shaped lists)
+describe('OpenAI-shaped vendors hit their own hosts', () => {
+  it.each([
+    ['xai', 'https://api.x.ai/v1/models'],
+    ['mistral', 'https://api.mistral.ai/v1/models'],
+    ['groq', 'https://api.groq.com/openai/v1/models'],
+  ])('%s lists models from %s with bearer auth', async (kind, expected) => {
+    const fetchImpl = jsonFetch({ data: [{ id: 'some-model' }] });
+    await provider(
+      { kind: kind as ProviderConfig['kind'], apiKey: 'k-123', baseUrl: undefined },
+      fetchImpl as unknown as typeof fetch,
+    ).listModels();
+
+    const [url, init] = fetchImpl.mock.calls[0]!;
+    expect(String(url)).toBe(expected);
+    const headers = (init as { headers?: Record<string, string> }).headers ?? {};
+    // These three DO use bearer auth, unlike Anthropic and Google.
+    expect(headers.Authorization).toBe('Bearer k-123');
+  });
+
+  it('an explicit base URL still wins over the vendor default', async () => {
+    const fetchImpl = jsonFetch({ data: [] });
+    await provider(
+      { kind: 'groq', apiKey: 'k', baseUrl: 'https://proxy.internal/v1' },
+      fetchImpl as unknown as typeof fetch,
+    ).listModels();
+    expect(String(fetchImpl.mock.calls[0]![0])).toBe('https://proxy.internal/v1/models');
+  });
+
+  it('resolves vision through the catalog, so a current model is not blocked', async () => {
+    const fetchImpl = jsonFetch({ data: [{ id: 'grok-4' }, { id: 'pixtral-large-latest' }] });
+    const models = await provider(
+      { kind: 'xai', apiKey: 'k' },
+      fetchImpl as unknown as typeof fetch,
+    ).listModels();
+    expect(models.every((m) => m.vision === true)).toBe(true);
+  });
+});

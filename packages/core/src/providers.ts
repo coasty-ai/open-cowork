@@ -25,6 +25,9 @@ export type ProviderKind =
   | 'anthropic'
   | 'openai'
   | 'google'
+  | 'xai'
+  | 'mistral'
+  | 'groq'
   | 'openrouter'
   | 'openai-compatible';
 
@@ -33,6 +36,9 @@ export const BYO_PROVIDER_KINDS = [
   'anthropic',
   'openai',
   'google',
+  'xai',
+  'mistral',
+  'groq',
   'openrouter',
   'openai-compatible',
 ] as const satisfies readonly ProviderKind[];
@@ -102,6 +108,36 @@ const META: Record<Exclude<ProviderKind, 'coasty'>, ProviderMeta> = {
     baseUrlEditable: false,
     baseUrlHint: 'Uses Google’s Generative Language endpoint — leave blank.',
     docsUrl: 'https://aistudio.google.com/app/apikey',
+  },
+  xai: {
+    kind: 'xai',
+    label: 'xAI (Grok)',
+    envVar: 'XAI_API_KEY',
+    needsKey: true,
+    defaultBaseUrl: '',
+    baseUrlEditable: true,
+    baseUrlHint: 'Uses https://api.x.ai/v1 by default — leave blank.',
+    docsUrl: 'https://console.x.ai',
+  },
+  mistral: {
+    kind: 'mistral',
+    label: 'Mistral (Pixtral)',
+    envVar: 'MISTRAL_API_KEY',
+    needsKey: true,
+    defaultBaseUrl: '',
+    baseUrlEditable: true,
+    baseUrlHint: 'Uses https://api.mistral.ai/v1 by default — leave blank.',
+    docsUrl: 'https://console.mistral.ai/api-keys',
+  },
+  groq: {
+    kind: 'groq',
+    label: 'Groq (fast inference)',
+    envVar: 'GROQ_API_KEY',
+    needsKey: true,
+    defaultBaseUrl: '',
+    baseUrlEditable: false,
+    baseUrlHint: 'Uses https://api.groq.com/openai/v1 by default — leave blank.',
+    docsUrl: 'https://console.groq.com/keys',
   },
   openrouter: {
     kind: 'openrouter',

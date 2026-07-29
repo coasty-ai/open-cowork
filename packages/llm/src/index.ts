@@ -30,6 +30,14 @@ export type { EnvBag, EnvProviderResolution } from './envConfig';
 export { LlmProviderError, mapProviderError, redactKey } from './errors';
 export type { ProviderErrorCode } from './errors';
 export { detectVisionFromName, resolveModelVision, effectiveVision } from './capabilities';
+export {
+  catalogVision,
+  refreshCatalog,
+  catalogStats,
+  normalizeModelId,
+  resetCatalogRefresh,
+} from './modelCatalog';
+export type { CatalogRefreshResult } from './modelCatalog';
 export { base64Bytes, guardImageSize, DEFAULT_MAX_IMAGE_BYTES } from './image';
 export {
   MODEL_STEP_SCHEMA,

@@ -1,21 +1,24 @@
 /**
  * BYO LLM provider over the Vercel AI SDK. ONE implementation drives every
- * supported vendor — Anthropic, OpenAI, Google Gemini, OpenRouter, and any
- * OpenAI-compatible base URL (Ollama `/v1`, LM Studio, vLLM, Together, Groq…).
- * It turns a screenshot + instruction into `CuaAction[]` by asking the model for
- * a structured step (`generateObject`), with a free-text JSON fallback for
- * models that ignore structured output.
+ * supported vendor — Anthropic, OpenAI, Google Gemini, xAI Grok, Mistral, Groq,
+ * OpenRouter, and any OpenAI-compatible base URL (Ollama `/v1`, LM Studio,
+ * vLLM, Together, Fireworks…). It turns a screenshot + instruction into
+ * `CuaAction[]` by asking the model for a structured step (`generateObject`),
+ * with a free-text JSON fallback for models that ignore structured output.
  *
  * Only two things are vendor-specific: `buildModel` (which AI-SDK factory to
  * call) and the `listModels` endpoint shape. Everything else — prompt, image
  * handling, trajectory, repair passes, usage, error scrubbing — is shared, so
  * the agent loop never learns which vendor is behind it.
  *
- * NOTE ON NAMING: Anthropic and Gemini are NOT OpenAI-dialect. Anthropic uses
- * `x-api-key` + `anthropic-version`; Gemini uses `?key=` against
- * generativelanguage.googleapis.com. They are first-class cases below, not
- * `openai-compatible` base-URL tricks — pointing the OpenAI dialect at either
- * fails at the transport layer.
+ * WHY THESE ARE SEPARATE KINDS. Anthropic and Gemini are not OpenAI-dialect at
+ * all: Anthropic uses `x-api-key` + a dated `anthropic-version` header, Gemini
+ * uses `?key=` against generativelanguage.googleapis.com, so pointing the
+ * OpenAI dialect at either fails at the transport layer. xAI, Mistral and Groq
+ * are closer — their `GET /models` is OpenAI-shaped, which is why they share
+ * `listOpenAiModels` — but their chat calls still differ enough that each ships
+ * its own AI-SDK factory, and giving them real kinds means the Settings UI can
+ * name them and the env bootstrap knows their key variables.
  *
  * SECURITY: the API key lives only on this in-memory instance, is sent only to
  * the configured provider, and is scrubbed from any error via `mapProviderError`.
@@ -23,7 +26,10 @@
 import { generateObject, generateText, NoObjectGeneratedError, type LanguageModel } from 'ai';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
+import { createGroq } from '@ai-sdk/groq';
+import { createMistral } from '@ai-sdk/mistral';
 import { createOpenAI } from '@ai-sdk/openai';
+import { createXai } from '@ai-sdk/xai';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import type { Usage } from '@open-cowork/core';
@@ -38,6 +44,7 @@ import {
   type ParsedStep,
 } from './actionParser';
 import { DEFAULT_MAX_IMAGE_BYTES, guardImageSize } from './image';
+import type { ProviderKind } from '@open-cowork/core';
 import type {
   BeginRunOptions,
   HealthResult,
@@ -50,6 +57,17 @@ import type {
 } from './types';
 
 const OPENAI_DEFAULT_BASE = 'https://api.openai.com/v1';
+/**
+ * xAI, Mistral and Groq all expose an OpenAI-shaped `GET /models`, so they
+ * reuse `listOpenAiModels` — only the default host differs. They still need
+ * their own AI-SDK factory for the chat call itself (auth and request quirks
+ * differ), which is why they are distinct kinds rather than base-URL presets.
+ */
+const MODELS_BASE_BY_KIND: Partial<Record<ProviderKind, string>> = {
+  xai: 'https://api.x.ai/v1',
+  mistral: 'https://api.mistral.ai/v1',
+  groq: 'https://api.groq.com/openai/v1',
+};
 const OPENROUTER_MODELS_URL = 'https://openrouter.ai/api/v1/models';
 const ANTHROPIC_DEFAULT_BASE = 'https://api.anthropic.com';
 /** Anthropic requires a dated API version header on every request. */
@@ -282,7 +300,8 @@ export class OpenAiCompatibleProvider implements InferenceProvider {
   }
 
   private modelsBaseUrl(): string {
-    const base = (this.config.baseUrl ?? OPENAI_DEFAULT_BASE).replace(/\/+$/, '');
+    const fallback = MODELS_BASE_BY_KIND[this.config.kind] ?? OPENAI_DEFAULT_BASE;
+    const base = (this.config.baseUrl?.trim() || fallback).replace(/\/+$/, '');
     return `${base}/models`;
   }
 
@@ -447,6 +466,12 @@ function buildModel(config: ProviderConfig): LanguageModel {
       return createGoogleGenerativeAI({ apiKey: config.apiKey, baseURL })(config.model);
     case 'openai':
       return createOpenAI({ apiKey: config.apiKey, baseURL }).chat(config.model);
+    case 'xai':
+      return createXai({ apiKey: config.apiKey ?? '', baseURL })(config.model);
+    case 'mistral':
+      return createMistral({ apiKey: config.apiKey ?? '', baseURL })(config.model);
+    case 'groq':
+      return createGroq({ apiKey: config.apiKey ?? '', baseURL })(config.model);
     case 'openrouter':
       return createOpenRouter({ apiKey: config.apiKey ?? '' }).chat(config.model);
     case 'openai-compatible':

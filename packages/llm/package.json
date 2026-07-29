@@ -16,13 +16,16 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@open-cowork/core": "workspace:*",
-    "ai": "^6.0.0",
     "@ai-sdk/anthropic": "^3.0.103",
     "@ai-sdk/google": "^3.0.102",
+    "@ai-sdk/groq": "^3.0.53",
+    "@ai-sdk/mistral": "^3.0.52",
     "@ai-sdk/openai": "^3.0.0",
     "@ai-sdk/openai-compatible": "^2.0.0",
+    "@ai-sdk/xai": "^3.0.112",
+    "@open-cowork/core": "workspace:*",
     "@openrouter/ai-sdk-provider": "^2.9.0",
+    "ai": "^6.0.0",
     "zod": "catalog:"
   },
   "devDependencies": {
