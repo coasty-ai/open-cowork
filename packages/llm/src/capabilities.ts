@@ -7,18 +7,26 @@
  */
 import type { ModelInfo } from './types';
 
-/** Model families known to accept image input. */
+/**
+ * Model families known to accept image input.
+ *
+ * These are deliberately VERSION-RANGED rather than enumerated. An earlier
+ * version of this list spelled out `claude-3`, `claude-3.5`, `claude-3.7`,
+ * `claude-4` — so the day Anthropic shipped a 5, every current Claude silently
+ * fell through to `'unknown'` and got blocked at the run gate until the user
+ * ticked an override. Matching a range means a new minor/major in an
+ * all-vision family keeps working with no code change.
+ */
 const VISION_PATTERNS: RegExp[] = [
   /gpt-4o/i,
-  /gpt-4\.1/i,
+  /gpt-4\.\d/i,
   /gpt-4(\.\d+)?-?(turbo)?-?vision/i,
-  /gpt-5/i,
+  /gpt-[5-9]/i, // every GPT line from 5 up is multimodal
   /o[134](-|$|\b)/i, // o1/o3/o4 reasoning models w/ vision
-  /claude-3/i,
-  /claude-3\.5/i,
-  /claude-3\.7/i,
-  /claude-(opus|sonnet|haiku)-4/i,
-  /claude-4/i,
+  // Claude 3 and up are all vision-capable, in both `claude-3-5-sonnet` and
+  // `claude-sonnet-5` naming orders.
+  /claude-[3-9]/i,
+  /claude-(opus|sonnet|haiku|fable)-[3-9]/i,
   /gemini/i,
   /llama-?3\.2-?(11b|90b)?-?vision/i,
   /llama-?4/i,

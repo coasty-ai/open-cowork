@@ -16,7 +16,7 @@
 </p>
 <p align="center">
   Runs on the <a href="https://coasty.ai/docs">Coasty Computer Use API</a> out of the box —
-  or <strong>bring your own LLM</strong> (OpenRouter · OpenAI · a local model). Your call.
+  or <strong>bring your own LLM</strong> (Anthropic · OpenAI · Gemini · OpenRouter · a local model). Your call.
 </p>
 
 <p align="center">
@@ -24,7 +24,7 @@
   <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg">
   <img alt="Platforms" src="https://img.shields.io/badge/platforms-desktop%20%C2%B7%20web%20%C2%B7%20mobile-0aa">
   <img alt="One key" src="https://img.shields.io/badge/setup-one%20key%20(or%20none)-7c3aed">
-  <img alt="BYO LLM (BYOK)" src="https://img.shields.io/badge/BYO%20LLM-OpenRouter%20%C2%B7%20OpenAI%20%C2%B7%20Ollama-ff8c00">
+  <img alt="BYO LLM (BYOK)" src="https://img.shields.io/badge/BYO%20LLM-Anthropic%20%C2%B7%20OpenAI%20%C2%B7%20Gemini%20%C2%B7%20Ollama-ff8c00">
   <img alt="TypeScript strict" src="https://img.shields.io/badge/TypeScript-strict-3178c6">
   <img alt="Tests" src="https://img.shields.io/badge/tests-730%2B%20%C2%B7%205%20E2E-success">
 </p>
@@ -69,8 +69,9 @@ Then, in the window:
 3. Type a task → confirm the cost → watch it work. _(Tip: put `NEEDS_HUMAN` in a task to see the approval flow pause and resume.)_
 
 > 🧠 **Bring your own LLM (BYOK).** Want it to run on _your_ model instead of Coasty?
-> Open **Settings → Model provider** and add OpenRouter, OpenAI, or a local model
-> (Ollama / LM Studio). Coasty stays the default until you switch.
+> Drop `ANTHROPIC_API_KEY` (or `OPENAI_API_KEY`, Gemini, OpenRouter) into `.env` and
+> `pnpm desktop` picks it up automatically — or use **Settings → Model provider** for
+> a local model (Ollama / LM Studio). Coasty stays the default until you switch.
 > [Jump to BYOK ↓](#bring-your-own-llm-byok)
 
 > ⚠️ Local control moves your **real** mouse and keyboard. Stop with **Cancel** (or
@@ -83,7 +84,7 @@ Then, in the window:
 | **Automate your own PC** | `pnpm desktop` | Coasty _or your own LLM_ | demo **$0** · BYOK = your provider's rate |
 | **Web app only** | `pnpm dev` → <http://127.0.0.1:5173> | Coasty | **$0** |
 | **Your Coasty account** | add `COASTY_API_KEY` to `.env` | Coasty (real model) | sandbox key = **$0** |
-| **Bring your own LLM (BYOK)** | **Settings → Model provider** | OpenRouter · OpenAI · Ollama | your provider's rate · **local = $0** |
+| **Bring your own LLM (BYOK)** | key in `.env`, or **Settings** | Anthropic · OpenAI · Gemini · OpenRouter · Ollama | your provider's rate · **local = $0** |
 
 The only thing you ever _have_ to set is `COASTY_API_KEY` — and even that's optional in demo
 mode. Everything else has a working default. Prefer your own model? **That's BYOK** — pick a
@@ -149,7 +150,7 @@ shuts it all down when you close the window.
 - 💬 **Delegate in chat** — _"rename these files and email the report"_ — and
   watch the agent execute it step by step with a live screen view.
 - 🧠 **Bring your own LLM (BYOK)** — run local screen control on _your_ model:
-  OpenRouter, OpenAI, or a local model (Ollama / LM Studio / vLLM). Coasty is just
+  Anthropic, OpenAI, Gemini, OpenRouter, or a local model (Ollama / LM Studio / vLLM). Coasty is just
   the default. [Details ↓](#bring-your-own-llm-byok)
 - 📺 **Supervise runs** — dashboard, durable event timeline (SSE with replay),
   cancel / resume / human-takeover from web, desktop, or phone.
@@ -179,16 +180,42 @@ shuts it all down when you close the window.
 ## Bring your own LLM (BYOK)
 
 **Bring your own key, bring your own model.** Local screen control defaults to **Coasty's**
-computer-use model — but you can point it at **any OpenAI-dialect LLM** instead. In the
-desktop app, open **Settings → Model provider**, pick a provider, choose a **vision-capable**
-model, and local runs use it. Coasty stays the default; switch back any time with one click.
-Nothing else in the app changes.
+computer-use model — but you can point it at **any major provider** instead. Coasty stays the
+default; switch back any time with one click. Nothing else in the app changes.
 
-| Provider | API key | Covers |
-| --- | :---: | --- |
-| **OpenRouter** | required | hundreds of models; vision read from OpenRouter's own modality metadata |
-| **OpenAI** | required | `gpt-4o`, `gpt-4.1`, … |
-| **OpenAI-compatible** | optional | **Ollama**, LM Studio, vLLM, Together, Groq — any `…/v1` base URL |
+### The fastest way: put a key in `.env`
+
+```bash
+echo 'ANTHROPIC_API_KEY=sk-ant-…' >> .env
+pnpm desktop
+```
+
+That's it. On startup the desktop detects the key, picks a vision-capable model, and prints
+what it chose:
+
+```
+[provider] Using Anthropic (Claude) · claude-sonnet-5 · ANTHROPIC_API_KEY=set (from the environment)
+```
+
+Set `OPENAI_API_KEY`, `GOOGLE_GENERATIVE_AI_API_KEY`, or `OPENROUTER_API_KEY` instead and the
+same thing happens. Set **several** and open-cowork refuses to guess — name one with
+`COWORK_LLM_PROVIDER`. Pin an exact model with `COWORK_LLM_MODEL`. Anything saved in
+**Settings → Model provider** wins over the environment, so the UI is never overridden behind
+your back.
+
+| Provider | Env var | API key | Covers |
+| --- | --- | :---: | --- |
+| **Anthropic** | `ANTHROPIC_API_KEY` | required | Claude Sonnet / Opus / Haiku |
+| **OpenAI** | `OPENAI_API_KEY` | required | `gpt-4o`, `gpt-4.1`, `gpt-5`, … |
+| **Google Gemini** | `GOOGLE_GENERATIVE_AI_API_KEY` | required | Gemini Pro / Flash |
+| **OpenRouter** | `OPENROUTER_API_KEY` | required | hundreds of models; vision read from OpenRouter's own modality metadata |
+| **OpenAI-compatible** | `COWORK_LLM_API_KEY` | optional | **Ollama**, LM Studio, vLLM, Together, Groq — any `…/v1` base URL |
+
+Anthropic and Gemini are **first-class**, not base-URL tricks: neither speaks the OpenAI
+dialect (Anthropic uses `x-api-key` + a dated version header, Gemini authenticates by query
+parameter), so each has its own transport. Adding a vendor means one entry in
+[`packages/core/src/providers.ts`](packages/core/src/providers.ts) — the desktop, the web
+Settings UI, and the env bootstrap all read that one table.
 
 - 👁️ **Vision is required.** Computer use is screenshot-driven, so a model that can't see
   images is flagged and **blocked** with a clear message — never a blind, wasted run.
@@ -205,6 +232,44 @@ Nothing else in the app changes.
 > Built on the [Vercel AI SDK](https://sdk.vercel.ai): rate-limit (429) and transient errors
 > retry with backoff, and if a model ignores structured output the response is recovered with
 > a defensive JSON parse — so even smaller local models can drive the loop.
+
+## Long-horizon runs
+
+A step cap is a bad stop condition on its own. An agent that gets wedged still burns every
+remaining step — and every token, and every credit — before it hits the cap. The loop watches
+for three failure shapes and ends a hopeless run in seconds instead:
+
+| Guard | Fires when | Default | Outcome |
+| --- | --- | :---: | --- |
+| **Idle** | N steps in a row say `continue` but propose no action | 3 | `stalled` |
+| **Repeat** | N steps in a row propose the *same* action | 6 | `stalled` |
+| **Deadline** | wall-clock budget spent, regardless of steps used | off | `timeout` |
+
+Each has a false-positive story that shaped its design, and each is tested for **both**
+directions — that it fires, and that it stays out of the way:
+
+- **Coordinate jitter still counts as repeating.** A model nudging a click one pixel per step
+  is stuck, not progressing, so coordinates are quantized to an 8px grid before comparison.
+- **Scrolling and waiting are exempt.** Paging through a long document means issuing the same
+  scroll ten times; that's the job, not a wedge.
+- **Typing different text is progress.** `type "a"` then `type "b"` are different signatures
+  even though both are `type_text`.
+- **A real verdict always wins.** `done` and `fail` from the agent are never pre-empted by a
+  guard.
+
+Set them per run — `maxIdleSteps`, `maxRepeatedSteps`, `deadlineMs` — and `0` disables either
+counter if your workload legitimately repeats itself.
+
+```ts
+await runAgentLoop({
+  screen,
+  predictStep,
+  task: 'reconcile every invoice in the queue',
+  maxSteps: 500,        // long horizon
+  deadlineMs: 30 * 60_000, // …but never more than 30 minutes
+  maxRepeatedSteps: 8,  // this workload retries legitimately
+});
+```
 
 ## How it works
 

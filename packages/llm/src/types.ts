@@ -4,11 +4,21 @@
  * agent loop is provider-agnostic: each `predict` returns the SAME
  * `PredictStepResult` shape `runAgentLoop` already consumes.
  */
-import type { CuaVersion, PredictStepInput, PredictStepResult } from '@open-cowork/core';
+import type {
+  CuaVersion,
+  PredictStepInput,
+  PredictStepResult,
+  ProviderKind,
+} from '@open-cowork/core';
 import type { ProviderErrorCode } from './errors';
 
-/** Which provider implementation backs a run. */
-export type ProviderKind = 'coasty' | 'openai' | 'openai-compatible' | 'openrouter';
+/**
+ * Provider kinds live in `@open-cowork/core` (zero-dependency) so the web app
+ * can read the same table without bundling the AI SDK. Re-exported here so
+ * `@open-cowork/llm` remains the one import for provider-side code.
+ */
+export type { ProviderKind } from '@open-cowork/core';
+export { PROVIDER_KINDS, BYO_PROVIDER_KINDS, isProviderKind } from '@open-cowork/core';
 
 /** A model the user can pick, with its detected capabilities. */
 export interface ModelInfo {

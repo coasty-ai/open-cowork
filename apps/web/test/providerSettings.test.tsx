@@ -129,6 +129,10 @@ describe('ProviderSettings', () => {
     const bridge = installBridge();
     render(<ProviderSettings />);
     await screen.findByText('Coasty (default)');
+    // Select the provider explicitly rather than relying on whichever one
+    // happens to be first in the registry — that order is a UI decision and
+    // must not silently decide what this test asserts.
+    await userEvent.selectOptions(screen.getByLabelText(/provider/i), 'openrouter');
     await userEvent.type(screen.getByLabelText(/API key/i), 'sk-or-secret');
     await userEvent.click(screen.getByRole('button', { name: /load models/i }));
     await screen.findByLabelText('Model'); // gpt-4o auto-selected
@@ -136,6 +140,18 @@ describe('ProviderSettings', () => {
     await waitFor(() => expect(bridge.setProvider).toHaveBeenCalled());
     expect(bridge.setProvider).toHaveBeenCalledWith(
       expect.objectContaining({ kind: 'openrouter', model: 'gpt-4o', apiKey: 'sk-or-secret' }),
+    );
+  });
+
+  it('offers every registry provider, including the non-OpenAI-dialect ones', async () => {
+    installBridge();
+    render(<ProviderSettings />);
+    await screen.findByText('Coasty (default)');
+    const select = screen.getByLabelText(/provider/i) as HTMLSelectElement;
+    const values = Array.from(select.options).map((o) => o.value);
+    // Anthropic and Gemini were once reachable only via OpenRouter.
+    expect(values).toEqual(
+      expect.arrayContaining(['anthropic', 'openai', 'google', 'openrouter', 'openai-compatible']),
     );
   });
 
