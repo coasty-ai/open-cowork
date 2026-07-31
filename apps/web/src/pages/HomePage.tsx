@@ -17,8 +17,13 @@ import {
   type MachineDto,
 } from '../api/client';
 
-/** How often to re-check for a machine while none is runnable yet. */
-const MACHINE_POLL_MS = 3000;
+/**
+ * How often to re-check for a machine while none is runnable yet.
+ * Exported so tests advance a derived amount instead of hard-coding a copy —
+ * a bare `advanceTimersByTime(3100)` in a test silently stops exercising the
+ * poll the moment this value is tuned upward.
+ */
+export const MACHINE_POLL_MS = 3000;
 
 const LOCAL_TARGET_ID = '__local__';
 /** Synthetic target: Coasty provisions and destroys the machine (POST /v1/tasks). */

@@ -10,7 +10,7 @@ import { ApiError, type BackendClient } from '../src/api/client';
 import { setClientForTests, useAuth } from '../src/store';
 import { CoastyKeyProvider } from '../src/coastyKey';
 import { LoginPage } from '../src/pages/LoginPage';
-import { HomePage } from '../src/pages/HomePage';
+import { HomePage, MACHINE_POLL_MS } from '../src/pages/HomePage';
 import { MachinesPage } from '../src/pages/MachinesPage';
 
 type Stub = Partial<Record<keyof BackendClient, unknown>>;
@@ -282,15 +282,29 @@ describe('HomePage (delegate flow)', () => {
       const afterFirstLoad = listMachines.mock.calls.length;
 
       // It keeps asking while nothing is runnable...
-      await vi.advanceTimersByTimeAsync(3100);
+      await vi.advanceTimersByTimeAsync(MACHINE_POLL_MS + 100);
       await vi.waitFor(() =>
         expect(listMachines.mock.calls.length).toBeGreaterThan(afterFirstLoad),
       );
 
       // ...and stops once the machine is running (proving the state was picked
       // up, since the poll's only exit condition is a runnable cloud machine).
-      const settled = listMachines.mock.calls.length;
-      await vi.advanceTimersByTimeAsync(10_000);
+      //
+      // Let the teardown actually land before asserting it happened. The poll
+      // that returns the running machine only clears the interval once React
+      // commits the state update and re-runs the effect; asserting straight
+      // after the advance races that commit against the next scheduled tick,
+      // with roughly one macrotask of slack (~25% failure when this test runs
+      // cold and alone). Advancing until the count holds still across a full
+      // interval IS the "stopped polling" property, and it cannot race.
+      let settled = listMachines.mock.calls.length;
+      for (let i = 0; i < 5; i++) {
+        await vi.advanceTimersByTimeAsync(MACHINE_POLL_MS + 100);
+        const seen = listMachines.mock.calls.length;
+        if (seen === settled) break;
+        settled = seen;
+      }
+      await vi.advanceTimersByTimeAsync(MACHINE_POLL_MS * 3);
       expect(listMachines.mock.calls.length).toBe(settled);
     } finally {
       vi.useRealTimers();
