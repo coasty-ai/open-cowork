@@ -564,11 +564,56 @@ describe('POST /v1/tasks — lifecycle', () => {
     expect(m.state.machines.get(done.machine_id!)?.status).toBe('terminated');
   });
 
-  it('times out on the deadline, counting provisioning time against it', async () => {
-    m = mock({ tickMs: 40, defaultRunSteps: 50 });
-    const run = (await createTask({ task: 'RUN_LONG job', deadline_seconds: 1 })).json<TaskRun>();
+  // The deadline is the one place the mock mixes two clocks: progress comes
+  // from setInterval ticks, expiry from the wall clock. Betting that N ticks
+  // outlast a real deadline is a bet that inverts on a faster machine — this
+  // pair originally raced 23 ticks x 40ms = 920ms against a 1000ms deadline and
+  // flaked in CI. Driving the injected clock removes the race entirely.
+  it('times out during provisioning, counting provisioning time against the deadline', async () => {
+    let clock = Date.now();
+    m = mock({ now: () => clock });
+    const run = (await createTask({ task: 'RUN_LONG job', deadline_seconds: 60 })).json<TaskRun>();
+    // Still provisioning — no machine yet, no step has run.
+    expect(run.machine_id).toBeNull();
+    expect(run.machine?.status).toBe('provisioning');
+
+    // Move past the deadline before provisioning can finish.
+    clock += 61_000;
+
     const done = await untilTerminal(run.id);
     expect(done.status).toBe('timed_out');
+    expect(done.result?.summary).toBe('Deadline exceeded');
+    // It expired before a machine existed, so there is nothing to clean up.
+    expect(done.machine_id).toBeNull();
+    expect(done.steps_completed).toBe(0);
+  });
+
+  it('times out mid-run once the machine is up, independently of max_steps', async () => {
+    let clock = Date.now();
+    // max_steps is deliberately generous: the deadline is what stops this run.
+    m = mock({ now: () => clock });
+    const run = (
+      await createTask({ task: 'RUN_LONG job', deadline_seconds: 60, max_steps: 1000 })
+    ).json<TaskRun>();
+
+    // Let provisioning finish and the agent actually start working.
+    const running = await pollUntil(async () => {
+      const r = await getRun(run.id);
+      return r.machine_id !== null && r.steps_completed > 0 ? r : false;
+    });
+    expect(running.status).toBe('running');
+
+    clock += 61_000;
+
+    const done = await untilTerminal(run.id);
+    expect(done.status).toBe('timed_out');
+    expect(done.result?.passed).toBe(false);
+    // It got partway, and well short of the step cap.
+    expect(done.steps_completed).toBeGreaterThan(0);
+    expect(done.steps_completed).toBeLessThan(1000);
+    // The ephemeral machine is still torn down after a timeout.
+    const cleaned = await untilCleanup(run.id, 'terminated');
+    expect(cleaned.machine?.cleanup_status).toBe('terminated');
   });
 
   it('leaves cleanup as `retrying` when termination is unavailable, and does NOT destroy the machine', async () => {

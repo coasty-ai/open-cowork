@@ -160,7 +160,7 @@ export function tick(ctx: Ctx, run: RunRec, isTest: boolean): void {
   // ── provisioning prologue (task mode only) ────────────────────────────────
   if (run.mode === 'task' && run.machine && run.machine.status === 'provisioning') {
     // The deadline includes provisioning, so it is checked here too.
-    if (run.deadlineAt !== null && Date.now() > run.deadlineAt) {
+    if (run.deadlineAt !== null && opts.now() > run.deadlineAt) {
       run.result = { passed: false, status: 'timed_out', summary: 'Deadline exceeded' };
       finishRun(ctx, run, 'timed_out');
       return;
@@ -208,7 +208,7 @@ export function tick(ctx: Ctx, run: RunRec, isTest: boolean): void {
       // provider-side leak backstop.
       ttl_minutes: Math.max(
         5,
-        Math.ceil(((run.deadlineAt ?? Date.now() + 3_600_000) - Date.now()) / 60_000) + 10,
+        Math.ceil(((run.deadlineAt ?? opts.now() + 3_600_000) - opts.now()) / 60_000) + 10,
       ),
       files: new Map(),
       frame: 0,
@@ -223,7 +223,7 @@ export function tick(ctx: Ctx, run: RunRec, isTest: boolean): void {
   }
 
   // ── ordinary run loop ──────────────────────────────────────────────────────
-  if (run.deadlineAt !== null && Date.now() > run.deadlineAt) {
+  if (run.deadlineAt !== null && opts.now() > run.deadlineAt) {
     run.result = { passed: false, status: 'timed_out', summary: 'Deadline exceeded' };
     finishRun(ctx, run, 'timed_out');
     return;

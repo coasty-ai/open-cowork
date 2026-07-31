@@ -146,10 +146,28 @@ describe('executeWorkflow', () => {
   });
 
   it('parallel branches run concurrently and both bind results', async () => {
+    // A deterministic rendezvous rather than a timer race. Racing
+    // setTimeout(1) against setTimeout(20) only worked because the evaluator
+    // dispatches both branches in one synchronous block, so both timers armed
+    // in the same event-loop iteration; any future per-branch `await` before
+    // dispatch would let a >19ms scheduling gap invert it on a loaded runner.
+    //
+    // The gate is also a STRICTLY stronger assertion: 'slow' cannot finish
+    // until 'fast' has run, so sequential execution deadlocks and fails
+    // outright — in either branch order. The timer version only detected
+    // sequential execution because 'slow' happened to be branches[0].
     const order: string[] = [];
+    let openGate!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      openGate = resolve;
+    });
     const runTask = async (step: TaskStep): Promise<TaskStepResult> => {
       order.push(`start-${step.id}`);
-      await new Promise((r) => setTimeout(r, step.id === 'slow' ? 20 : 1));
+      if (step.id === 'slow') {
+        await gate;
+      } else {
+        openGate();
+      }
       order.push(`end-${step.id}`);
       return {
         status: 'succeeded',
@@ -175,8 +193,9 @@ describe('executeWorkflow', () => {
     const result = await executeWorkflow({ definition: def, runTask });
     expect(result.bindings.slowR).toBeDefined();
     expect(result.bindings.fastR).toBeDefined();
-    // fast finished before slow → true concurrency, not sequential
-    expect(order.indexOf('end-fast')).toBeLessThan(order.indexOf('end-slow'));
+    // Both started before either finished, and 'slow' could only finish
+    // because 'fast' released the gate → genuine concurrency.
+    expect(order).toEqual(['start-slow', 'start-fast', 'end-fast', 'end-slow']);
   });
 
   it('retry: succeeds on a later attempt and exposes vars.attempt', async () => {

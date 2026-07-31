@@ -142,7 +142,7 @@ export function registerRunRoutes(app: FastifyInstance, ctx: Ctx): void {
       action_policy: (body.action_policy as Record<string, unknown> | null) ?? null,
       deadlineAt:
         typeof body.deadline_seconds === 'number'
-          ? Date.now() + body.deadline_seconds * 1000
+          ? opts.now() + body.deadline_seconds * 1000
           : null,
       stepsTarget: task.includes('RUN_LONG') ? 20 : opts.defaultRunSteps,
       attempt: 1,
