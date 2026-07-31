@@ -1,13 +1,19 @@
 /**
  * Task runs: server-side autonomous loop simulation with the documented state
- * machine, per-step billing, durable SSE events, webhooks, and task-string
- * behavior triggers (NEEDS_HUMAN / MUST_FAIL / RUN_LONG) for tests.
+ * machine, per-step billing, durable SSE events, webhooks, model-input frame
+ * capture, and task-string behavior triggers (NEEDS_HUMAN / MUST_FAIL /
+ * RUN_LONG) for tests. The stepper itself lives in `runEngine.ts` and is shared
+ * with `POST /v1/tasks`.
  */
 import type { FastifyInstance } from 'fastify';
-import { debitBackground, type Ctx } from './ctx';
+import type { Ctx } from './ctx';
 import { bodyHash, hex, nowIso, requestId, sendError } from './util';
 import type { RunRec } from './state';
 import { streamEvents } from './sseRoute';
+import { finishRun, publicRun, RUN_STATUSES, startStepper, stepCents, TERMINAL } from './runEngine';
+import { validateActionPolicyBody } from './actionPolicy';
+
+export { publicRun } from './runEngine';
 
 const ALLOWED_CREATE_FIELDS = new Set([
   'machine_id',
@@ -17,162 +23,19 @@ const ALLOWED_CREATE_FIELDS = new Set([
   'system_prompt',
   'max_steps',
   'deadline_seconds',
+  'action_policy',
   'on_awaiting_human',
   'awaiting_human_timeout_seconds',
   'webhook_url',
   'metadata',
 ]);
 
-const TERMINAL = new Set(['succeeded', 'failed', 'cancelled', 'timed_out']);
-const RUN_STATUSES = [
-  'queued',
-  'running',
-  'awaiting_human',
-  'succeeded',
-  'failed',
-  'cancelled',
-  'timed_out',
-];
-
-export function publicRun(run: RunRec, includeSecret: boolean): Record<string, unknown> {
-  return {
-    id: run.id,
-    object: run.object,
-    status: run.status,
-    machine_id: run.machine_id,
-    task: run.task,
-    cua_version: run.cua_version,
-    instructions: run.instructions,
-    max_steps: run.max_steps,
-    on_awaiting_human: run.on_awaiting_human,
-    steps_completed: run.steps_completed,
-    credits_charged: run.credits_charged,
-    cost_cents: run.cost_cents,
-    result: run.result,
-    error: run.error,
-    awaiting_human_reason: run.awaiting_human_reason,
-    metadata: run.metadata,
-    webhook_url: run.webhook_url,
-    webhook_secret: includeSecret ? run.webhook_secret : null,
-    created_at: run.created_at,
-    started_at: run.started_at,
-    awaiting_human_since: run.awaiting_human_since,
-    finished_at: run.finished_at,
-    request_id: run.request_id,
-  };
-}
+/** All four engines are available on every tier; `v5` is the current default. */
+export const CUA_VERSIONS = ['v1', 'v3', 'v4', 'v5'];
+export const DEFAULT_CUA_VERSION = 'v5';
 
 export function registerRunRoutes(app: FastifyInstance, ctx: Ctx): void {
   const { state, opts } = ctx;
-
-  const stepCents = (cua: string): number => (cua === 'v1' ? 8 : 5);
-
-  function finishRun(run: RunRec, status: string, extra: Partial<RunRec> = {}): void {
-    run.status = status;
-    run.finished_at = nowIso();
-    Object.assign(run, extra);
-    state.emit(run.id, 'status', { status });
-    state.emit(run.id, 'done', { status, result: run.result, error: run.error });
-    if (run.webhook_url && run.webhook_secret) {
-      void state.deliverWebhook(run.webhook_url, run.webhook_secret, `run.${status}`, {
-        run: publicRun(run, false),
-      });
-    }
-  }
-
-  /** One stepper tick. Drives the documented state machine. */
-  function tick(run: RunRec, isTest: boolean): void {
-    if (state.closed || TERMINAL.has(run.status)) return;
-    if (run.deadlineAt !== null && Date.now() > run.deadlineAt && !TERMINAL.has(run.status)) {
-      run.result = { passed: false, status: 'timed_out', summary: 'Deadline exceeded' };
-      finishRun(run, 'timed_out');
-      return;
-    }
-    if (run.status === 'awaiting_human') return; // paused: nothing to do
-
-    if (run.status === 'queued') {
-      run.status = 'running';
-      run.started_at = nowIso();
-      state.emit(run.id, 'status', { status: 'running' });
-      return;
-    }
-
-    // One agent step.
-    const step = run.steps_completed + 1;
-
-    // Behavior trigger: pause for a human after 2 steps.
-    if (run.task.includes('NEEDS_HUMAN') && step === 3 && run.awaiting_human_since === null) {
-      const reason = 'The agent needs a human to complete a sensitive step.';
-      if (run.on_awaiting_human === 'fail') {
-        run.error = { code: 'AWAITING_HUMAN', message: reason };
-        run.result = { passed: false, status: 'failed', summary: reason };
-        finishRun(run, 'failed');
-        return;
-      }
-      if (run.on_awaiting_human === 'cancel') {
-        finishRun(run, 'cancelled');
-        return;
-      }
-      run.status = 'awaiting_human';
-      run.awaiting_human_reason = reason;
-      run.awaiting_human_since = nowIso();
-      state.emit(run.id, 'awaiting_human', { reason });
-      state.emit(run.id, 'status', { status: 'awaiting_human' });
-      if (run.webhook_url && run.webhook_secret) {
-        void state.deliverWebhook(run.webhook_url, run.webhook_secret, 'run.awaiting_human', {
-          run: publicRun(run, false),
-        });
-      }
-      return;
-    }
-
-    // Bill the step (idempotently per step; resume bookkeeping is not billed).
-    const cents = stepCents(run.cua_version);
-    if (!debitBackground(ctx, isTest, 'runs', cents)) {
-      run.error = { code: 'WALLET_EXHAUSTED', message: `Wallet ran dry at step ${step}` };
-      run.result = { passed: false, status: 'failed', summary: 'Wallet exhausted mid-run' };
-      finishRun(run, 'failed');
-      return;
-    }
-    run.steps_completed = step;
-    if (!isTest) {
-      run.credits_charged += cents;
-      run.cost_cents += cents;
-    }
-
-    state.emit(run.id, 'text', { text: `Working on it (step ${step})…` });
-    state.emit(run.id, 'tool_call', { tool: 'click', params: { x: 512, y: 340 } });
-    state.emit(run.id, 'tool_result', { success: true });
-    state.emit(run.id, 'step', { steps_completed: step });
-    state.emit(run.id, 'billing', {
-      credits_charged: run.credits_charged,
-      cost_cents: run.cost_cents,
-    });
-
-    if (run.task.includes('MUST_FAIL') && step >= 2) {
-      run.result = {
-        passed: false,
-        status: 'failed',
-        summary: 'The verifier rejected the outcome.',
-      };
-      run.error = { code: 'VERIFICATION_FAILED', message: 'Task verification failed' };
-      finishRun(run, 'failed');
-      return;
-    }
-    if (step >= run.stepsTarget) {
-      run.result = { passed: true, status: 'succeeded', summary: `Task completed: ${run.task}` };
-      finishRun(run, 'succeeded');
-      return;
-    }
-    if (step >= run.max_steps) {
-      run.result = {
-        passed: false,
-        status: 'failed',
-        summary: 'Hit max_steps before completing the task.',
-      };
-      finishRun(run, 'failed');
-    }
-  }
 
   // ── create ──────────────────────────────────────────────────────────────────
   app.post('/v1/runs', async (request, reply) => {
@@ -200,9 +63,18 @@ export function registerRunRoutes(app: FastifyInstance, ctx: Ctx): void {
         `No machine '${machineId}' in this key's namespace`,
       );
     }
-    const cua = (body.cua_version as string) ?? 'v3';
-    if (!['v1', 'v3', 'v4'].includes(cua)) {
-      return sendError(reply, 422, 'VALIDATION_ERROR', `cua_version must be one of v1, v3, v4`);
+    const cua = (body.cua_version as string) ?? DEFAULT_CUA_VERSION;
+    if (!CUA_VERSIONS.includes(cua)) {
+      return sendError(
+        reply,
+        422,
+        'VALIDATION_ERROR',
+        `cua_version must be one of ${CUA_VERSIONS.join(', ')}`,
+      );
+    }
+    const policyError = validateActionPolicyBody(body.action_policy);
+    if (policyError) {
+      return sendError(reply, 422, 'VALIDATION_ERROR', policyError.message, policyError.extras);
     }
 
     // Idempotency via the documented header.
@@ -265,28 +137,23 @@ export function registerRunRoutes(app: FastifyInstance, ctx: Ctx): void {
       awaiting_human_since: null,
       finished_at: null,
       request_id: requestId(),
+      mode: 'run',
+      machine: null,
+      action_policy: (body.action_policy as Record<string, unknown> | null) ?? null,
       deadlineAt:
         typeof body.deadline_seconds === 'number'
           ? Date.now() + body.deadline_seconds * 1000
           : null,
       stepsTarget: task.includes('RUN_LONG') ? 20 : opts.defaultRunSteps,
+      attempt: 1,
+      screenshots: [],
+      provisionTicks: 0,
+      cleanupTicks: 0,
+      taskMachineOs: 'linux',
+      taskMachineProvider: 'aws',
     };
     state.runs.set(run.id, run);
-
-    const isTest = request.keyKind === 'test';
-    const timer = state.addTimer(setInterval(() => tick(run, isTest), opts.tickMs));
-    // Stop the interval once terminal (checked inside tick via TERMINAL set);
-    // also guard here so finished runs don't keep timers alive.
-    const stopWatch = state.addTimer(
-      setInterval(() => {
-        if (TERMINAL.has(run.status) || state.closed) {
-          clearInterval(timer);
-          clearInterval(stopWatch);
-          state.timers.delete(timer);
-          state.timers.delete(stopWatch);
-        }
-      }, opts.tickMs * 4),
-    );
+    startStepper(ctx, run, request.keyKind === 'test');
 
     const payload = publicRun(run, true);
     if (idemKey) state.idempotency.set(`runs:${idemKey}`, { bodyHash: hash, status: 201, payload });
@@ -322,6 +189,82 @@ export function registerRunRoutes(app: FastifyInstance, ctx: Ctx): void {
     return { object: 'list', data, has_more: false, request_id: requestId() };
   });
 
+  // Static-ish sub-resources are declared before the bare `:id` handlers so the
+  // documented route-order nuance is reproduced faithfully.
+  app.get('/v1/runs/:id/screenshots', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const run = state.runs.get(id);
+    if (!run)
+      return sendError(reply, 404, 'RUN_NOT_FOUND', `No run '${id}' in this key's namespace`);
+    const query = request.query as {
+      after_index?: string;
+      limit?: string;
+      include_image?: string;
+    };
+
+    const includeImage = query.include_image === 'true' || query.include_image === '1';
+    const afterIndexRaw = query.after_index;
+    let afterIndex = -1;
+    if (afterIndexRaw !== undefined) {
+      const parsed = Number(afterIndexRaw);
+      if (!Number.isInteger(parsed) || parsed < 0) {
+        return sendError(
+          reply,
+          422,
+          'VALIDATION_ERROR',
+          'after_index must be a non-negative integer',
+        );
+      }
+      afterIndex = parsed;
+    }
+
+    // Inlining images clamps the page hard: a frame is several hundred KB.
+    const maxLimit = includeImage ? 10 : 200;
+    let limit = includeImage ? 10 : 50;
+    if (query.limit !== undefined) {
+      const parsed = Number(query.limit);
+      if (!Number.isInteger(parsed) || parsed < 1 || parsed > 200) {
+        return sendError(reply, 400, 'INVALID_LIMIT', 'limit must be between 1 and 200', {
+          actual: parsed,
+          min: 1,
+          max: 200,
+        });
+      }
+      limit = Math.min(parsed, maxLimit);
+    }
+
+    const all = run.screenshots.filter((f) => f.index > afterIndex);
+    const page = all.slice(0, limit);
+    if (includeImage) void reply.header('Cache-Control', 'no-store');
+
+    return {
+      object: 'list',
+      data: page.map((f) => {
+        const base = {
+          index: f.index,
+          attempt: f.attempt,
+          step: f.step,
+          taken_at: f.taken_at,
+          width: f.width,
+          height: f.height,
+          mime_type: f.mime_type,
+          size_bytes: f.size_bytes,
+          sha256: f.sha256,
+          degraded: f.degraded,
+          encrypted_at_rest: f.encrypted_at_rest,
+        };
+        if (!includeImage) return base;
+        // A frame that cannot be decoded is flagged, never returned as
+        // ciphertext dressed up as an image, and never fails the page.
+        return f.image_b64 === null
+          ? { ...base, image_unavailable: true }
+          : { ...base, image_b64: f.image_b64 };
+      }),
+      has_more: all.length > page.length,
+      request_id: requestId(),
+    };
+  });
+
   app.get('/v1/runs/:id', async (request, reply) => {
     const { id } = request.params as { id: string };
     const run = state.runs.get(id);
@@ -348,7 +291,7 @@ export function registerRunRoutes(app: FastifyInstance, ctx: Ctx): void {
         },
       );
     }
-    finishRun(run, 'cancelled');
+    finishRun(ctx, run, 'cancelled');
     return publicRun(run, false);
   });
 

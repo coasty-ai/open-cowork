@@ -22,6 +22,9 @@ export default defineConfig({
   projects: [
     { name: 'web', testMatch: /web\.spec\.ts/ },
     { name: 'desktop', testMatch: /desktop\.spec\.ts/ },
+    // Feature coverage runs LAST: it provisions and terminates machines of its
+    // own, and with `workers: 1` the projects share one backend.
+    { name: 'features', testMatch: /features\.spec\.ts/ },
   ],
   webServer: [
     {

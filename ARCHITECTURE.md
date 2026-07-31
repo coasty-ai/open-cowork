@@ -12,6 +12,12 @@ This is modeled as one `Executor` interface with three implementations behind a
 single shared agent loop — the rest of the product never cares which screen it
 is driving.
 
+There is a fourth way to get a screen that bypasses the executor entirely:
+a **managed task** (`POST /v1/tasks`), where Coasty provisions, drives, and
+destroys an ephemeral machine server-side. It produces the same durable `Run`
+object as a cloud run, so the timeline, approvals UI, cancel, and cost plumbing
+all work on it unchanged — see *Managed tasks* below.
+
 **2. The API key never touches a client.** All clients speak to the
 open-cowork backend, which is the only holder of `COASTY_API_KEY` and of every
 per-run `webhook_secret`. Clients hold short-lived session tokens.
@@ -65,8 +71,17 @@ Web Crypto for HMAC, injectable clocks/sleeps for deterministic tests.
   `max_iterations` / `deadline_seconds` guards — used for builder feedback,
   dry-run estimates, and cross-checking the server.
 - **Cost estimator** — mirrors the documented pricing table exactly (including
-  the strict HD boundary: 1280×720 is *not* HD) and computes run/workflow
+  the strict HD boundary: 1280×720 is *not* HD) and computes run/workflow/task
   worst-case estimates the backend uses for the confirmation handshake.
+  `taskEstimateCents` is separate from `runEstimateCents` because a task bills
+  **two** meters — agent steps *and* ephemeral machine runtime — and rounds the
+  runtime component **up**, since a quoted ceiling must never be exceeded.
+- **Action policy** — `validateActionPolicy` mirrors every documented limit of
+  the fail-closed `action_policy` control (allow/deny overlap, ≤128 name lists,
+  `esc`↔`escape` aliasing, `max_actions` 1–10000, the *inclusive* coordinate
+  rectangle) so a bad policy is caught before a billable round-trip.
+  `canonicalizeActionPolicy` gives a stable hashable form for the client audit
+  log — necessary because responses never echo the normalized policy back.
 - **Webhook HMAC** — sign/verify `t=<unix>,v1=<hex>` over `"<t>.<body>"`,
   constant-time byte comparison, ±300s tolerance both directions, multiple
   `v1` entries accepted (rotation).
@@ -137,6 +152,48 @@ interface Executor extends AgentScreen {
 - **Persistence**: `node:sqlite` behind a repository class (`db.ts`); events
   have `(stream_kind, stream_id, seq)` primary keys so ingestion is idempotent
   and replay is a range scan. Postgres is a contained swap (`DEPLOYMENT.md`).
+  Columns added after the first release are ALTERed in explicitly at boot
+  (`addColumnIfMissing`) — `CREATE TABLE IF NOT EXISTS` is a no-op on an
+  existing database, so without that an upgraded install would fail on its
+  first task rather than at startup.
+
+## Managed tasks (`POST /api/tasks`)
+
+A submit-and-forget task hands Coasty one goal and no machine. It is admitted as
+an ordinary `agent.run` — so `GET /api/runs/:id`, the SSE timeline, and cancel
+all work untouched — but four things about it are genuinely different, and each
+one shaped the integration:
+
+- **Two meters, one handshake.** A task bills agent steps *and* the runtime of
+  the machine Coasty provisions for it. Reusing the run estimate would
+  under-quote the user, so `/api/tasks` confirms a `kind: 'task'` estimate. The
+  `BUDGET_EXCEEDED` response therefore reports `stepsCents` and `machineCents`
+  separately, and its `suggestedMaxSteps` is `null` (not `0`) when the machine
+  component alone already breaks the cap.
+- **The deadline is mandatory here, though optional upstream.** Machine runtime
+  accrues for as long as the task runs, so an unbounded deadline is an unbounded
+  bill and there is nothing honest to confirm. The backend always sends an
+  explicit `deadline_seconds`, defaulting to `DEFAULT_TASK_DEADLINE_SECONDS`.
+- **`machine_id` starts null.** It only appears once provisioning finishes, so
+  it is picked up from the ingested `status` event and from the read-time
+  reconcile — never at create time.
+- **Cleanup outlives the run.** Termination of the ephemeral machine begins
+  *after* the terminal transition and can still be `terminating`/`retrying` when
+  the run already reads `succeeded`. The read-time reconcile therefore does not
+  stop at the terminal status — it keeps reconciling until `cleanup_status`
+  settles — and the UI never reports the machine as destroyed until it is.
+
+Because a task never enters `awaiting_human` (the endpoint-owned executor
+intercepts the model's handoff request), `POST /api/runs/:id/resume` refuses a
+task run outright rather than forwarding a call that could only 409 upstream.
+
+`GET /api/runs/:id/screenshots` proxies the run's **model-input frames** — the
+exact images the agent saw before each decision. For a managed task these
+outlive the machine that produced them, which makes them the only surviving
+evidence after cleanup; the run view falls back to the newest stored frame once
+live screenshots stop working. Inlined frames are served `Cache-Control:
+no-store` all the way to the browser, because a frame can show an inbox or a
+billing page.
 
 ## Realtime model (end to end)
 
@@ -193,9 +250,13 @@ lifecycle deterministic for tests and demos.
 ```text
 users(id, email, budget_cents, created_at)
 sessions(token_hash PK, user_id, expires_at)            -- tokens stored hashed
-runs(id, user_id, kind coasty|local, coasty_run_id, machine_id, task, status,
-     cua_version, max_steps, budget_cents, cost_cents, steps_completed,
-     result_json, error_json, awaiting_human_reason, webhook_secret, …)
+runs(id, user_id, kind coasty|local|task, coasty_run_id, machine_id, task,
+     status, cua_version, max_steps, budget_cents, cost_cents, steps_completed,
+     result_json, error_json, awaiting_human_reason, webhook_secret,
+     machine_json,          -- automatic machine lifecycle view (task runs)
+     deadline_seconds,      -- the wall-clock budget we pinned at create
+     action_policy_json,    -- our submission; upstream never echoes it back
+     …)
 workflow_runs(id, user_id, coasty_workflow_run_id, workflow_id, status,
      budget_cents, spent_cents, awaiting_step_id, webhook_secret, …)
 events(stream_kind, stream_id, seq, type, data_json, created_at,

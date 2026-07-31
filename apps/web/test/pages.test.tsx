@@ -240,17 +240,26 @@ describe('HomePage (delegate flow)', () => {
     expect(await screen.findByText(/more steps than your account allows/i)).toBeInTheDocument();
   });
 
-  it('shows an empty state when no machine is running', async () => {
+  it('offers the managed target instead of dead-ending when no machine is running', async () => {
+    // A submit-and-forget task provisions its own machine, so having none is no
+    // longer a dead end: the composer must still be usable.
     setClientForTests(stubClient({ listMachines: vi.fn(async () => ({ machines: [] })) }));
     renderHome();
-    expect(await screen.findByText(/no machine to run on/i)).toBeInTheDocument();
+    expect(await screen.findByRole('combobox', { name: 'Machine' })).toBeInTheDocument();
+    expect(screen.queryByText(/no machine to run on/i)).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('combobox', { name: 'Machine' }));
+    expect(await screen.findByRole('option', { name: /coasty-managed/i })).toBeInTheDocument();
   });
 
   it('picks up a machine that finishes provisioning after the page loaded', async () => {
     // Regression: this list was fetched exactly once on mount and filtered to
     // `status === 'running'`. Arriving from the Machines page a moment before
-    // the VM flipped to running pinned the empty state until a manual reload —
-    // and made the e2e journey intermittently fail on slow CI runners.
+    // the VM flipped to running left it missing until a manual reload — and
+    // made the e2e journey intermittently fail on slow CI runners.
+    //
+    // Second regression guarded here: once the always-available managed target
+    // was added, `options` stopped ever being empty. Keying the poll off it
+    // would disable the poll silently, so this must keep passing.
     vi.useFakeTimers();
     try {
       let call = 0;
@@ -263,13 +272,26 @@ describe('HomePage (delegate flow)', () => {
       setClientForTests(stubClient({ listMachines }));
       renderHome();
 
-      await vi.waitFor(() => expect(screen.getByText(/no machine to run on/i)).toBeInTheDocument());
+      // Wait for the composer, not just the first call: the poll interval is
+      // only mounted once `machines` state lands, and the page renders a
+      // spinner until then. Asserting on the call count too early would sample
+      // before the effect exists and pass for the wrong reason.
+      await vi.waitFor(() =>
+        expect(screen.getByRole('combobox', { name: 'Machine' })).toBeInTheDocument(),
+      );
+      const afterFirstLoad = listMachines.mock.calls.length;
 
+      // It keeps asking while nothing is runnable...
       await vi.advanceTimersByTimeAsync(3100);
       await vi.waitFor(() =>
-        expect(screen.queryByText(/no machine to run on/i)).not.toBeInTheDocument(),
+        expect(listMachines.mock.calls.length).toBeGreaterThan(afterFirstLoad),
       );
-      expect(listMachines.mock.calls.length).toBeGreaterThan(1);
+
+      // ...and stops once the machine is running (proving the state was picked
+      // up, since the poll's only exit condition is a runnable cloud machine).
+      const settled = listMachines.mock.calls.length;
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(listMachines.mock.calls.length).toBe(settled);
     } finally {
       vi.useRealTimers();
     }

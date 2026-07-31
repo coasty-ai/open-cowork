@@ -22,10 +22,17 @@ export interface SessionRow {
   expires_at: number;
 }
 
+/**
+ * `coasty` = caller-supplied machine (POST /v1/runs)
+ * `task`   = submit-and-forget, Coasty-provisioned machine (POST /v1/tasks)
+ * `local`  = the desktop LocalExecutor mirror
+ */
+export type RunKind = 'coasty' | 'local' | 'task';
+
 export interface RunRow {
   id: string;
   user_id: string;
-  kind: 'coasty' | 'local';
+  kind: RunKind;
   coasty_run_id: string | null;
   machine_id: string | null;
   task: string;
@@ -41,6 +48,15 @@ export interface RunRow {
   webhook_secret: string | null;
   created_at: string;
   finished_at: string | null;
+  /** Serialized RunMachineView for task runs (automatic machine lifecycle). */
+  machine_json: string | null;
+  /** Wall-clock budget we pinned at create; drives the cost estimate. */
+  deadline_seconds: number | null;
+  /**
+   * The action policy we submitted. Coasty never echoes the normalized policy
+   * back, so retaining the exact submission here IS the audit record.
+   */
+  action_policy_json: string | null;
 }
 
 export interface WorkflowRunRow {
@@ -149,6 +165,24 @@ export class Db {
         value TEXT NOT NULL
       );
     `);
+
+    // Additive column migrations. `CREATE TABLE IF NOT EXISTS` is a no-op on an
+    // existing database, so columns added after the first release have to be
+    // ALTERed in explicitly or an upgraded install would read/write columns
+    // that do not exist. Every one of these is nullable with no default, which
+    // is what makes adding them safe on a populated table.
+    this.addColumnIfMissing('runs', 'machine_json', 'TEXT');
+    this.addColumnIfMissing('runs', 'deadline_seconds', 'INTEGER');
+    this.addColumnIfMissing('runs', 'action_policy_json', 'TEXT');
+  }
+
+  /** Idempotent `ALTER TABLE ... ADD COLUMN`, driven by PRAGMA table_info. */
+  private addColumnIfMissing(table: string, column: string, type: string): void {
+    const columns = this.sql.prepare(`PRAGMA table_info(${table})`).all() as unknown as {
+      name: string;
+    }[];
+    if (columns.some((c) => c.name === column)) return;
+    this.sql.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
   }
 
   // ── settings (generic key/value runtime config) ───────────────────────────────
@@ -233,8 +267,9 @@ export class Db {
       .prepare(
         `INSERT INTO runs (id, user_id, kind, coasty_run_id, machine_id, task, status, cua_version,
           max_steps, budget_cents, cost_cents, steps_completed, result_json, error_json,
-          awaiting_human_reason, webhook_secret, created_at, finished_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          awaiting_human_reason, webhook_secret, created_at, finished_at,
+          machine_json, deadline_seconds, action_policy_json)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         run.id,
@@ -255,6 +290,9 @@ export class Db {
         run.webhook_secret,
         run.created_at,
         run.finished_at,
+        run.machine_json,
+        run.deadline_seconds,
+        run.action_policy_json,
       );
   }
 
@@ -296,6 +334,8 @@ export class Db {
         | 'error_json'
         | 'awaiting_human_reason'
         | 'finished_at'
+        | 'machine_id'
+        | 'machine_json'
       >
     >,
   ): void {

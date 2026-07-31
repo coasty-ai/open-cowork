@@ -272,6 +272,22 @@ export function registerInferenceRoutes(app: FastifyInstance, ctx: Ctx): void {
         description: 'Lean - multi-action per call, no reflection, aggressive compaction',
         avg_step_time: '3.5-4s',
         features: ['multi_action', 'compaction'],
+        latest: false,
+      },
+      {
+        id: 'v4',
+        description: 'Autonomous - closed-loop verifier, recovery, exploration, cost governor',
+        avg_step_time: '3.5-4s',
+        features: ['multi_action', 'verifier', 'recovery', 'exploration'],
+        latest: false,
+      },
+      {
+        id: 'v5',
+        description:
+          'Latest (default) - autonomous + verifier with improved grounding and recovery',
+        avg_step_time: '3.5-4s',
+        features: ['multi_action', 'verifier', 'recovery', 'exploration', 'grounding'],
+        latest: true,
       },
     ],
     action_types: [

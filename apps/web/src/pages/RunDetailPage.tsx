@@ -42,6 +42,78 @@ function prefersReducedMotion(): boolean {
   );
 }
 
+/** Bound on how many metadata pages we walk to find a run's final frame. */
+const MAX_FRAME_PAGES = 20;
+
+/** How often to re-check a finished task whose machine cleanup is still in flight. */
+const CLEANUP_POLL_MS = 1500;
+/** Give up after this many checks — the machine's TTL is authoritative regardless. */
+const CLEANUP_POLL_MAX_ATTEMPTS = 40;
+
+/**
+ * Fetch the LAST model-input frame of a run, with its bytes.
+ *
+ * Frames page forward from oldest, and only `after_index` is a cursor, so
+ * finding the newest means walking metadata (cheap — a few hundred bytes per
+ * frame) to learn the final index, then asking for that one frame WITH its
+ * image. Doing it the naive way (`includeImage` on the first page) would return
+ * the oldest frames and clamp the page to 10 for nothing.
+ */
+async function fetchLastModelFrame(
+  client: ReturnType<typeof getClient>,
+  runId: string,
+): Promise<{ b64: string; at: string } | null> {
+  let afterIndex: number | undefined;
+  let lastIndex = -1;
+  for (let page = 0; page < MAX_FRAME_PAGES; page++) {
+    const res = await client.listRunScreenshots(runId, { afterIndex, limit: 200 });
+    if (res.data.length === 0) break;
+    lastIndex = res.data[res.data.length - 1]!.index;
+    if (!res.has_more) break;
+    afterIndex = lastIndex;
+  }
+  if (lastIndex < 0) return null;
+  const page = await client.listRunScreenshots(runId, {
+    // `after_index` is exclusive, and index 0 has nothing before it to skip.
+    ...(lastIndex > 0 ? { afterIndex: lastIndex - 1 } : {}),
+    limit: 1,
+    includeImage: true,
+  });
+  const frame = page.data[0];
+  return frame?.image_b64 ? { b64: frame.image_b64, at: frame.taken_at } : null;
+}
+
+/**
+ * Plain-language status for a managed task's ephemeral machine.
+ *
+ * The subtlety worth surfacing to a user: a task finishing is NOT proof its
+ * machine was destroyed. Cleanup begins after the terminal transition and can
+ * still be in flight (or retrying) when the run already reads "succeeded", so
+ * `terminating`/`retrying` get their own wording rather than being rounded up
+ * to "shut down".
+ */
+function managedMachineNote(run: RunDto): string | null {
+  if (run.kind !== 'task') return null;
+  const machine = run.machine;
+  if (!machine) return 'Coasty is preparing a machine for this task.';
+  switch (machine.cleanup_status) {
+    case 'pending':
+      return machine.status === 'provisioning'
+        ? 'Coasty is provisioning a fresh machine for this task.'
+        : 'Running on a Coasty-managed machine, destroyed when the task finishes.';
+    case 'terminating':
+      return 'The task has finished. Its machine is being shut down.';
+    case 'retrying':
+      return 'The task has finished, but shutting its machine down is being retried. The machine’s TTL will terminate it regardless.';
+    case 'terminated':
+      return 'The task finished and its machine was shut down.';
+    case 'failed':
+      return 'The task finished, but its machine could not be confirmed shut down. Check the Machines page.';
+    default:
+      return null;
+  }
+}
+
 export function RunDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -70,6 +142,30 @@ export function RunDetailPage() {
     void refresh();
   }, [refresh]);
 
+  // A managed task keeps changing AFTER it goes terminal: cleanup of its
+  // ephemeral machine starts once the run finishes and can still be in flight.
+  // The event stream is closed by then and the screen poll only runs while the
+  // run is active, so without this the page would sit on "being shut down"
+  // forever and never tell the user the VM was actually destroyed.
+  const cleanupStatus = run?.kind === 'task' ? (run.machine?.cleanup_status ?? null) : null;
+  const cleanupPending =
+    cleanupStatus !== null && cleanupStatus !== 'terminated' && cleanupStatus !== 'failed';
+  useEffect(() => {
+    if (!cleanupPending) return;
+    // Bounded: `retrying` can persist, and the machine's TTL is authoritative
+    // anyway, so we stop asking rather than polling a dead run indefinitely.
+    let attempts = 0;
+    const timer = setInterval(() => {
+      attempts += 1;
+      if (attempts > CLEANUP_POLL_MAX_ATTEMPTS) {
+        clearInterval(timer);
+        return;
+      }
+      void refresh();
+    }, CLEANUP_POLL_MS);
+    return () => clearInterval(timer);
+  }, [cleanupPending, refresh]);
+
   // Live events; status changes also trigger a run refresh.
   const {
     events,
@@ -96,15 +192,19 @@ export function RunDetailPage() {
   // final screen rather than an empty panel; the polling interval then only
   // keeps running while the run is active.
   const kind = run?.kind ?? null;
-  const machineId = run?.kind === 'coasty' ? run.machineId : null;
+  const machineId = kind === 'coasty' || kind === 'task' ? (run?.machineId ?? null) : null;
   const runId = run?.id ?? null;
   const active = run !== null && !TERMINAL.has(run.status);
+  // A managed task DESTROYS its machine when it finishes, so live screenshots
+  // stop working the moment cleanup runs. The stored model-input frames are
+  // then the only surviving evidence of what the agent saw.
+  const machineGone = kind === 'task' && run?.machine?.cleanup_status !== 'pending' && !active;
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   useEffect(() => {
     let cancelled = false;
     const poll = async () => {
       try {
-        if (kind === 'coasty' && machineId) {
+        if (machineId && !machineGone) {
           const shot = await client.machineScreenshot(machineId);
           if (!cancelled) setFrame({ b64: shot.image_b64, at: shot.captured_at });
         } else if (kind === 'local' && runId) {
@@ -112,6 +212,9 @@ export function RunDetailPage() {
           if (!cancelled && f.base64) {
             setFrame({ b64: f.base64, at: f.capturedAt ?? new Date().toISOString() });
           }
+        } else if (kind === 'task' && runId) {
+          const last = await fetchLastModelFrame(client, runId);
+          if (!cancelled && last) setFrame(last);
         }
       } catch {
         // screenshot polling is best-effort; the transcript still tells the story
@@ -125,7 +228,7 @@ export function RunDetailPage() {
       cancelled = true;
       if (pollRef.current) clearInterval(pollRef.current);
     };
-  }, [client, kind, machineId, runId, active]);
+  }, [client, kind, machineId, runId, active, machineGone]);
 
   const timeline = useMemo(() => events.map(eventToTimeline), [events]);
 
@@ -216,8 +319,10 @@ export function RunDetailPage() {
 
   const terminal = TERMINAL.has(run.status);
   const isLocal = run.kind === 'local';
+  const isManaged = run.kind === 'task';
   const screenAlt = isLocal ? 'Local screen' : 'Machine screen';
   const screenLabel = terminal ? 'Final screen' : isLocal ? 'Your screen' : 'Shared screen';
+  const machineNote = managedMachineNote(run);
 
   return (
     <div className="run-split">
@@ -231,7 +336,7 @@ export function RunDetailPage() {
               size={15}
               title={isLocal ? 'Local run' : 'Cloud run'}
             />
-            {isLocal ? 'This computer' : 'Cloud machine'}
+            {isLocal ? 'This computer' : isManaged ? 'Managed machine' : 'Cloud machine'}
           </span>
           <span className="run-split__steps">
             {run.stepsCompleted} / {run.maxSteps} steps
@@ -354,6 +459,11 @@ export function RunDetailPage() {
           {isLocal ? (
             <p className="run-split__stage-note">
               This is a live view of your own screen, captured by the desktop app each step.
+            </p>
+          ) : null}
+          {machineNote ? (
+            <p className="run-split__stage-note" role="status">
+              {machineNote}
             </p>
           ) : null}
         </aside>

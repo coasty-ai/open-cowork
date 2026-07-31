@@ -10,7 +10,29 @@
 
 // ── Engine / shared ───────────────────────────────────────────────────────────
 
-export type CuaVersion = 'v1' | 'v3' | 'v4';
+/**
+ * Engine versions. `v5` is the CURRENT UPSTREAM DEFAULT (autonomous + verifier
+ * with improved grounding/recovery) and `v4` is no longer pro-gated — both
+ * verified against the live `llms.txt` on 2026-07-30. Every caller in this repo
+ * still passes `cua_version` EXPLICITLY rather than relying on the upstream
+ * default, so an upstream default change can never silently move a run onto a
+ * different engine (or a different price) behind our cost estimate.
+ *
+ * Pricing is flat across v3/v4/v5 (5cr per run step); only `v1` surcharges.
+ */
+export type CuaVersion = 'v1' | 'v3' | 'v4' | 'v5';
+
+/**
+ * Engine versions accepted anywhere a caller may choose one. Declared as a
+ * const TUPLE (not `readonly CuaVersion[]`) so it can be handed straight to
+ * `z.enum(...)` at the API boundary — one list, no drift between the type and
+ * the runtime validators.
+ */
+export const CUA_VERSIONS = ['v1', 'v3', 'v4', 'v5'] as const;
+
+export function isCuaVersion(value: unknown): value is CuaVersion {
+  return typeof value === 'string' && (CUA_VERSIONS as readonly string[]).includes(value);
+}
 
 export type PredictStatus = 'continue' | 'done' | 'fail';
 
@@ -395,6 +417,51 @@ export function isTerminalRunStatus(status: RunStatus): boolean {
 
 export type OnAwaitingHuman = 'pause' | 'fail' | 'cancel';
 
+// ── Server-enforced action policy ─────────────────────────────────────────────
+
+/**
+ * Fail-closed post-model enforcement. Coasty checks the COMPLETE normalized
+ * action batch after generation and before dispatch: if one action violates the
+ * policy, none of that batch is admitted.
+ *
+ * Two things about this are easy to get wrong and are worth stating loudly:
+ *
+ * 1. **Action names are surface-specific.** Inference/Parse policies use
+ *    prediction names (`type_text`); direct machine action policies use command
+ *    names (`type`). Use {@link ACTION_POLICY_SURFACES} to pick the right one.
+ * 2. **Responses never echo the normalized policy.** A successful create only
+ *    confirms acceptance, so the submitted policy must be retained client-side
+ *    for audit — which is exactly what the backend does when it pins one to a
+ *    run row.
+ */
+export interface ActionPolicy {
+  /** Allowlist of 1-128 normalized action names. `done`/`fail`/`awaiting_human` always remain available. */
+  allowed_actions?: string[];
+  /** Denylist of up to 128 names. May not overlap `allowed_actions`. */
+  blocked_actions?: string[];
+  /** Up to 128 case-insensitive key names. `esc` aliases `escape`. */
+  blocked_keys?: string[];
+  /** Blocks close-window/tab actions and Alt+F4 / Ctrl-Cmd+W / Cmd+Q. */
+  block_window_close?: boolean;
+  /** 1-10000. Cumulative across a Task tree including nested delegation. */
+  max_actions?: number;
+  /** Inclusive rectangle checked for click/move/scroll anchors and BOTH drag endpoints. */
+  coordinate_bounds?: {
+    min_x: number;
+    min_y: number;
+    max_x: number;
+    max_y: number;
+  };
+}
+
+/** Which action-name vocabulary a policy is written against. */
+export const ACTION_POLICY_SURFACES = {
+  /** `POST /predict`, `/sessions`, `/parse`, runs, tasks, workflows, schedules. */
+  inference: ['click', 'type_text', 'key_press', 'key_combo', 'scroll', 'drag', 'move', 'wait'],
+  /** Direct machine `/actions` and `/actions/batch`. */
+  machine: ['click', 'type', 'key_press', 'key_combo', 'scroll', 'drag', 'move', 'wait'],
+} as const;
+
 export interface CreateRunRequest {
   machine_id: string;
   task: string;
@@ -403,6 +470,7 @@ export interface CreateRunRequest {
   system_prompt?: string | null;
   max_steps?: number;
   deadline_seconds?: number | null;
+  action_policy?: ActionPolicy | null;
   on_awaiting_human?: OnAwaitingHuman;
   awaiting_human_timeout_seconds?: number | null;
   webhook_url?: string | null;
@@ -421,12 +489,35 @@ export interface RunError {
   message: string;
 }
 
+/** Cleanup lifecycle of a task-provisioned (automatic) machine. */
+export type MachineCleanupStatus = 'pending' | 'terminating' | 'retrying' | 'terminated' | 'failed';
+
+/**
+ * Automatic machine lifecycle view, present ONLY on runs created via
+ * `POST /v1/tasks`. Null on ordinary caller-supplied-machine runs.
+ *
+ * `cleanup_status` is NOT a completion signal: a terminal webhook can be
+ * delivered while cleanup is still `terminating` or `retrying`, so task
+ * completion must never be read as proof that provider termination finished.
+ */
+export interface RunMachineView {
+  mode: 'automatic';
+  status: 'provisioning' | 'ready' | 'failed' | 'released';
+  id: string | null;
+  cleanup: 'always';
+  cleanup_status: MachineCleanupStatus;
+  error?: RunError | null;
+}
+
 /** The Run object (`agent.run`). `webhook_secret` is returned ONCE on create. */
 export interface Run {
   id: string;
   object: 'agent.run';
   status: RunStatus;
-  machine_id: string;
+  /** Null only while a `POST /v1/tasks` run is still provisioning its machine. */
+  machine_id: string | null;
+  /** Automatic lifecycle view; null on ordinary caller-supplied-machine runs. */
+  machine?: RunMachineView | null;
   task: string;
   cua_version: CuaVersion;
   instructions: string | null;
@@ -451,6 +542,131 @@ export interface Run {
 export interface ResumeRunRequest {
   note?: string;
 }
+
+// ── Submit-and-forget tasks (POST /v1/tasks) ──────────────────────────────────
+
+/**
+ * Which backend runs the task's ephemeral machine. Part of the run's
+ * IDEMPOTENCY IDENTITY, so replaying with the same key lands on the same
+ * backend rather than silently migrating the task somewhere else.
+ */
+export type TaskMachineProvider = 'auto' | 'aws' | 'daytona' | 'azure';
+
+/**
+ * Workload preferences for the ephemeral machine. Machine id, TTL, and cleanup
+ * are never the caller's responsibility. Omitted sizing fields are omitted on
+ * the wire (NOT defaulted here) so the machine service applies its own current
+ * safe defaults.
+ */
+export interface TaskMachinePreferences {
+  provider?: TaskMachineProvider;
+  os_type?: MachineOsType;
+  desktop_enabled?: boolean;
+  /** 1-16. */
+  cpu_cores?: number;
+  /** 1-64. */
+  memory_gb?: number;
+  /** 8-500. */
+  storage_gb?: number;
+  restore_from_snapshot?: string | null;
+  proxy?: TaskProxyConfig | null;
+}
+
+/** Egress proxy for the task machine. `password` is write-only, never returned. */
+export type TaskProxyConfig =
+  | { mode: 'managed' }
+  | {
+      mode: 'custom';
+      scheme: 'http' | 'https' | 'socks5';
+      host: string;
+      port: number;
+      username?: string;
+      password?: string;
+    };
+
+/**
+ * BYO LLM selection. The provider key travels ONLY in the `X-LLM-Api-Key`
+ * header — never in this body. Note the sharp upstream edge: BYOK intent on an
+ * async surface (tasks/workflows/schedules) under a TEST Coasty key is rejected
+ * with `422 LLM_PROVIDER_UNSUPPORTED` before execution rather than being
+ * silently ignored.
+ */
+export interface LlmSelection {
+  provider: 'managed' | 'anthropic' | 'openai';
+  model?: string;
+}
+
+/**
+ * `POST /v1/tasks` — the highest-level Computer Use endpoint. One goal in; you
+ * never provision, select, monitor, or destroy a machine, and the agent never
+ * pauses for human takeover (`on_awaiting_human` is hardwired to `fail`, and the
+ * endpoint-owned executor intercepts handoff requests before that state is ever
+ * entered). Terminal outcome is exactly one of succeeded/failed/timed_out/cancelled.
+ */
+export interface CreateTaskRequest {
+  /** 1-16000 chars. The complete observable goal. */
+  task: string;
+  cua_version?: CuaVersion;
+  instructions?: string | null;
+  system_prompt?: string | null;
+  /** 1-1000, upstream default 150. Also clamped by the server. */
+  max_steps?: number;
+  /** 1-86400. End-to-end wall clock INCLUDING provisioning. */
+  deadline_seconds?: number | null;
+  action_policy?: ActionPolicy | null;
+  /** HTTPS only. Private, loopback, userinfo and unsafe targets are rejected. */
+  webhook_url?: string | null;
+  metadata?: Record<string, unknown> | null;
+  llm?: LlmSelection | null;
+  machine?: TaskMachinePreferences | null;
+}
+
+// ── Model-input frames (GET /v1/runs/{id}/screenshots) ────────────────────────
+
+/**
+ * One model-input frame: the exact image the agent looked at before a decision.
+ *
+ * `index` is the stable address — flat and monotonic across the WHOLE run.
+ * `step` restarts at 1 when a reaped run is retried, so `step` alone is not
+ * unique; `attempt` says which try a frame belongs to.
+ */
+export interface RunScreenshot {
+  index: number;
+  attempt: number;
+  step: number;
+  taken_at: string;
+  /** MODEL coordinate space — what clicks were computed against, not necessarily physical resolution. */
+  width: number;
+  height: number;
+  mime_type: string;
+  size_bytes: number;
+  sha256: string;
+  /** True when capture failed and the agent acted on a reused/placeholder frame. Check this first when a run did something inexplicable. */
+  degraded: boolean;
+  encrypted_at_rest: boolean;
+  /** Present only with `include_image=true`. */
+  image_b64?: string | null;
+  /** Replaces `image_b64` when a stored frame cannot be decoded. One bad frame never fails the page. */
+  image_unavailable?: boolean;
+}
+
+export interface ListRunScreenshotsResponse {
+  object: 'list';
+  data: RunScreenshot[];
+  has_more: boolean;
+  request_id?: string;
+}
+
+export interface ListRunScreenshotsOptions {
+  /** Page cursor on the flat `index`. */
+  after_index?: number;
+  limit?: number;
+  /** Inlines `image_b64`; upstream clamps the page to 10 and sends `Cache-Control: no-store`. */
+  include_image?: boolean;
+}
+
+/** Upstream clamps an image-inlining page to this many frames. */
+export const RUN_SCREENSHOTS_IMAGE_PAGE_LIMIT = 10;
 
 // ── Run events (SSE) ──────────────────────────────────────────────────────────
 

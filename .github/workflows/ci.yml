@@ -33,7 +33,7 @@ jobs:
       - run: pnpm security:scan
 
   e2e:
-    name: E2E (web + desktop vs mock Coasty)
+    name: E2E (web + desktop + features vs mock Coasty)
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:

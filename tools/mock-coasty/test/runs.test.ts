@@ -46,7 +46,10 @@ describe('run creation', () => {
     expect(run.status).toBe('queued');
     expect(run.webhook_secret).toMatch(/^whsec_/);
     expect(run.max_steps).toBe(40);
-    expect(run.cua_version).toBe('v3');
+    // Omitting cua_version selects the CURRENT upstream default, which is v5.
+    expect(run.cua_version).toBe('v5');
+    // Ordinary caller-supplied-machine runs carry no automatic lifecycle view.
+    expect(run.machine).toBeNull();
     // get/list never return the secret again
     const fetched = await getRun(run.id as string);
     expect(fetched.webhook_secret).toBeNull();

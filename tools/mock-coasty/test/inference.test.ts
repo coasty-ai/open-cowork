@@ -257,10 +257,14 @@ describe('ground / parse / models / usage', () => {
     m = mock();
     const body = (await call(m, '/v1/models')).json() as {
       action_types: string[];
-      cua_versions: { id: string }[];
+      cua_versions: { id: string; latest?: boolean }[];
     };
     expect(body.action_types).toContain('click');
-    expect(body.cua_versions.map((v) => v.id)).toEqual(['v1', 'v3']);
+    // All four engines ship on every tier; v4 is no longer pro-gated.
+    expect(body.cua_versions.map((v) => v.id)).toEqual(['v1', 'v3', 'v4', 'v5']);
+    // Exactly one engine is flagged latest, and it is the documented default.
+    const latest = body.cua_versions.filter((v) => v.latest);
+    expect(latest.map((v) => v.id)).toEqual(['v5']);
   });
 
   it('usage accumulates credits across billed calls', async () => {

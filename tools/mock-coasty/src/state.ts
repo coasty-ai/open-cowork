@@ -41,13 +41,43 @@ export interface MachineRec {
   ttl_minutes: number | null;
   files: Map<string, string>;
   frame: number;
+  /** Set when a task provisioned this machine; makes cleanup ownership-checked. */
+  provisionedForRun?: string | null;
+}
+
+/** Automatic machine lifecycle view — only on `POST /v1/tasks` runs. */
+export interface RunMachineViewRec {
+  mode: 'automatic';
+  status: 'provisioning' | 'ready' | 'failed' | 'released';
+  id: string | null;
+  cleanup: 'always';
+  cleanup_status: 'pending' | 'terminating' | 'retrying' | 'terminated' | 'failed';
+  error?: { code: string; message: string } | null;
+}
+
+/** One model-input frame (what the agent saw before a decision). */
+export interface FrameRec {
+  index: number;
+  attempt: number;
+  step: number;
+  taken_at: string;
+  width: number;
+  height: number;
+  mime_type: string;
+  size_bytes: number;
+  sha256: string;
+  degraded: boolean;
+  encrypted_at_rest: boolean;
+  /** null models a stored frame that cannot be decoded (`image_unavailable`). */
+  image_b64: string | null;
 }
 
 export interface RunRec {
   id: string;
   object: 'agent.run';
   status: string;
-  machine_id: string;
+  /** Null while a task run is still provisioning its ephemeral machine. */
+  machine_id: string | null;
   task: string;
   cua_version: string;
   instructions: string | null;
@@ -67,9 +97,23 @@ export interface RunRec {
   awaiting_human_since: string | null;
   finished_at: string | null;
   request_id: string;
+  /** `task` = created via POST /v1/tasks (managed machine, no human pause). */
+  mode: 'run' | 'task';
+  /** Automatic lifecycle view; null on ordinary caller-supplied-machine runs. */
+  machine: RunMachineViewRec | null;
+  /** Pinned at create; never echoed back (mirrors the documented behaviour). */
+  action_policy: Record<string, unknown> | null;
   // internals
   deadlineAt: number | null;
   stepsTarget: number;
+  /** Which try a frame belongs to; `step` restarts per attempt. */
+  attempt: number;
+  screenshots: FrameRec[];
+  provisionTicks: number;
+  cleanupTicks: number;
+  /** Workload preferences resolved at create time (task mode). */
+  taskMachineOs: 'linux' | 'windows';
+  taskMachineProvider: string;
 }
 
 export interface WorkflowRec {
