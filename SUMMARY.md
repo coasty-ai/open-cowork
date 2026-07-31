@@ -5,6 +5,12 @@ numbers, and every deviation from the brief / live Coasty docs. Built
 2026-06-11 against the live docs snapshot (`https://coasty.ai/docs/llms.txt`,
 fetched the same day).
 
+> **Updated 2026-07-30** against a re-fetched docs snapshot. Two upstream
+> changes had opened a gap: the engine lineup moved on (`v5` shipped and became
+> the default; `v4` stopped being pro-gated), and a new fully-managed
+> **submit-and-forget task** surface (`POST /v1/tasks`) appeared. Both are now
+> integrated end to end — see *Managed tasks* below.
+
 ## What was built
 
 A complete, working implementation of the brief: a cross-platform agentic
@@ -50,6 +56,34 @@ coworker on the Coasty Computer Use API, as a pnpm + Turborepo monorepo
   GitHub Actions (ubuntu + windows matrix: lint/format/typecheck/unit/
   integration/security-scan on push; E2E with xvfb on PRs; non-blocking audit).
 
+## Managed tasks (`POST /v1/tasks`), added 2026-07-30
+
+A submit-and-forget task takes one goal and no machine: Coasty provisions,
+drives, and destroys an ephemeral VM server-side and returns an ordinary
+durable `agent.run`, so the existing timeline, cancel, and cost plumbing work
+on it unchanged. What the integration had to get right:
+
+| Concern | How it is handled |
+| --- | --- |
+| **Two billing meters** | A task bills agent steps *and* machine runtime. `taskEstimateCents` sums both and rounds the runtime component **up** — a confirmed ceiling must never be exceeded. Reusing the run estimate would silently under-quote the user. |
+| **Unbounded deadline = unbounded bill** | `deadline_seconds` is optional upstream but mandatory here; the backend always sends one (default 1h) so the worst case is finite and honest. |
+| **`machine_id` starts null** | Picked up from the ingested `status` event and the read-time reconcile, never at create. |
+| **Cleanup outlives the run** | Termination starts *after* the terminal transition and can still be `terminating`/`retrying` when the run reads `succeeded`. The reconcile no longer stops at the terminal status, and no UI claims the machine is gone until it is. |
+| **No human pause** | The endpoint intercepts handoff requests, so `awaiting_human` is never entered. `/api/runs/:id/resume` refuses a task run outright instead of forwarding a call that could only 409. |
+| **Duplicate machines on retry** | The run id derives the internal machine-provision key upstream, so the create always carries an `Idempotency-Key`; an unkeyed POST is never retried by the client. |
+| **Evidence after teardown** | `GET /api/runs/:id/screenshots` proxies the model-input frames, which outlive the machine. Inlined frames are `Cache-Control: no-store` end to end — a frame can show an inbox or a billing page. |
+| **`action_policy`** | Validated client-side against every documented limit before a billable round-trip, then pinned to the run row — upstream never echoes the normalized policy back, so our submission *is* the audit record. |
+| **BYOK on a test key** | Rejected upstream with `422 LLM_PROVIDER_UNSUPPORTED` rather than silently ignored; surfaced faithfully. |
+
+Two bugs were found and fixed while integrating, both of which also affected
+ordinary cloud runs:
+
+- A failed run kept `error: null` unless a webhook happened to land — the
+  terminal `done` event carries the error, and the ingestor was dropping it.
+- The delegate page's machine poll was keyed off "no selectable target". Adding
+  an always-available managed target would have silently disabled it, so it now
+  keys off runnable *cloud* machines specifically.
+
 ## Setup: one key (or none)
 
 The only thing you ever configure is `COASTY_API_KEY`:
@@ -71,25 +105,29 @@ shadows the script); `pnpm dev` is the one-command runner.
 ## Verification status
 
 `pnpm test`, `pnpm typecheck`, `pnpm lint`, `pnpm format`,
-`pnpm security:scan` — **all green, fully offline** (18/18 turbo tasks across
-9 packages). E2E (Playwright, against mock + real backend + built SPA):
-**web 3/3, desktop 1/1 — green** on Windows 11, plus the zero-config
+`pnpm security:scan` — **all green, fully offline** (11/11 turbo test tasks).
+E2E (Playwright, against mock + real backend + built SPA): **web 4/4,
+desktop 1/1, features 20/20 — green** on Windows 11, plus the zero-config
 entrypoint smoke.
+
+Counts below are as measured on 2026-07-30.
 
 | Suite | Tests | Notes |
 | --- | --- | --- |
-| core (unit) | 166 + live-smoke gate | loop, DSL, cost table, HMAC vectors (valid/tampered/stale/future/malformed/rotation), retry, SSE parser, client incl. SSE-reconnect Last-Event-ID |
-| executor (unit) | 98 (+1 opt-in native smoke) | macOS/Linux bridge command-string construction via mocked child_process (proves cross-platform drive without that hardware), Windows daemon protocol, agent-loop↔all-3-executors integration, DPI scaling, action mapping |
-| mock-coasty | 134 | full error catalog + types, pricing/HD boundary, run+workflow state machines, SSE drop→reconnect (no dupes/gaps) incl. ?after= replay, hand-verified HMAC webhooks, idempotency, machines (FS/terminal/browser/batch) |
-| backend (integration) | 99 | real HTTP vs in-process mock: run+workflow lifecycle/SSE/reconnect, webhook tamper/stale/unknown→401, BUDGET_EXCEEDED/ESTIMATE_CHANGED/402, machines, wallet+budget, inference proxy errors, entrypoint banners; config (12) + zero-config bootstrap (1) + **webhook_url HTTPS gating (10)** + **best-effort usage preflight (6)** — both via fetch-spies proving the exact upstream behavior |
-| ui (RTL) | 107 | all 20 components: roles/names, loading/error/empty, keyboard interactions |
-| web (RTL) | 85 | login, delegate→confirm-cost→create, run/workflow detail (stubbed SSE), workflow builder validation, settings, useSse reconnect, global feed banner, 401 auto-logout, formatApiError surfacing |
-| desktop (unit) | 8 | LocalRunManager happy path/cancel/failure/batching vs fake executor + scripted backend; build smoke |
-| mobile (RTL via react-native-web) | 33 | all 5 screens incl. cursor-polled timeline, approval flow, banners |
-| **E2E web** | 3 | full journey: login→provision→delegate→confirm $1.25→live timeline+frames→approve with note→succeeded+cost summary; workflow build→validate→run→approve→output; server-side budget refusal. Plus a runtime watcher asserting **no request ever contains key/secret material** |
+| core (unit) | 256 (+4 skipped) | loop, DSL, cost table, HMAC vectors (valid/tampered/stale/future/malformed/rotation), retry, SSE parser, client incl. SSE-reconnect Last-Event-ID; **+ task cost model and client surface (28)**, **+ action-policy validator (28)** |
+| llm (unit) | 308 | BYO provider seam, capability/vision resolution, model catalog, action parsing |
+| mock-coasty | 204 | full error catalog + types, pricing/HD boundary, run+workflow state machines, SSE drop→reconnect (no dupes/gaps) incl. ?after= replay, hand-verified HMAC webhooks, idempotency, machines (FS/terminal/browser/batch); **+ tasks (70)**: admission validation, machine preferences, BYOK boundary, idempotency identity, wallet gates, provisioning→cleanup lifecycle, model-input frames |
+| backend (integration) | 158 | real HTTP vs in-process mock: run+workflow lifecycle/SSE/reconnect, webhook tamper/stale/unknown→401, BUDGET_EXCEEDED/ESTIMATE_CHANGED/402, machines, wallet+budget, inference proxy errors, entrypoint banners, config + zero-config bootstrap, webhook_url HTTPS gating, best-effort usage preflight; **+ tasks (32)** and **+ schema migration onto a pre-task database (6)** |
+| executor (unit) | 113 (+1 opt-in native smoke) | macOS/Linux bridge command-string construction via mocked child_process, Windows daemon protocol, agent-loop↔all-3-executors integration, DPI scaling, action mapping |
+| ui (RTL) | 147 | all components: roles/names, loading/error/empty, keyboard interactions |
+| web (RTL) | 164 | login, delegate→confirm-cost→create, run/workflow detail (stubbed SSE), workflow builder validation, settings, useSse reconnect, global feed banner, 401 auto-logout; **+ managed-task delegate flow and machine-cleanup wording (10)** |
+| desktop (unit) | 92 | LocalRunManager happy path/cancel/failure/batching vs fake executor + scripted backend; window state; build smoke |
+| mobile (RTL via react-native-web) | 42 | all 5 screens incl. cursor-polled timeline, approval flow, banners |
+| **E2E web** | 4 | full journey: login→provision→delegate→live timeline+frames→approve with note→succeeded+cost summary; **managed task: no machine provisioned, NEEDS_HUMAN suppressed, approval bar never appears, machine reported shut down, frames outlive it**; workflow build→validate→run→approve→output; server-side budget refusal. Plus a runtime watcher asserting **no request ever contains key/secret material** |
+| **E2E features** | 20 | breadth coverage through the real stack: machine lifecycle in the UI (provision→stop→start→arm/confirm terminate), `INVALID_STATE` refusal, machine-rate handshake, the client action allowlist (`browser_execute` → 403); managed tasks (v5 default, pinned deadline, task-vs-run estimate parity, cancel-still-cleans-up, no-resume, action-policy reject/pin, provisioning failure); model-input frames (paging, `no-store`, distinct frames, outliving the machine, empty page for local runs); SSE cursor replay with no gaps/dupes and the per-user notification feed; wallet, key-mode-without-the-key, bearer required on every route; workflow DSL validation |
 | **E2E desktop** | 1 | Electron boots, secure bridge present, no Node leak in renderer, login works, "This computer (local screen)" target + local-control warning |
 | **E2E bootstrap smoke** | 1 | real entrypoint, zero config, full flow over HTTP |
-| **Total** | **≈731 unit/integration + 5 E2E** | |
+| **Total** | **1484 unit/integration (+5 skipped) + 25 E2E + bootstrap smoke** | |
 
 Coverage (v8, lines): ui **99.9%**, mobile **98.4%**, mock-coasty **96.6%**,
 backend **96.2%**, executor **95.3%**, core **94.1%**, web **83.2%** (App/main
@@ -165,7 +203,12 @@ guards. Test keys/mock bill $0; the live-smoke suite refuses non-sandbox keys.
 - Run resume body is `{note}`; **workflow** resume is `{approved, note}` — the
   brief implied `{approved}` for runs.
 - Idempotency is an `Idempotency-Key` **header**, not a body field.
-- `cua_version` values are `v1 | v3 | v4` (no v2; v4 needs professional tier).
+- `cua_version` values are `v1 | v3 | v4 | v5` (no v2). **As of the 2026-07-30
+  snapshot `v5` is the default and `v4` is no longer pro-gated**; pricing is
+  flat across v3/v4/v5 (5 cr per run step) and only `v1` surcharges (8 cr).
+  Every caller in this repo passes `cua_version` **explicitly** rather than
+  relying on the upstream default, so a future default change cannot silently
+  move a run onto a different engine behind an already-confirmed estimate.
 - The docs' Reference action table and its code examples disagree on params
   (`wait` `{ms}` vs `{seconds}`; `key_press` `{key}` vs `{keys}`; `scroll`
   `{direction,amount}` vs `{clicks}`; `drag` `{from_x…}` vs `{x1…}`) — core

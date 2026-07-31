@@ -66,6 +66,11 @@ export function registerWebhookRoutes(app: FastifyInstance, deps: WebhookRouteDe
     // Verified: reconcile state + notify the owner's activity feed.
     const status = upstream.status;
     if (runRow) {
+      // A terminal task webhook carries the canonical machine cleanup status —
+      // and can arrive while cleanup is still `terminating`/`retrying`. Persist
+      // it verbatim; do NOT infer that termination finished just because the
+      // task did.
+      const machineView = 'machine' in upstream ? upstream.machine : undefined;
       db.updateRun(runRow.id, {
         status,
         ...(TERMINAL.has(status) ? { finished_at: new Date().toISOString() } : {}),
@@ -78,8 +83,16 @@ export function registerWebhookRoutes(app: FastifyInstance, deps: WebhookRouteDe
         ...(status === 'awaiting_human' && 'awaiting_human_reason' in upstream
           ? { awaiting_human_reason: upstream.awaiting_human_reason }
           : {}),
+        ...(machineView ? { machine_json: JSON.stringify(machineView) } : {}),
+        ...(typeof upstream.machine_id === 'string' ? { machine_id: upstream.machine_id } : {}),
       });
-      notify(runRow.user_id, payload.event, { runId: runRow.id, status });
+      notify(runRow.user_id, payload.event, {
+        runId: runRow.id,
+        status,
+        ...(machineView && typeof machineView === 'object' && 'cleanup_status' in machineView
+          ? { machineCleanupStatus: (machineView as { cleanup_status: string }).cleanup_status }
+          : {}),
+      });
     } else if (wfRow) {
       db.updateWorkflowRun(wfRow.id, {
         status,

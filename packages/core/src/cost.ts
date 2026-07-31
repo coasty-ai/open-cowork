@@ -25,7 +25,7 @@ export const PRICING = {
   /** Surcharge when system_prompt exceeds 500 chars (exactly 500 is free). */
   longSystemPromptCents: 1,
   systemPromptFreeChars: 500,
-  /** Run / workflow-task step on v3/v4. */
+  /** Run / workflow-task step on v3/v4/v5 (flat — only v1 surcharges). */
   runStepCentsV3: 5,
   /** Run / workflow-task step on v1 (5 base + 3 engine surcharge). */
   runStepCentsV1: 8,
@@ -110,6 +110,76 @@ export function runEstimateCents(opts: {
   const perStep = runStepCents(opts.cuaVersion ?? 'v3');
   const maxSteps = opts.maxSteps ?? 50;
   return { perStepCents: perStep, minCents: perStep, maxCents: perStep * maxSteps };
+}
+
+// ── Submit-and-forget tasks ───────────────────────────────────────────────────
+
+/** Upstream default `max_steps` for `POST /v1/tasks` (runs default to 50). */
+export const DEFAULT_TASK_MAX_STEPS = 150;
+
+/**
+ * Wall-clock budget this repo applies when the caller does not pick one.
+ *
+ * Upstream `deadline_seconds` is optional and falls back to an unspecified
+ * "server default". That is fine for the API but NOT fine for a
+ * confirm-the-cost handshake: a task bills machine runtime for as long as it
+ * runs, so an unbounded deadline means an unbounded worst case and there is
+ * nothing honest to show the user. The backend therefore always sends an
+ * explicit deadline, defaulting to this value.
+ */
+export const DEFAULT_TASK_DEADLINE_SECONDS = 3600;
+
+export interface TaskEstimate {
+  perStepCents: number;
+  /** Worst case if every allowed step executes. */
+  stepsCents: number;
+  /** Worst-case ephemeral machine runtime over the whole deadline window. */
+  machineCents: number;
+  /** stepsCents + machineCents. What the client must confirm. */
+  maxCents: number;
+  /** A task bills at least one step; provisioning time itself is free. */
+  minCents: number;
+  maxSteps: number;
+  deadlineSeconds: number;
+  osType: MachineOsType;
+}
+
+/**
+ * Worst-case cost of one submit-and-forget task.
+ *
+ * A task is billed on TWO independent meters, which is the whole reason it
+ * needs its own estimator rather than reusing {@link runEstimateCents}:
+ *   1. agent steps, exactly like a normal run step; plus
+ *   2. runtime of the ephemeral machine Coasty provisions for it.
+ *
+ * Machine runtime is metered per minute and rounded down in the caller's
+ * favour, so a floor-based figure would UNDER-state the ceiling. We round the
+ * runtime component up instead: a confirm-the-cost handshake must never quote
+ * a number the run can exceed.
+ */
+export function taskEstimateCents(opts: {
+  cuaVersion?: CuaVersion;
+  maxSteps?: number;
+  deadlineSeconds?: number;
+  osType?: MachineOsType;
+}): TaskEstimate {
+  const perStepCents = runStepCents(opts.cuaVersion ?? 'v5');
+  const maxSteps = opts.maxSteps ?? DEFAULT_TASK_MAX_STEPS;
+  const deadlineSeconds = opts.deadlineSeconds ?? DEFAULT_TASK_DEADLINE_SECONDS;
+  const osType = opts.osType ?? 'linux';
+  const hourly = machineRuntimeCentsPerHour(osType, 'running');
+  const stepsCents = perStepCents * maxSteps;
+  const machineCents = Math.ceil((hourly * deadlineSeconds) / 3600);
+  return {
+    perStepCents,
+    stepsCents,
+    machineCents,
+    maxCents: stepsCents + machineCents,
+    minCents: perStepCents,
+    maxSteps,
+    deadlineSeconds,
+    osType,
+  };
 }
 
 export interface WorkflowEstimate {

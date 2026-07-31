@@ -22,7 +22,7 @@
   <img alt="Setup" src="https://img.shields.io/badge/setup-one%20command-7c3aed">
   <img alt="BYO LLM (BYOK)" src="https://img.shields.io/badge/BYO%20LLM-Anthropic%20%C2%B7%20OpenAI%20%C2%B7%20Gemini%20%C2%B7%20Ollama-ff8c00">
   <img alt="TypeScript strict" src="https://img.shields.io/badge/TypeScript-strict-3178c6">
-  <img alt="Tests" src="https://img.shields.io/badge/tests-1220%20%C2%B7%204%20E2E-success">
+  <img alt="Tests" src="https://img.shields.io/badge/tests-1484%20%C2%B7%2025%20E2E-success">
 </p>
 
 <p align="center">
@@ -105,6 +105,9 @@ the long-horizon guards that stop a wedged run in seconds instead of burning the
 
 - 💬 **Delegate in chat** — _"rename these files and email the report"_ — and watch it execute
   step by step with a live screen view.
+- 🚀 **Zero-setup managed tasks** — hand over a goal with no machine at all; Coasty
+  provisions a fresh VM, runs it fully autonomously, and destroys it afterwards. The
+  model-input frames it saw outlive the machine, so you can always audit what happened.
 - 🧠 **Any model** — Anthropic, OpenAI, Gemini, xAI, Mistral, Groq, OpenRouter, or a local
   model. Coasty is just the default.
 - 📺 **Supervise runs** — durable event timeline (SSE with replay); cancel, resume, or take
@@ -120,6 +123,7 @@ the long-horizon guards that stop a wedged run in seconds instead of burning the
 | Capability | 🖥️ Desktop | 🌐 Web | 📱 Mobile |
 | --- | :---: | :---: | :---: |
 | Local screen control | ✅ first-class | → cloud machine | → cloud machine |
+| Managed task (no machine to set up) | ✅ | ✅ | view + monitor |
 | Cloud-machine control + live view | ✅ | ✅ | ✅ |
 | Task chat + run dashboard | ✅ | ✅ | ✅ |
 | Workflow builder | ✅ full | ✅ full | view + approve |
@@ -133,8 +137,10 @@ the long-horizon guards that stop a wedged run in seconds instead of burning the
  You ──► open-cowork backend ──► Coasty API ──► a screen the agent drives
             │   (the ONLY place           ├─ your own desktop   (desktop app)
             │    the API key lives)       ├─ a Coasty cloud VM  (any client)
-            └──► web / desktop / mobile   └─ a browser page     (Playwright)
-                 live events, approvals, costs
+            │                             ├─ an ephemeral VM    (managed task —
+            └──► web / desktop / mobile   │    made + destroyed for you)
+                 live events, approvals,  └─ a browser page     (Playwright)
+                 costs
 ```
 
 One shared **agent loop** (screenshot → predict → act → repeat) drives any screen through a

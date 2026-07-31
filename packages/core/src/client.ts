@@ -13,7 +13,10 @@ import type {
   CreateRunRequest,
   CreateSessionRequest,
   CreateSessionResponse,
+  CreateTaskRequest,
   CreateWorkflowRequest,
+  ListRunScreenshotsOptions,
+  ListRunScreenshotsResponse,
   GroundRequest,
   GroundResponse,
   ListResponse,
@@ -333,6 +336,49 @@ export class CoastyClient {
   /** Stream run events with automatic reconnect via `Last-Event-ID`. */
   streamRunEvents(runId: string, opts: StreamOptions = {}): AsyncGenerator<RunEvent> {
     return this.streamEvents(`/runs/${encodeURIComponent(runId)}/events`, opts);
+  }
+
+  // ── submit-and-forget tasks ─────────────────────────────────────────────────
+
+  /**
+   * `POST /v1/tasks` — hand over one goal and let Coasty provision, drive, and
+   * destroy an ephemeral machine. Returns the ordinary durable {@link Run}, so
+   * every existing run method (get/cancel/events) works on the result.
+   *
+   * ALWAYS pass an `idempotencyKey`. It is what makes a retried admission safe,
+   * and the same run id derives the internal machine-provision key — without
+   * one, a network failure after dispatch can leave a duplicate machine
+   * running and billing. `machineProvider` is part of the idempotency identity
+   * upstream, so a replay lands on the same backend rather than migrating.
+   */
+  createTask(req: CreateTaskRequest, extras?: RequestExtras): Promise<Run> {
+    return this.request({ method: 'POST', path: '/tasks', body: req, ...extras });
+  }
+
+  /**
+   * `GET /v1/runs/{id}/screenshots` — the model-input frames for a run, oldest
+   * first. Free, and captured for every run.
+   *
+   * Metadata only by default because one frame is several hundred KB of base64.
+   * `include_image` inlines the bytes and upstream clamps that page to
+   * {@link RUN_SCREENSHOTS_IMAGE_PAGE_LIMIT} frames with `Cache-Control: no-store`
+   * — a frame can show an inbox or a billing page, so never cache or log these.
+   */
+  listRunScreenshots(
+    runId: string,
+    opts: ListRunScreenshotsOptions = {},
+    extras?: RequestExtras,
+  ): Promise<ListRunScreenshotsResponse> {
+    return this.request({
+      method: 'GET',
+      path: `/runs/${encodeURIComponent(runId)}/screenshots`,
+      query: {
+        after_index: opts.after_index,
+        limit: opts.limit,
+        include_image: opts.include_image === undefined ? undefined : String(opts.include_image),
+      },
+      ...extras,
+    });
   }
 
   // ── workflows ───────────────────────────────────────────────────────────────

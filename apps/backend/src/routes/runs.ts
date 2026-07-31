@@ -11,14 +11,22 @@ import type { FastifyInstance } from 'fastify';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import {
+  CUA_VERSIONS,
+  DEFAULT_TASK_DEADLINE_SECONDS,
+  DEFAULT_TASK_MAX_STEPS,
   isTerminalRunStatus,
+  PRICING,
   runEstimateCents,
+  taskEstimateCents,
+  validateActionPolicy,
+  type ActionPolicy,
   type CoastyClient,
   type Run,
+  type RunMachineView,
   type RunStatus,
 } from '@open-cowork/core';
 import type { BackendConfig } from '../config';
-import type { Db, RunRow } from '../db';
+import type { Db, RunKind, RunRow } from '../db';
 import type { EventBus } from '../bus';
 import type { Ingestor } from '../ingest';
 import { AppError, notFound } from '../errors';
@@ -34,7 +42,7 @@ export interface RunRouteDeps {
 
 export interface RunDto {
   id: string;
-  kind: 'coasty' | 'local';
+  kind: RunKind;
   machineId: string | null;
   task: string;
   status: string;
@@ -48,6 +56,36 @@ export interface RunDto {
   awaitingHumanReason: string | null;
   createdAt: string;
   finishedAt: string | null;
+  /** Automatic machine lifecycle; non-null only for `kind: 'task'`. */
+  machine: RunMachineView | null;
+  deadlineSeconds: number | null;
+  /** The exact policy we submitted (Coasty never echoes the normalized form). */
+  actionPolicy: unknown;
+}
+
+/**
+ * Has a task's ephemeral machine reached a settled cleanup state?
+ *
+ * `terminated` and `failed` are final; `pending`/`terminating`/`retrying` can
+ * all still change, so a run sitting in one of those is still worth
+ * reconciling even though the RUN itself is already terminal. Non-task runs
+ * have no cleanup lifecycle and are always considered settled.
+ */
+function cleanupSettled(row: RunRow): boolean {
+  if (row.kind !== 'task') return true;
+  const view = parseJson<RunMachineView>(row.machine_json ?? null);
+  if (!view) return false;
+  return view.cleanup_status === 'terminated' || view.cleanup_status === 'failed';
+}
+
+function parseJson<T>(raw: string | null): T | null {
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    // A corrupt column must degrade to "absent", never break a list response.
+    return null;
+  }
 }
 
 export function runToDto(row: RunRow): RunDto {
@@ -62,15 +100,33 @@ export function runToDto(row: RunRow): RunDto {
     budgetCents: row.budget_cents,
     costCents: row.cost_cents,
     stepsCompleted: row.steps_completed,
-    result: row.result_json ? JSON.parse(row.result_json) : null,
-    error: row.error_json ? JSON.parse(row.error_json) : null,
+    result: parseJson(row.result_json),
+    error: parseJson(row.error_json),
     awaitingHumanReason: row.awaiting_human_reason,
     createdAt: row.created_at,
     finishedAt: row.finished_at,
+    machine: parseJson<RunMachineView>(row.machine_json ?? null),
+    deadlineSeconds: row.deadline_seconds ?? null,
+    actionPolicy: parseJson(row.action_policy_json ?? null),
   };
 }
 
 const TERMINAL = new Set<string>(['succeeded', 'failed', 'cancelled', 'timed_out']);
+
+/**
+ * `action_policy` is validated by core's validator rather than re-modelled in
+ * zod: the documented rules are cross-field (blocked/allowed overlap, inclusive
+ * coordinate rectangle), and duplicating them here would let the two drift.
+ */
+const actionPolicySchema = z
+  .record(z.string(), z.unknown())
+  .nullable()
+  .superRefine((value, ctx) => {
+    const result = validateActionPolicy(value);
+    for (const issue of result.issues) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: `${issue.path}: ${issue.message}` });
+    }
+  });
 
 export function registerRunRoutes(app: FastifyInstance, deps: RunRouteDeps): void {
   const { config, db, bus, coasty, ingestor } = deps;
@@ -93,6 +149,9 @@ export function registerRunRoutes(app: FastifyInstance, deps: RunRouteDeps): voi
   };
 
   const syncRowFromCoasty = (row: RunRow, run: Run): RunRow => {
+    // A task run's machine_id starts null and is filled in once provisioning
+    // completes, so it has to be picked up on reconcile — not just at create.
+    const machineJson = run.machine ? JSON.stringify(run.machine) : row.machine_json;
     db.updateRun(row.id, {
       status: run.status,
       cost_cents: run.cost_cents,
@@ -101,12 +160,16 @@ export function registerRunRoutes(app: FastifyInstance, deps: RunRouteDeps): voi
       error_json: run.error ? JSON.stringify(run.error) : null,
       awaiting_human_reason: run.awaiting_human_reason,
       finished_at: run.finished_at,
+      ...(run.machine_id ? { machine_id: run.machine_id } : {}),
+      ...(machineJson !== row.machine_json ? { machine_json: machineJson } : {}),
     });
     return {
       ...row,
       status: run.status,
       cost_cents: run.cost_cents,
       steps_completed: run.steps_completed,
+      machine_id: run.machine_id ?? row.machine_id,
+      machine_json: machineJson,
     };
   };
 
@@ -114,11 +177,15 @@ export function registerRunRoutes(app: FastifyInstance, deps: RunRouteDeps): voi
   const createSchema = z.object({
     machineId: z.string().min(1).max(128),
     task: z.string().min(1).max(16000),
-    cuaVersion: z.enum(['v1', 'v3', 'v4']).default('v3'),
+    // Explicit rather than relying on the upstream default: the upstream
+    // default moved from v3 to v5, and a silent engine change under a
+    // confirmed cost estimate is exactly what the handshake exists to prevent.
+    cuaVersion: z.enum(CUA_VERSIONS).default('v3'),
     maxSteps: z.number().int().min(1).max(1000).default(25),
     budgetCents: z.number().int().min(1).optional(),
     onAwaitingHuman: z.enum(['pause', 'fail', 'cancel']).default('pause'),
     instructions: z.string().max(16000).optional(),
+    actionPolicy: actionPolicySchema.optional(),
     /** Client must echo the server's current worst-case estimate. */
     confirmCostCents: z.number().int(),
   });
@@ -174,6 +241,7 @@ export function registerRunRoutes(app: FastifyInstance, deps: RunRouteDeps): voi
       // usage() failed (e.g. missing `usage` scope) — skip the preflight.
     }
 
+    const actionPolicy = (body.actionPolicy ?? null) as ActionPolicy | null;
     const run = await coasty.createRun(
       {
         machine_id: body.machineId,
@@ -182,6 +250,7 @@ export function registerRunRoutes(app: FastifyInstance, deps: RunRouteDeps): voi
         max_steps: body.maxSteps,
         on_awaiting_human: body.onAwaitingHuman,
         instructions: body.instructions ?? null,
+        action_policy: actionPolicy,
         webhook_url: config.webhookUrl,
         metadata: { cowork_user: user.id },
       },
@@ -207,6 +276,9 @@ export function registerRunRoutes(app: FastifyInstance, deps: RunRouteDeps): voi
       webhook_secret: run.webhook_secret ?? null,
       created_at: new Date().toISOString(),
       finished_at: null,
+      machine_json: run.machine ? JSON.stringify(run.machine) : null,
+      deadline_seconds: null,
+      action_policy_json: actionPolicy ? JSON.stringify(actionPolicy) : null,
     };
     db.insertRun(row);
     ingestor.start({ kind: 'run', localId: row.id, coastyId: run.id, userId: user.id });
@@ -214,6 +286,182 @@ export function registerRunRoutes(app: FastifyInstance, deps: RunRouteDeps): voi
 
     void reply.status(201);
     return runToDto(row);
+  });
+
+  // ── create a submit-and-forget task ─────────────────────────────────────────
+  // The caller supplies a goal and nothing else: Coasty provisions, drives, and
+  // destroys an ephemeral machine. Two things make this different from a run:
+  //
+  //  1. TWO meters. A task bills agent steps AND machine runtime, so the
+  //     handshake covers both — `runEstimateCents` would understate it badly.
+  //  2. The deadline is mandatory HERE even though it is optional upstream.
+  //     Machine runtime accrues for as long as the task runs, so an unbounded
+  //     deadline means an unbounded bill and nothing honest to confirm. We
+  //     always send an explicit one, defaulting to DEFAULT_TASK_DEADLINE_SECONDS.
+  const taskSchema = z.object({
+    task: z.string().min(1).max(16000),
+    cuaVersion: z.enum(CUA_VERSIONS).default('v5'),
+    maxSteps: z.number().int().min(1).max(1000).default(DEFAULT_TASK_MAX_STEPS),
+    deadlineSeconds: z.number().int().min(1).max(86400).default(DEFAULT_TASK_DEADLINE_SECONDS),
+    osType: z.enum(['linux', 'windows']).default('linux'),
+    machineProvider: z.enum(['auto', 'aws', 'daytona', 'azure']).default('auto'),
+    desktopEnabled: z.boolean().default(true),
+    instructions: z.string().max(16000).optional(),
+    actionPolicy: actionPolicySchema.optional(),
+    budgetCents: z.number().int().min(1).optional(),
+    confirmCostCents: z.number().int(),
+  });
+
+  app.post('/api/tasks', async (request, reply) => {
+    const body = taskSchema.parse(request.body);
+    const user = request.user;
+
+    const estimate = taskEstimateCents({
+      cuaVersion: body.cuaVersion,
+      maxSteps: body.maxSteps,
+      deadlineSeconds: body.deadlineSeconds,
+      osType: body.osType,
+    });
+    const budget = Math.min(body.budgetCents ?? user.budget_cents, user.budget_cents);
+    if (estimate.maxCents > budget) {
+      // Steps are the only lever the caller can turn down without changing the
+      // wall-clock budget, so the suggestion is expressed in steps — and floored
+      // at 1 only when the machine component alone already fits.
+      const roomForSteps = budget - estimate.machineCents;
+      throw new AppError(
+        422,
+        'BUDGET_EXCEEDED',
+        `Worst-case cost ${estimate.maxCents}¢ exceeds the budget cap ${budget}¢`,
+        {
+          budgetCents: budget,
+          maxCents: estimate.maxCents,
+          stepsCents: estimate.stepsCents,
+          machineCents: estimate.machineCents,
+          suggestedMaxSteps:
+            roomForSteps >= estimate.perStepCents
+              ? Math.floor(roomForSteps / estimate.perStepCents)
+              : null,
+        },
+      );
+    }
+    if (body.confirmCostCents !== estimate.maxCents) {
+      throw new AppError(
+        409,
+        'ESTIMATE_CHANGED',
+        'The cost estimate changed; re-confirm with the current value',
+        {
+          expectedCents: estimate.maxCents,
+          stepsCents: estimate.stepsCents,
+          machineCents: estimate.machineCents,
+        },
+      );
+    }
+
+    // Wallet pre-flight is BEST-EFFORT (the `usage` scope is not on a default
+    // key). A task needs the $0.20 provisioning gate, not just one step —
+    // Coasty enforces both authoritatively, we just surface them earlier.
+    try {
+      const usage = await coasty.usage();
+      const balance = usage.wallet_balance_cents ?? usage.balance;
+      if (typeof balance === 'number' && balance < PRICING.provisioningGateCents) {
+        throw new AppError(
+          402,
+          'INSUFFICIENT_CREDITS',
+          'A task provisions a machine, which requires a $0.20 wallet minimum',
+          { balanceCents: balance, requiredCents: PRICING.provisioningGateCents },
+        );
+      }
+    } catch (err) {
+      if (err instanceof AppError) throw err;
+      // usage() failed (e.g. missing `usage` scope) — skip the preflight.
+    }
+
+    const actionPolicy = (body.actionPolicy ?? null) as ActionPolicy | null;
+    // The idempotency key is not optional here: upstream derives the internal
+    // machine-provision key from the run id, so an unkeyed retry after a
+    // network failure can leave a SECOND ephemeral machine running and billing.
+    const run = await coasty.createTask(
+      {
+        task: body.task,
+        cua_version: body.cuaVersion,
+        max_steps: body.maxSteps,
+        deadline_seconds: body.deadlineSeconds,
+        instructions: body.instructions ?? null,
+        action_policy: actionPolicy,
+        webhook_url: config.webhookUrl,
+        metadata: { cowork_user: user.id },
+        machine: {
+          provider: body.machineProvider,
+          os_type: body.osType,
+          desktop_enabled: body.desktopEnabled,
+        },
+      },
+      { idempotencyKey: `cwk-task-${randomUUID()}` },
+    );
+
+    const row: RunRow = {
+      id: `r_${randomUUID().slice(0, 12)}`,
+      user_id: user.id,
+      kind: 'task',
+      coasty_run_id: run.id,
+      // Intentionally null while provisioning; filled in by the reconcile path.
+      machine_id: run.machine_id ?? null,
+      task: run.task,
+      status: run.status,
+      cua_version: run.cua_version,
+      max_steps: run.max_steps,
+      budget_cents: budget,
+      cost_cents: run.cost_cents,
+      steps_completed: run.steps_completed,
+      result_json: null,
+      error_json: null,
+      awaiting_human_reason: null,
+      webhook_secret: run.webhook_secret ?? null,
+      created_at: new Date().toISOString(),
+      finished_at: null,
+      machine_json: run.machine ? JSON.stringify(run.machine) : null,
+      deadline_seconds: body.deadlineSeconds,
+      action_policy_json: actionPolicy ? JSON.stringify(actionPolicy) : null,
+    };
+    db.insertRun(row);
+    ingestor.start({ kind: 'run', localId: row.id, coastyId: run.id, userId: user.id });
+    publishNotification(user.id, 'run.created', { runId: row.id, task: row.task, task_mode: true });
+
+    void reply.status(201);
+    return runToDto(row);
+  });
+
+  // ── model-input frames (what the agent actually saw) ────────────────────────
+  // Registered BEFORE the dynamic ':id' routes below, mirroring the documented
+  // upstream route-order nuance.
+  const screenshotQuerySchema = z.object({
+    afterIndex: z.coerce.number().int().min(0).optional(),
+    limit: z.coerce.number().int().min(1).max(200).optional(),
+    includeImage: z
+      .enum(['true', 'false'])
+      .optional()
+      .transform((v) => v === 'true'),
+  });
+  app.get('/api/runs/:id/screenshots', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const row = db.getRun(request.user.id, id);
+    if (!row) throw notFound('Run');
+    if (!row.coasty_run_id) {
+      // Local runs never reach Coasty, so there are no stored frames. Answer
+      // with an empty page rather than a 404 so one client code path works for
+      // every run kind.
+      return { object: 'list', data: [], has_more: false };
+    }
+    const query = screenshotQuerySchema.parse(request.query ?? {});
+    const res = await coasty.listRunScreenshots(row.coasty_run_id, {
+      after_index: query.afterIndex,
+      limit: query.limit,
+      include_image: query.includeImage,
+    });
+    // A frame can show an inbox, a dashboard, or a billing page. When bytes are
+    // inlined, forbid caching all the way down to the browser.
+    if (query.includeImage) void reply.header('Cache-Control', 'no-store');
+    return res;
   });
 
   // ── list + get ──────────────────────────────────────────────────────────────
@@ -230,8 +478,20 @@ export function registerRunRoutes(app: FastifyInstance, deps: RunRouteDeps): voi
     const { id } = request.params as { id: string };
     let row = db.getRun(request.user.id, id);
     if (!row) throw notFound('Run');
-    // Reconcile non-terminal cloud runs with upstream (covers missed events).
-    if (row.kind === 'coasty' && row.coasty_run_id && !TERMINAL.has(row.status)) {
+    // Reconcile non-terminal upstream runs (covers missed events). Task runs
+    // MUST be included: their machine_id and cleanup_status only ever arrive
+    // this way or by webhook, never at create time.
+    //
+    // And a task keeps changing AFTER it goes terminal: cleanup begins once the
+    // run finishes and can still be `terminating`/`retrying`. Stopping at the
+    // terminal status would freeze the machine view at whatever it was the
+    // instant the task ended, so the user would never learn the VM was actually
+    // destroyed. Keep reconciling until cleanup settles.
+    if (
+      row.kind !== 'local' &&
+      row.coasty_run_id &&
+      (!TERMINAL.has(row.status) || !cleanupSettled(row))
+    ) {
       try {
         const run = await coasty.getRun(row.coasty_run_id);
         row = syncRowFromCoasty(row, run);
@@ -276,6 +536,16 @@ export function registerRunRoutes(app: FastifyInstance, deps: RunRouteDeps): voi
     if (!row) throw notFound('Run');
     if (row.kind === 'local') {
       throw new AppError(409, 'NOT_SUPPORTED', 'Local runs are resumed from the desktop app');
+    }
+    if (row.kind === 'task') {
+      // Submit-and-forget tasks never enter `awaiting_human`: the executor
+      // intercepts handoff requests and carries on. There is nothing to resume,
+      // and forwarding this would just earn a 409 NOT_AWAITING_HUMAN upstream.
+      throw new AppError(
+        409,
+        'NOT_SUPPORTED',
+        'Tasks run autonomously and never pause for a human, so they cannot be resumed',
+      );
     }
     const run = await coasty.resumeRun(row.coasty_run_id!, { note: body.note });
     syncRowFromCoasty(row, run);
@@ -332,6 +602,9 @@ export function registerRunRoutes(app: FastifyInstance, deps: RunRouteDeps): voi
       webhook_secret: null,
       created_at: new Date().toISOString(),
       finished_at: null,
+      machine_json: null,
+      deadline_seconds: null,
+      action_policy_json: null,
     };
     db.insertRun(row);
     publishNotification(request.user.id, 'run.created', {

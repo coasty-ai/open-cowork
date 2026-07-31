@@ -4,6 +4,7 @@
  * isomorphic (Node + browser). See PLAN.md for the package contract.
  */
 export * from './types';
+export * from './actionPolicy';
 export * from './providers';
 export * from './errors';
 export * from './retry';

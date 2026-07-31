@@ -100,10 +100,20 @@ export class Ingestor {
       switch (evt.type) {
         case 'status': {
           const status = typeof data.status === 'string' ? data.status : undefined;
-          if (status) {
+          // A task run's status event carries `machine_id` the moment its
+          // ephemeral machine finishes provisioning. That is the earliest we
+          // can learn it, so capture it here rather than waiting for a
+          // read-time reconcile.
+          const machineId = typeof data.machine_id === 'string' ? data.machine_id : undefined;
+          if (status || machineId) {
             this.db.updateRun(target.localId, {
-              status,
-              ...(TERMINAL.has(status) ? { finished_at: new Date().toISOString() } : {}),
+              ...(status
+                ? {
+                    status,
+                    ...(TERMINAL.has(status) ? { finished_at: new Date().toISOString() } : {}),
+                  }
+                : {}),
+              ...(machineId ? { machine_id: machineId } : {}),
             });
           }
           break;
@@ -138,6 +148,11 @@ export class Ingestor {
             status,
             finished_at: new Date().toISOString(),
             ...(data.result !== undefined ? { result_json: JSON.stringify(data.result) } : {}),
+            // The terminal `done` event carries the error too. Without this a
+            // failed run keeps `error: null` unless a webhook happens to land —
+            // the read-time reconcile cannot help, because by then the run is
+            // terminal and no longer reconciled.
+            ...(data.error ? { error_json: JSON.stringify(data.error) } : {}),
           });
           break;
         }

@@ -21,6 +21,44 @@ Why it works: the backend mirrors every event into a durable per-run stream
 and pushes an `awaiting_human` notification onto your per-user feed; both
 clients are just subscribers (see `ARCHITECTURE.md` → Realtime model).
 
+## 1b. Hand over a goal with no machine at all (managed task)
+
+You never provision, select, or destroy anything: Coasty makes an ephemeral VM,
+runs the task fully autonomously, and tears it down afterwards.
+
+1. **Delegate** → pick **“Coasty-managed”** (the first target — no machine
+   required) → type the goal → confirm → the run starts.
+2. Watch it exactly like any other run: same timeline, same cancel button.
+   `machine_id` is `null` for the first second or two while the VM provisions.
+3. When it finishes, the panel tells you whether the machine was actually shut
+   down — *not just* that the task ended.
+
+```bash
+# Same thing over HTTP. The estimate MUST be kind:'task' — it includes the
+# ephemeral machine's runtime, which a run estimate does not.
+CENTS=$(curl -s localhost:4000/api/estimate -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"kind":"task","maxSteps":25,"deadlineSeconds":3600}' | jq .cents)
+
+curl -s localhost:4000/api/tasks -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d "{\"task\":\"Download the newest invoice and verify the PDF exists\",
+       \"maxSteps\":25,\"deadlineSeconds\":3600,\"confirmCostCents\":$CENTS}"
+```
+
+Three things worth knowing before you reach for this:
+
+- **It never pauses.** A managed task cannot be approved or resumed — the
+  runtime intercepts the model's handoff request and tells it to carry on. If
+  you need a human gate, use a normal run or a workflow with `human_approval`.
+- **A finished task is not a destroyed machine.** Cleanup starts *after* the
+  run goes terminal, so `machine.cleanup_status` can still be `terminating` or
+  `retrying`. The machine's TTL is the backstop either way.
+- **The evidence outlives the machine.** `GET /api/runs/:id/screenshots`
+  returns the model-input frames — the exact images the agent saw before each
+  decision — and they survive teardown. Add `?includeImage=true` for the bytes
+  (that page is clamped and served `no-store`; a frame can show an inbox).
+
 ## 2. Let the agent drive *your own* computer (desktop)
 
 1. Run the stack (`pnpm dev:mock` + `dev:backend` + `dev:web`), then

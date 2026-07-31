@@ -11,9 +11,19 @@ export interface SessionUser {
   budgetCents: number;
 }
 
+/** Automatic machine lifecycle; present only on `kind: 'task'` runs. */
+export interface RunMachineDto {
+  mode: 'automatic';
+  status: 'provisioning' | 'ready' | 'failed' | 'released';
+  id: string | null;
+  cleanup: 'always';
+  cleanup_status: 'pending' | 'terminating' | 'retrying' | 'terminated' | 'failed';
+  error?: { code?: string; message?: string } | null;
+}
+
 export interface RunDto {
   id: string;
-  kind: 'coasty' | 'local';
+  kind: 'coasty' | 'local' | 'task';
   machineId: string | null;
   task: string;
   status: string;
@@ -27,6 +37,26 @@ export interface RunDto {
   awaitingHumanReason: string | null;
   createdAt: string;
   finishedAt: string | null;
+  machine?: RunMachineDto | null;
+  deadlineSeconds?: number | null;
+  actionPolicy?: Record<string, unknown> | null;
+}
+
+/** One model-input frame — the image the agent saw before a decision. */
+export interface RunScreenshotDto {
+  index: number;
+  attempt: number;
+  step: number;
+  taken_at: string;
+  width: number;
+  height: number;
+  mime_type: string;
+  size_bytes: number;
+  sha256: string;
+  degraded: boolean;
+  encrypted_at_rest: boolean;
+  image_b64?: string | null;
+  image_unavailable?: boolean;
 }
 
 export interface MachineDto {
@@ -379,8 +409,37 @@ export class BackendClient {
   }): Promise<RunDto> {
     return this.request('/api/runs', { method: 'POST', body: JSON.stringify(body) });
   }
+  /**
+   * Submit-and-forget: no machine id, because Coasty provisions, drives, and
+   * destroys the machine itself. `confirmCostCents` must echo a `kind: 'task'`
+   * estimate — a run estimate would be short by the machine-runtime component.
+   */
+  createTask(body: {
+    task: string;
+    cuaVersion?: string;
+    maxSteps?: number;
+    deadlineSeconds?: number;
+    osType?: 'linux' | 'windows';
+    machineProvider?: 'auto' | 'aws' | 'daytona' | 'azure';
+    budgetCents?: number;
+    confirmCostCents: number;
+  }): Promise<RunDto> {
+    return this.request('/api/tasks', { method: 'POST', body: JSON.stringify(body) });
+  }
   listRuns(): Promise<{ runs: RunDto[] }> {
     return this.request('/api/runs');
+  }
+  /** Model-input frames for a run. Metadata only unless `includeImage`. */
+  listRunScreenshots(
+    id: string,
+    opts: { afterIndex?: number; limit?: number; includeImage?: boolean } = {},
+  ): Promise<{ object: 'list'; data: RunScreenshotDto[]; has_more: boolean }> {
+    const params = new URLSearchParams();
+    if (opts.afterIndex !== undefined) params.set('afterIndex', String(opts.afterIndex));
+    if (opts.limit !== undefined) params.set('limit', String(opts.limit));
+    if (opts.includeImage) params.set('includeImage', 'true');
+    const qs = params.toString();
+    return this.request(`/api/runs/${id}/screenshots${qs ? `?${qs}` : ''}`);
   }
   getRun(id: string): Promise<RunDto> {
     return this.request(`/api/runs/${id}`);

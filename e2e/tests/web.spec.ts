@@ -82,7 +82,10 @@ test.describe('full delegate → watch → approve → complete journey', () => 
     // Delegate a task that pauses for a human.
     await page.getByRole('link', { name: /delegate/i }).click();
     await page.getByLabel(/task/i).fill('Sort the inbox NEEDS_HUMAN then archive the rest');
-    await selectMachine(page); // first (and only) provisioned machine
+    // Name the machine explicitly. The first option is now the Coasty-managed
+    // target, which runs autonomously and would never reach the approval bar
+    // this test is here to exercise.
+    await selectMachine(page, /linux cloud VM/i);
     await page.getByRole('button', { name: 'Send' }).click();
 
     // Explicit confirmation before anything billable. The dialog deliberately
@@ -123,6 +126,50 @@ test.describe('full delegate → watch → approve → complete journey', () => 
     // Runs list shows the completed run.
     await page.getByRole('link', { name: /^runs$/i }).click();
     await expect(page.getByText(/sort the inbox/i).first()).toBeVisible();
+
+    assertNoLeaks();
+  });
+
+  test('managed task: no machine needed, runs autonomously, cleans up after itself', async ({
+    page,
+  }) => {
+    const assertNoLeaks = watchForSecrets(page);
+    await login(page);
+
+    // Deliberately NO ensureMachine(): the whole point of a submit-and-forget
+    // task is that the user never provisions anything.
+    await page.getByRole('link', { name: /delegate/i }).click();
+    await page.getByLabel(/task/i).fill('NEEDS_HUMAN download the newest invoice and verify it');
+    await selectMachine(page, /coasty-managed/i);
+    await page.getByRole('button', { name: 'Send' }).click();
+
+    // The confirm names the autonomy trade-off: no approvals, no resume.
+    const confirm = page.getByRole('dialog', { name: /ready to start/i });
+    await expect(confirm).toBeVisible();
+    await expect(confirm).toContainText(/fully autonomously/i);
+    await confirm.getByRole('button', { name: /start run/i }).click();
+
+    await expect(page).toHaveURL(/\/runs\//);
+    await expect(page.getByRole('log')).toBeVisible();
+
+    // While the machine is being created there is no machine id to show.
+    await expect(page.getByText(/managed machine/i).first()).toBeVisible({ timeout: 20_000 });
+
+    // The task text contains NEEDS_HUMAN, which pauses an ordinary run. A task
+    // must intercept that and carry on — so the approval bar must NEVER appear.
+    await expect(page.getByText(/finished/i).first()).toBeVisible({ timeout: 40_000 });
+    await expect(page.getByRole('button', { name: /approve/i })).toHaveCount(0);
+    await expect(page.getByText(/succeeded/i).first()).toBeVisible();
+
+    // And it tells the user the ephemeral machine was shut down afterwards.
+    await expect(page.getByText(/machine was shut down/i)).toBeVisible({ timeout: 30_000 });
+
+    // The frames outlive the machine: the final screen still renders.
+    await expect(page.getByAltText(/machine screen/i)).toHaveAttribute(
+      'src',
+      /data:image\/png;base64,/,
+      { timeout: 20_000 },
+    );
 
     assertNoLeaks();
   });

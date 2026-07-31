@@ -11,6 +11,7 @@ import { sendError, requestId } from './util';
 import { type Ctx, type MockOptions } from './ctx';
 import { registerInferenceRoutes } from './inference';
 import { registerRunRoutes } from './runs';
+import { registerTaskRoutes } from './tasks';
 import { registerMachineRoutes } from './machines';
 import { registerWorkflowRoutes } from './workflows';
 
@@ -90,6 +91,7 @@ export function createMockCoasty(options: Partial<MockOptions> = {}): MockCoasty
 
   registerInferenceRoutes(app, ctx);
   registerRunRoutes(app, ctx);
+  registerTaskRoutes(app, ctx);
   registerMachineRoutes(app, ctx);
   registerWorkflowRoutes(app, ctx);
 

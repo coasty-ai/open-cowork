@@ -31,8 +31,10 @@ import {
 import { streamSse } from './sse';
 import { z } from 'zod';
 import {
+  CUA_VERSIONS,
   machineRuntimeCentsPerHour,
   runEstimateCents,
+  taskEstimateCents,
   workflowEstimateCents,
 } from '@open-cowork/core';
 
@@ -236,7 +238,7 @@ export function buildServer(deps: ServerDeps): BuiltServer {
   const estimateSchema = z.discriminatedUnion('kind', [
     z.object({
       kind: z.literal('run'),
-      cuaVersion: z.enum(['v1', 'v3', 'v4']).optional(),
+      cuaVersion: z.enum(CUA_VERSIONS).optional(),
       maxSteps: z.number().int().min(1).max(1000).optional(),
     }),
     z.object({
@@ -246,8 +248,15 @@ export function buildServer(deps: ServerDeps): BuiltServer {
     z.object({
       kind: z.literal('workflow'),
       definition: z.record(z.string(), z.unknown()),
-      cuaVersion: z.enum(['v1', 'v3', 'v4']).optional(),
+      cuaVersion: z.enum(CUA_VERSIONS).optional(),
       assumedStepsPerTask: z.number().int().min(1).max(100).optional(),
+    }),
+    z.object({
+      kind: z.literal('task'),
+      cuaVersion: z.enum(CUA_VERSIONS).optional(),
+      maxSteps: z.number().int().min(1).max(1000).optional(),
+      deadlineSeconds: z.number().int().min(1).max(86400).optional(),
+      osType: z.enum(['linux', 'windows']).optional(),
     }),
   ]);
   app.post('/api/estimate', async (request) => {
@@ -271,6 +280,17 @@ export function buildServer(deps: ServerDeps): BuiltServer {
           assumedStepsPerTask: body.assumedStepsPerTask,
         });
         return { kind: 'workflow', cents: est.typicalCents, breakdown: est };
+      }
+      case 'task': {
+        // A task bills TWO meters (agent steps + ephemeral machine runtime),
+        // so this is the worst case of both — the number the client must echo.
+        const est = taskEstimateCents({
+          cuaVersion: body.cuaVersion,
+          maxSteps: body.maxSteps,
+          deadlineSeconds: body.deadlineSeconds,
+          osType: body.osType,
+        });
+        return { kind: 'task', cents: est.maxCents, breakdown: est };
       }
     }
   });

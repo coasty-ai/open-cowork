@@ -68,6 +68,13 @@ export function stubClient(overrides: Stub = {}): BackendClient {
     listRuns: vi.fn(async () => ({ runs: [] })),
     getRun: vi.fn(async () => makeRun()),
     createRun: vi.fn(async () => makeRun({ id: 'r_new', status: 'queued' })),
+    createTask: vi.fn(async () => makeRun({ id: 'r_task', status: 'queued' })),
+    // Frames default to an empty page so a run view never blocks on them.
+    listRunScreenshots: vi.fn(async () => ({
+      object: 'list' as const,
+      data: [] as [],
+      has_more: false,
+    })),
     cancelRun: vi.fn(async () => makeRun({ status: 'cancelled' })),
     resumeRun: vi.fn(async () => makeRun({ status: 'running' })),
     localRunFrame: vi.fn(async () => ({

@@ -8,16 +8,7 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  Button,
-  EmptyState,
-  ErrorState,
-  Icon,
-  Logo,
-  Modal,
-  Spinner,
-  TaskComposer,
-} from '@open-cowork/ui';
+import { Button, ErrorState, Icon, Logo, Modal, Spinner, TaskComposer } from '@open-cowork/ui';
 import { getClient } from '../store';
 import {
   ApiError,
@@ -30,6 +21,8 @@ import {
 const MACHINE_POLL_MS = 3000;
 
 const LOCAL_TARGET_ID = '__local__';
+/** Synthetic target: Coasty provisions and destroys the machine (POST /v1/tasks). */
+const MANAGED_TARGET_ID = '__managed__';
 const STEP_DEFAULT = 25;
 const STEP_MIN = 1;
 const STEP_MAX = 1000;
@@ -93,26 +86,45 @@ export function HomePage() {
       .catch(() => setProvider(null));
   }, [isDesktop]);
 
+  const cloudOptions = useMemo(
+    () =>
+      (machines ?? [])
+        .filter((m) => m.status === 'running')
+        .map((m) => ({ id: m.id, label: `${m.display_name} (${m.os_type} cloud VM)` })),
+    [machines],
+  );
+
   const options = useMemo(() => {
-    const cloud = (machines ?? [])
-      .filter((m) => m.status === 'running')
-      .map((m) => ({ id: m.id, label: `${m.display_name} (${m.os_type} cloud VM)` }));
+    // The managed target is ALWAYS available: a submit-and-forget task needs no
+    // machine at all, so it is offered first and is the reason this page can no
+    // longer dead-end on "you have no machines".
+    const managed = {
+      id: MANAGED_TARGET_ID,
+      label: 'Coasty-managed (no setup — I make and destroy the machine)',
+    };
     return isDesktop
-      ? [{ id: LOCAL_TARGET_ID, label: 'This computer (local screen)', local: true }, ...cloud]
-      : cloud;
-  }, [machines, isDesktop]);
+      ? [
+          { id: LOCAL_TARGET_ID, label: 'This computer (local screen)', local: true },
+          managed,
+          ...cloudOptions,
+        ]
+      : [managed, ...cloudOptions];
+  }, [cloudOptions, isDesktop]);
 
   // A machine provisioned on the Machines page is `creating` for a while before
   // it is `running`, and the list above is otherwise fetched exactly once on
-  // mount. Without this, arriving here a moment too early pins the "No machine
-  // to run on" empty state until the user manually reloads — the machine is
-  // ready, the page just never asks again. Poll only while nothing is runnable,
-  // and stop the moment something is.
+  // mount. Without this, arriving here a moment too early leaves that machine
+  // missing from the selector until a manual reload — it is ready, the page
+  // just never asks again. Poll while none is runnable; stop as soon as one is.
+  //
+  // NB: this keys off runnable CLOUD machines, NOT `options.length`. The
+  // managed target is always present, so `options` is never empty; keying off
+  // it would silently disable this poll entirely.
   useEffect(() => {
-    if (machines === null || options.length > 0) return;
+    if (machines === null || cloudOptions.length > 0) return;
     const timer = setInterval(() => void load(), MACHINE_POLL_MS);
     return () => clearInterval(timer);
-  }, [machines, options.length]);
+  }, [machines, cloudOptions.length]);
 
   const screenOptions = useMemo(
     () => screens.map((s) => ({ id: String(s.id), label: s.label })),
@@ -139,8 +151,21 @@ export function HomePage() {
         navigate(`/runs/${runId}`);
         return;
       }
-      // The backend requires confirmCostCents to echo its current worst-case for
-      // this step count (anti-surprise handshake) — compute it, but never show it.
+      // The backend requires confirmCostCents to echo its current worst-case
+      // (anti-surprise handshake) — compute it, but never show it.
+      if (pendingTask.machineId === MANAGED_TARGET_ID) {
+        // A task's worst case includes ephemeral machine runtime, so it MUST be
+        // a `kind: 'task'` estimate — a run estimate would be short and the
+        // handshake would (correctly) reject it.
+        const estimate = await client.estimate({ kind: 'task', maxSteps });
+        const run = await client.createTask({
+          task: pendingTask.task,
+          maxSteps,
+          confirmCostCents: estimate.cents,
+        });
+        navigate(`/runs/${run.id}`);
+        return;
+      }
       const estimate = await client.estimate({ kind: 'run', maxSteps });
       const run = await client.createRun({
         machineId: pendingTask.machineId,
@@ -183,6 +208,7 @@ export function HomePage() {
     );
 
   const isLocalPending = pendingTask?.machineId === LOCAL_TARGET_ID;
+  const isManagedPending = pendingTask?.machineId === MANAGED_TARGET_ID;
 
   return (
     <>
@@ -193,31 +219,23 @@ export function HomePage() {
             <p className="delegate__caption">{subtitle}</p>
           </div>
 
-          {options.length === 0 ? (
-            <EmptyState
-              title="No machine to run on"
-              description="Provision a cloud machine first — the agent needs a screen to work on."
-              action={
-                <Button onClick={() => navigate('/machines')} variant="primary">
-                  Go to Machines
-                </Button>
-              }
-            />
-          ) : (
-            <TaskComposer
-              options={options}
-              pending={submitting}
-              screenOptions={screenOptions}
-              defaultScreenId={defaultScreenId}
-              onSubmit={(payload) =>
-                setPendingTask({
-                  task: payload.task,
-                  machineId: payload.machineId,
-                  screenId: payload.screenId,
-                })
-              }
-            />
-          )}
+          {/*
+            There is no "no machine to run on" dead end any more: the managed
+            target needs no machine, so the composer is always usable.
+          */}
+          <TaskComposer
+            options={options}
+            pending={submitting}
+            screenOptions={screenOptions}
+            defaultScreenId={defaultScreenId}
+            onSubmit={(payload) =>
+              setPendingTask({
+                task: payload.task,
+                machineId: payload.machineId,
+                screenId: payload.screenId,
+              })
+            }
+          />
 
           {isDesktop && provider && !provider.isDefault ? (
             <p className="delegate__provider" role="status">
@@ -236,9 +254,20 @@ export function HomePage() {
       >
         <div className="stack run-confirm">
           <p className="run-confirm__lede">
-            I’ll work through this {isLocalPending ? 'on this computer ' : ''}step by step and pause
-            for you whenever I need a decision.
+            {isManagedPending
+              ? 'I’ll spin up a fresh cloud computer, work through this step by step, and shut it down when I’m done.'
+              : `I’ll work through this ${isLocalPending ? 'on this computer ' : ''}step by step and pause for you whenever I need a decision.`}
           </p>
+
+          {isManagedPending ? (
+            <p className="notice">
+              <Icon name="alertTriangle" size={16} className="notice__icon" />
+              <span className="notice__body">
+                A managed task runs <strong>fully autonomously</strong> — it never pauses to ask
+                you, so it can’t be approved or resumed mid-run. Cancel is always available.
+              </span>
+            </p>
+          ) : null}
 
           <div className="run-confirm__steps">
             <div className="run-confirm__steps-head">
