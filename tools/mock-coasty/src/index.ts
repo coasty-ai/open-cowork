@@ -39,6 +39,7 @@ export function createMockCoasty(options: Partial<MockOptions> = {}): MockCoasty
     walletCents: options.walletCents ?? 10_000,
     tickMs: options.tickMs ?? 25,
     defaultRunSteps: options.defaultRunSteps ?? 4,
+    now: options.now ?? (() => Date.now()),
     logger: options.logger ?? false,
   };
   const state = new MockState(opts.walletCents);

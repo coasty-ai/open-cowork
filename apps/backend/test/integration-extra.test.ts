@@ -409,7 +409,10 @@ describe('inference proxy errors', () => {
 // ── 6. Resume / cancel state errors ───────────────────────────────────────────
 describe('resume / cancel state errors', () => {
   it('resuming a running (not awaiting) run → mapped 409 NOT_AWAITING_HUMAN', async () => {
-    h = await startHarness();
+    // Same ~105ms 'running' window as the cancel test — widen it so the poll
+    // cannot miss the transient state under CI load. (The assertion itself is
+    // safe either way; it is only observing 'running' that races.)
+    h = await startHarness({ mockOpts: { tickMs: 50 } });
     const { res } = await createRun(h, 'long task RUN_LONG');
     const run = (await res.json()) as { id: string };
     await pollUntil(async () => {

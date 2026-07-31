@@ -197,16 +197,33 @@ describe('run lifecycle', () => {
   });
 
   it('deadline_seconds → timed_out', async () => {
-    // No RUN_LONG marker: defaultRunSteps(1000) means it can never finish
-    // before the 1s deadline trips.
-    m = mock({ tickMs: 20, defaultRunSteps: 1000 });
-    const { res } = await startRun('slow forever task', { deadline_seconds: 1 });
+    // Drive the injected clock rather than betting that ticks outlast a real
+    // deadline. The previous version raced them and had 2% of headroom: the
+    // step budget is `max_steps` (runs.ts defaults it to 50), NOT the
+    // defaultRunSteps the test set, so step 50 landed on tick 51 =
+    // 51 x 20ms = 1020ms against a 1000ms deadline. It passed only because
+    // setInterval can never fire early.
+    let clock = Date.now();
+    m = mock({ tickMs: 20, defaultRunSteps: 1000, now: () => clock });
+    const { res } = await startRun('slow forever task', {
+      deadline_seconds: 1,
+      max_steps: 1000, // explicit: the deadline is what must stop this run
+    });
     const id = (res.json() as { id: string }).id;
+    // Let it actually start working, so the timeout is observed mid-run.
+    await pollUntil(async () => {
+      const run = await getRun(id);
+      return run.status === 'running' ? run : undefined;
+    }, 8000);
+
+    clock += 1_001;
+
     const finished = await pollUntil(async () => {
       const run = await getRun(id);
       return run.status === 'timed_out' ? run : undefined;
     }, 8000);
     expect(finished.status).toBe('timed_out');
+    expect(finished.steps_completed).toBeLessThan(1000);
   });
 
   it('cancel: active → cancelled; terminal → 409 INVALID_STATE with allowed_from', async () => {

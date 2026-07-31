@@ -212,7 +212,12 @@ describe('cloud run lifecycle', () => {
   });
 
   it('cancel stops an active run', async () => {
-    h = await startHarness();
+    // Slow the mock's stepper so the run stays cancellable long enough to be
+    // caught. `RUN_LONG` pins stepsTarget to 20 regardless of defaultRunSteps,
+    // so at the default tickMs:5 the run is only active for 21 x 5ms = ~105ms
+    // — against which the poll + two loopback round-trips leave ~2.5x margin,
+    // and a loaded CI runner closes it. tickMs:50 makes the window ~1050ms.
+    h = await startHarness({ mockOpts: { tickMs: 50 } });
     const { res } = await createRun(h, 'long task RUN_LONG');
     const run = (await res.json()) as { id: string };
     await pollUntil(async () => {

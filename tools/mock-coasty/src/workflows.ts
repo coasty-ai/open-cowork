@@ -301,7 +301,8 @@ export function registerWorkflowRoutes(app: FastifyInstance, ctx: Ctx): void {
 
     const checkAbort = (): void => {
       if (run.cancelled) throw new Terminated('cancelled');
-      if (run.deadlineAt !== null && Date.now() > run.deadlineAt) throw new Terminated('timed_out');
+      if (run.deadlineAt !== null && ctx.opts.now() > run.deadlineAt)
+        throw new Terminated('timed_out');
     };
 
     const guard = (maxIterations: number | null): void => {
@@ -665,7 +666,7 @@ export function registerWorkflowRoutes(app: FastifyInstance, ctx: Ctx): void {
       cancelled: false,
       deadlineAt:
         typeof body.deadline_seconds === 'number'
-          ? Date.now() + body.deadline_seconds * 1000
+          ? ctx.opts.now() + body.deadline_seconds * 1000
           : null,
     };
     state.workflowRuns.set(run.id, run);

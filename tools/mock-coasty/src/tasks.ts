@@ -416,7 +416,7 @@ export function registerTaskRoutes(app: FastifyInstance, ctx: Ctx): void {
       mode: 'task',
       machine: machineView,
       action_policy: (body.action_policy as Record<string, unknown> | null) ?? null,
-      deadlineAt: deadlineSeconds !== null ? Date.now() + (deadlineSeconds as number) * 1000 : null,
+      deadlineAt: deadlineSeconds !== null ? opts.now() + (deadlineSeconds as number) * 1000 : null,
       stepsTarget: task.includes('RUN_LONG') ? 20 : opts.defaultRunSteps,
       attempt: 1,
       screenshots: [],

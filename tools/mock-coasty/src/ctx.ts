@@ -10,6 +10,17 @@ export interface MockOptions {
   tickMs: number;
   /** Steps a default task takes before succeeding. Default 4. */
   defaultRunSteps: number;
+  /**
+   * Clock backing every deadline comparison. Defaults to `Date.now`.
+   *
+   * Deadlines are the one place the mock mixes two independent clocks: progress
+   * is driven by `setInterval` ticks, but expiry is wall-clock. A test that
+   * arranges "N ticks should overrun a deadline" is really betting that N ticks
+   * of real time elapse slower than the deadline — a bet that inverts on a
+   * faster or slower machine and flakes in CI. Injecting the clock lets a test
+   * move the deadline past without racing the stepper at all.
+   */
+  now: () => number;
   logger: boolean;
 }
 
