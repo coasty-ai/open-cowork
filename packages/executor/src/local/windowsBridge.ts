@@ -72,8 +72,11 @@ function Escape-SendKeys([string]$text) {
     if ($code -eq 10) { [void]$sb.Append('{ENTER}') }
     elseif ($code -eq 13) { }
     elseif ($code -eq 9) { [void]$sb.Append('{TAB}') }
-    elseif ('+^%~(){}[]'.Contains([string]$ch)) { [void]$sb.Append('{' + $ch + '}') }
-    else { [void]$sb.Append($ch) }
+    elseif (($code -ge 48 -and $code -le 57) -or ($code -ge 65 -and $code -le 90) -or ($code -ge 97 -and $code -le 122) -or $code -eq 32) {
+      [void]$sb.Append($ch)
+    } else {
+      [void]$sb.Append('{' + $ch + '}')
+    }
   }
   return $sb.ToString()
 }
