@@ -162,7 +162,7 @@ export async function executeWorkflow(opts: ExecuteWorkflowOptions): Promise<Wor
         checkGuards();
         // Per docs, a task that fails does not by itself end the workflow —
         // asserts/conditions decide. But a transport-level error does.
-        if (result.error && result.status === 'failed' && result.run_id === '') {
+        if (result.error && result.status === 'failed' && (!result.run_id || result.run_id === '')) {
           throw new StepFailure(step.id, result.error.message);
         }
         return;
