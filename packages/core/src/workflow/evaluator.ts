@@ -161,8 +161,14 @@ export async function executeWorkflow(opts: ExecuteWorkflowOptions): Promise<Wor
         onEvent?.({ type: 'task-result', stepId: step.id, result: binding });
         checkGuards();
         // Per docs, a task that fails does not by itself end the workflow —
-        // asserts/conditions decide. But a transport-level error does.
-        if (result.error && result.status === 'failed' && result.run_id === '') {
+        // asserts/conditions decide. But a transport-level error does, and the
+        // tell is that no run was ever created.
+        //
+        // `!run_id` rather than `=== ''`: runTask is an injected callback, so a
+        // JS caller is not bound by the `string` type and may report "no run" as
+        // null or undefined. Those used to fall through as a *successful* step,
+        // silently continuing the workflow on a transport failure.
+        if (result.error && result.status === 'failed' && !result.run_id) {
           throw new StepFailure(step.id, result.error.message);
         }
         return;

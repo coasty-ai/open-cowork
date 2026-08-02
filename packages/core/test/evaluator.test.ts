@@ -396,4 +396,24 @@ describe('executeWorkflow', () => {
       'start:s',
     ]);
   });
+
+  it('task step transport failure throws STEP_FAILED when transport error occurs without run_id', async () => {
+    const runTask = async (): Promise<TaskStepResult> => ({
+      status: 'failed',
+      passed: false,
+      result: null,
+      run_id: null as unknown as string,
+      steps: 0,
+      error: { code: 'NETWORK_ERROR', message: 'Failed to connect to machine' },
+      costCents: 0,
+    });
+    const def: WorkflowDefinition = {
+      steps: [{ id: 't1', type: 'task', task: 'unreachable target' }],
+    };
+    const result = await executeWorkflow({ definition: def, runTask });
+    expect(result).toMatchObject({
+      status: 'failed',
+      error: { code: 'STEP_FAILED', message: "Step 't1': Failed to connect to machine" },
+    });
+  });
 });
