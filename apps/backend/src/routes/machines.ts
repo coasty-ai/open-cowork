@@ -12,6 +12,7 @@ import type { FastifyInstance } from 'fastify';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import {
+  CUA_VERSIONS,
   machineRuntimeCentsPerHour,
   PRICING,
   type CoastyClient,
@@ -156,7 +157,7 @@ export function registerMachineRoutes(app: FastifyInstance, deps: MachineRouteDe
 
   // ── inference proxy (desktop local agent loop; key stays server-side) ──────
   const sessionSchema = z.object({
-    cuaVersion: z.enum(['v1', 'v3', 'v4']).default('v3'),
+    cuaVersion: z.enum(CUA_VERSIONS).default('v3'),
     screenWidth: z.number().int().min(320).max(3840).default(1920),
     screenHeight: z.number().int().min(240).max(2160).default(1080),
     instructions: z.string().max(16000).optional(),
