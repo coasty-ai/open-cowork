@@ -567,4 +567,18 @@ describe('inference proxy (desktop local loop)', () => {
     });
     expect(deleteRes.status).toBe(200);
   });
+
+  // Regression test for a schema-drift bug: this endpoint's cua_version enum
+  // was hand-typed and predated the v5 engine, so it 400'd on the very
+  // version every other endpoint in the app accepts (and tasks default to).
+  it('accepts every documented cua_version, including v5', async () => {
+    h = await startHarness();
+    for (const cuaVersion of ['v1', 'v3', 'v4', 'v5']) {
+      const res = await h.api('/api/proxy/sessions', {
+        method: 'POST',
+        body: JSON.stringify({ cuaVersion, screenWidth: 1280, screenHeight: 720 }),
+      });
+      expect(res.status).toBe(200);
+    }
+  });
 });
