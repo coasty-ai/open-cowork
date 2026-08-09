@@ -212,4 +212,29 @@ describe('runAgentLoop', () => {
     });
     expect(seen).toEqual({ instruction: 'open calculator', width: 1280 });
   });
+
+  it('does not finish done if action execution failed on that step', async () => {
+    let callCount = 0;
+    const screen = fakeScreen({
+      execute: async () => {
+        callCount++;
+        throw new Error('Screen execution failed');
+      },
+    });
+    const predict = scriptedPredict([
+      { status: 'done', actions: [click], reasoning: 'done but click fails' },
+      { status: 'done', actions: [click], reasoning: 'done but click fails 2' },
+      { status: 'done', actions: [click], reasoning: 'done but click fails 3' },
+    ]);
+    const outcome = await runAgentLoop({
+      screen,
+      predictStep: predict,
+      task: 't',
+      sleep: noSleep,
+      maxConsecutiveFailures: 3,
+    });
+    expect(outcome.status).toBe('fail');
+    expect(outcome.reason).toMatch(/consecutive/);
+    expect(callCount).toBe(3);
+  });
 });
