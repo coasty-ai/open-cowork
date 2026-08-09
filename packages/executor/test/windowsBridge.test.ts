@@ -67,6 +67,9 @@ describe('WindowsBridge protocol (fake daemon)', () => {
     await bridge.scroll('down', 3);
     await bridge.drag(0, 0, 5, 5, 'left');
     await bridge.keyPress(['enter']);
+    await bridge.keyCombo(['ctrl', '/']);
+    await bridge.keyCombo(['ctrl', '.']);
+    await bridge.keyPress(['-']);
   });
 
   it('a failed daemon op rejects with its error message', async () => {
