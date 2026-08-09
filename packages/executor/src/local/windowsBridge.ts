@@ -39,11 +39,18 @@ $VK = @{
   'ctrl'=0x11;'control'=0x11;'alt'=0x12;'shift'=0x10;'win'=0x5B;'cmd'=0x5B;'meta'=0x5B;
   'capslock'=0x14;'printscreen'=0x2C
 }
+$VK_OEM = @{
+  '.'=0xBE;','=0xBC;'-'=0xBD;'='=0xBB;'+'=0xBB;
+  '/'=0xBF;'?'=0xBF;';'=0xBA;':'=0xBA;'\''=0xDE;'"'=0xDE;
+  '['=0xDB;'{'=0xDB;']'=0xDD;'}'=0xDD;'\\'=0xDC;'|'=0xDC;
+  '~'=0xC0;([string][char]96)=0xC0
+}
 function Get-VK([string]$name) {
   $n = $name.ToLowerInvariant()
   if ($VK.ContainsKey($n)) { return $VK[$n] }
   if ($n -match '^f([0-9]{1,2})$') { return 0x6F + [int]$Matches[1] }
   if ($n.Length -eq 1) {
+    if ($VK_OEM.ContainsKey($name)) { return $VK_OEM[$name] }
     $c = [char]$n.ToUpperInvariant()
     if ($c -ge '0' -and $c -le '9') { return [int]$c }
     if ($c -ge 'A' -and $c -le 'Z') { return [int]$c }
@@ -72,8 +79,11 @@ function Escape-SendKeys([string]$text) {
     if ($code -eq 10) { [void]$sb.Append('{ENTER}') }
     elseif ($code -eq 13) { }
     elseif ($code -eq 9) { [void]$sb.Append('{TAB}') }
-    elseif ('+^%~(){}[]'.Contains([string]$ch)) { [void]$sb.Append('{' + $ch + '}') }
-    else { [void]$sb.Append($ch) }
+    elseif (($code -ge 48 -and $code -le 57) -or ($code -ge 65 -and $code -le 90) -or ($code -ge 97 -and $code -le 122) -or $code -eq 32) {
+      [void]$sb.Append($ch)
+    } else {
+      [void]$sb.Append('{' + $ch + '}')
+    }
   }
   return $sb.ToString()
 }
