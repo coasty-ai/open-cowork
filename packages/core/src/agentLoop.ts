@@ -305,11 +305,10 @@ export async function runAgentLoop(opts: AgentLoopOptions): Promise<AgentLoopOut
       }
     } else {
       consecutiveFailures = 0;
+      if (prediction.status === 'done') return finish('done', prediction.reasoning ?? undefined);
+      if (prediction.status === 'fail')
+        return finish('fail', prediction.reasoning ?? 'Agent reported failure');
     }
-
-    if (prediction.status === 'done') return finish('done', prediction.reasoning ?? undefined);
-    if (prediction.status === 'fail')
-      return finish('fail', prediction.reasoning ?? 'Agent reported failure');
 
     if (step < maxSteps - 1 && settleMs > 0) {
       try {
