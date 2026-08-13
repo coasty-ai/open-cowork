@@ -307,7 +307,19 @@ export async function runAgentLoop(opts: AgentLoopOptions): Promise<AgentLoopOut
       consecutiveFailures = 0;
     }
 
-    if (prediction.status === 'done') return finish('done', prediction.reasoning ?? undefined);
+    // A step whose action threw cannot be reported as success. `stepHadFailure`
+    // already gates the consecutive-failure counter above, but that path only
+    // returns `fail` at the threshold — below it, control fell through to here
+    // and a step that threw finished as `done`. The failure was on the event
+    // stream and absent from the outcome, which is the wrong way round when the
+    // outcome is what gets audited.
+    //
+    // Retry tolerance is deliberate, so it is preserved: below the threshold the
+    // loop continues to the next step and the model sees the screen again. Only
+    // the claim of success is withheld.
+    if (prediction.status === 'done' && !stepHadFailure) {
+      return finish('done', prediction.reasoning ?? undefined);
+    }
     if (prediction.status === 'fail')
       return finish('fail', prediction.reasoning ?? 'Agent reported failure');
 
