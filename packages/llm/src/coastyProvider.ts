@@ -6,6 +6,7 @@
  * short-lived session token). Vision is inherent to the CUA model, so it never
  * blocks. `listModels` reports the CUA versions.
  */
+import { CUA_VERSIONS } from '@open-cowork/core';
 import type { CreateSessionResponse, CuaVersion, SessionPredictResponse } from '@open-cowork/core';
 import { mapProviderError } from './errors';
 import type {
@@ -48,7 +49,9 @@ export class CoastyProvider implements InferenceProvider {
   }
 
   async listModels(): Promise<ModelInfo[]> {
-    return (['v4', 'v3', 'v1'] as CuaVersion[]).map((v) => ({
+    // Derived from the canonical list so a new engine version cannot be silently
+    // omitted here the way v5 was.
+    return [...CUA_VERSIONS].reverse().map((v) => ({
       id: v,
       label: `Coasty CUA ${v}`,
       vision: true,
