@@ -67,7 +67,9 @@ const MODELS_BASE_BY_KIND: Partial<Record<ProviderKind, string>> = {
   xai: 'https://api.x.ai/v1',
   mistral: 'https://api.mistral.ai/v1',
   groq: 'https://api.groq.com/openai/v1',
+  novita: 'https://api.novita.ai/openai/v1',
 };
+const NOVITA_DEFAULT_BASE = 'https://api.novita.ai/openai/v1';
 const OPENROUTER_MODELS_URL = 'https://openrouter.ai/api/v1/models';
 const ANTHROPIC_DEFAULT_BASE = 'https://api.anthropic.com';
 /** Anthropic requires a dated API version header on every request. */
@@ -472,6 +474,14 @@ function buildModel(config: ProviderConfig): LanguageModel {
       return createMistral({ apiKey: config.apiKey ?? '', baseURL })(config.model);
     case 'groq':
       return createGroq({ apiKey: config.apiKey ?? '', baseURL })(config.model);
+    case 'novita':
+      // Novita has no dedicated AI-SDK package — it speaks the OpenAI chat
+      // dialect exactly, so the generic OpenAI-compatible factory is enough.
+      return createOpenAICompatible({
+        name: 'novita',
+        baseURL: baseURL ?? NOVITA_DEFAULT_BASE,
+        apiKey: config.apiKey,
+      })(config.model);
     case 'openrouter':
       return createOpenRouter({ apiKey: config.apiKey ?? '' }).chat(config.model);
     case 'openai-compatible':

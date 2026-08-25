@@ -41,6 +41,7 @@ overridden behind your back.
 | **xAI** | `XAI_API_KEY` | required | Grok (the whole 4 line is multimodal) |
 | **Mistral** | `MISTRAL_API_KEY` | required | Pixtral, Mistral Medium / Small 3 |
 | **Groq** | `GROQ_API_KEY` | required | fast inference for Llama vision models |
+| **Novita** | `NOVITA_API_KEY` | required | open-weight models incl. Qwen3-VL, DeepSeek, GLM |
 | **OpenRouter** | `OPENROUTER_API_KEY` | required | hundreds of models; vision read from OpenRouter's own modality metadata |
 | **OpenAI-compatible** | `COWORK_LLM_API_KEY` | optional | **Ollama**, LM Studio, vLLM, Together, Fireworks — any `…/v1` base URL |
 
