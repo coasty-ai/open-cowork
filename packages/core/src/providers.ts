@@ -28,6 +28,7 @@ export type ProviderKind =
   | 'xai'
   | 'mistral'
   | 'groq'
+  | 'novita'
   | 'openrouter'
   | 'openai-compatible';
 
@@ -39,6 +40,7 @@ export const BYO_PROVIDER_KINDS = [
   'xai',
   'mistral',
   'groq',
+  'novita',
   'openrouter',
   'openai-compatible',
 ] as const satisfies readonly ProviderKind[];
@@ -138,6 +140,17 @@ const META: Record<Exclude<ProviderKind, 'coasty'>, ProviderMeta> = {
     baseUrlEditable: false,
     baseUrlHint: 'Uses https://api.groq.com/openai/v1 by default — leave blank.',
     docsUrl: 'https://console.groq.com/keys',
+  },
+  novita: {
+    kind: 'novita',
+    label: 'Novita (open-weight models)',
+    envVar: 'NOVITA_API_KEY',
+    needsKey: true,
+    defaultBaseUrl: '',
+    baseUrlEditable: true,
+    baseUrlHint: 'Uses https://api.novita.ai/openai/v1 by default — leave blank.',
+    suggestedModel: 'qwen/qwen3-vl-235b-a22b-instruct',
+    docsUrl: 'https://novita.ai/settings/key-management',
   },
   openrouter: {
     kind: 'openrouter',

@@ -226,6 +226,7 @@ describe('OpenAI-shaped vendors hit their own hosts', () => {
     ['xai', 'https://api.x.ai/v1/models'],
     ['mistral', 'https://api.mistral.ai/v1/models'],
     ['groq', 'https://api.groq.com/openai/v1/models'],
+    ['novita', 'https://api.novita.ai/openai/v1/models'],
   ])('%s lists models from %s with bearer auth', async (kind, expected) => {
     const fetchImpl = jsonFetch({ data: [{ id: 'some-model' }] });
     await provider(
