@@ -203,6 +203,25 @@ export class DarwinBridge extends ShellBridge {
   }
 }
 
+/** X keysyms for the named keys the action vocabulary uses (xdotool is case-sensitive). */
+const LINUX_KEYSYMS: Record<string, string> = {
+  enter: 'Return',
+  esc: 'Escape',
+  escape: 'Escape',
+  tab: 'Tab',
+  space: 'space',
+  backspace: 'BackSpace',
+  delete: 'Delete',
+  up: 'Up',
+  down: 'Down',
+  left: 'Left',
+  right: 'Right',
+  home: 'Home',
+  end: 'End',
+  pageup: 'Page_Up',
+  pagedown: 'Page_Down',
+};
+
 export class LinuxBridge extends ShellBridge {
   async capture(): Promise<CaptureResult> {
     // ImageMagick `import` writes PNG to stdout with `png:-`; `-crop` selects
@@ -273,25 +292,8 @@ export class LinuxBridge extends ShellBridge {
   }
 
   async keyPress(keys: string[]): Promise<void> {
-    const MAP: Record<string, string> = {
-      enter: 'Return',
-      esc: 'Escape',
-      escape: 'Escape',
-      tab: 'Tab',
-      space: 'space',
-      backspace: 'BackSpace',
-      delete: 'Delete',
-      up: 'Up',
-      down: 'Down',
-      left: 'Left',
-      right: 'Right',
-      home: 'Home',
-      end: 'End',
-      pageup: 'Page_Up',
-      pagedown: 'Page_Down',
-    };
     for (const key of keys) {
-      await exec('xdotool', ['key', MAP[key.toLowerCase()] ?? key]);
+      await exec('xdotool', ['key', LINUX_KEYSYMS[key.toLowerCase()] ?? key]);
     }
   }
 
@@ -305,7 +307,11 @@ export class LinuxBridge extends ShellBridge {
       cmd: 'super',
       meta: 'super',
     };
-    const combo = keys.map((k) => MAP[k.toLowerCase()] ?? k).join('+');
+    // Named keys need their X keysym here too: xdotool rejects `ctrl+enter`
+    // ("No such key name 'enter'") but accepts `ctrl+Return`.
+    const combo = keys
+      .map((k) => MAP[k.toLowerCase()] ?? LINUX_KEYSYMS[k.toLowerCase()] ?? k)
+      .join('+');
     await exec('xdotool', ['key', combo]);
   }
 

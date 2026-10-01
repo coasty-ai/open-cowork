@@ -365,6 +365,19 @@ describe('LinuxBridge command construction', () => {
     expect(onlyCall().args[1]).toBe('super+shift+x');
   });
 
+  it('keyCombo maps named keys to X keysyms (ctrl+enter → ctrl+Return)', async () => {
+    await bridge.keyCombo(['ctrl', 'enter']);
+    await bridge.keyCombo(['shift', 'Tab']);
+    await bridge.keyCombo(['alt', 'left']);
+    await bridge.keyCombo(['ctrl', 'pagedown']);
+    expect(h.calls.map((c) => c.args[1])).toEqual([
+      'ctrl+Return',
+      'shift+Tab',
+      'alt+Left',
+      'ctrl+Page_Down',
+    ]);
+  });
+
   it('scroll up/down/left/right map to xdotool click buttons 4/5/6/7', async () => {
     await bridge.scroll('up', 1);
     await bridge.scroll('down', 1);
