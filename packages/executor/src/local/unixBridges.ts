@@ -79,6 +79,26 @@ abstract class ShellBridge implements NativeBridge {
   }
 }
 
+/** macOS virtual key codes for the named keys the action vocabulary uses. */
+const DARWIN_KEYCODES: Record<string, number> = {
+  enter: 36,
+  return: 36,
+  tab: 48,
+  esc: 53,
+  escape: 53,
+  space: 49,
+  delete: 51,
+  backspace: 51,
+  up: 126,
+  down: 125,
+  left: 123,
+  right: 124,
+  home: 115,
+  end: 119,
+  pageup: 116,
+  pagedown: 121,
+};
+
 export class DarwinBridge extends ShellBridge {
   async capture(): Promise<CaptureResult> {
     const dir = await mkdtemp(join(tmpdir(), 'cowork-cap-'));
@@ -140,22 +160,8 @@ export class DarwinBridge extends ShellBridge {
   }
 
   async keyPress(keys: string[]): Promise<void> {
-    const KEYCODES: Record<string, number> = {
-      enter: 36,
-      return: 36,
-      tab: 48,
-      esc: 53,
-      escape: 53,
-      space: 49,
-      delete: 51,
-      backspace: 51,
-      up: 126,
-      down: 125,
-      left: 123,
-      right: 124,
-    };
     for (const key of keys) {
-      const code = KEYCODES[key.toLowerCase()];
+      const code = DARWIN_KEYCODES[key.toLowerCase()];
       if (code !== undefined) {
         await exec('osascript', ['-e', `tell application "System Events" to key code ${code}`]);
       } else {
@@ -183,10 +189,11 @@ export class DarwinBridge extends ShellBridge {
     const mains = keys.filter((k) => !MODS[k.toLowerCase()]);
     const using = mods.length > 0 ? ` using {${mods.join(', ')}}` : '';
     for (const main of mains) {
-      await exec('osascript', [
-        '-e',
-        `tell application "System Events" to keystroke ${JSON.stringify(main)}${using}`,
-      ]);
+      // Named keys (enter, tab, arrows, ...) must go by key code: `keystroke "enter"`
+      // would type the letters e-n-t-e-r with the modifiers held.
+      const code = DARWIN_KEYCODES[main.toLowerCase()];
+      const stroke = code !== undefined ? `key code ${code}` : `keystroke ${JSON.stringify(main)}`;
+      await exec('osascript', ['-e', `tell application "System Events" to ${stroke}${using}`]);
     }
   }
 

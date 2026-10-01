@@ -220,6 +220,27 @@ describe('DarwinBridge command construction', () => {
     );
   });
 
+  it('keyPress sends home/end/pageup/pagedown as key codes, not as typed words', async () => {
+    await bridge.keyPress(['home', 'end', 'pageup', 'pagedown']);
+    expect(h.calls.map((c) => c.args[1])).toEqual([
+      'tell application "System Events" to key code 115',
+      'tell application "System Events" to key code 119',
+      'tell application "System Events" to key code 116',
+      'tell application "System Events" to key code 121',
+    ]);
+  });
+
+  it('keyCombo sends named keys by key code with the modifiers held', async () => {
+    await bridge.keyCombo(['cmd', 'enter']);
+    await bridge.keyCombo(['shift', 'Tab']);
+    await bridge.keyCombo(['alt', 'left']);
+    expect(h.calls.map((c) => c.args[1])).toEqual([
+      'tell application "System Events" to key code 36 using {command down}',
+      'tell application "System Events" to key code 48 using {shift down}',
+      'tell application "System Events" to key code 123 using {option down}',
+    ]);
+  });
+
   it('keyCombo with no modifiers emits a bare keystroke per main key', async () => {
     await bridge.keyCombo(['a', 'b']);
     expect(h.calls.map((c) => c.args[1])).toEqual([
